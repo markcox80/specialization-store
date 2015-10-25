@@ -1,0 +1,726 @@
+#+TITLE: Specialization Store
+#+AUTHOR: Mark Cox
+#+OPTIONS: toc:nil
+
+The specialization store system provides a new kind of function whose
+behavior depends on the types of objects passed to the function. The
+dispatching process required at run-time can be avoided provided that
+sufficient information is available at compile time.
+
+The functions created with the specialization store system differ to
+CLOS' generic functions in the following ways:
+- There is no equivalent of CLOS' ~call-next-method~.
+- There is no equivalent of method qualifiers (e.g. ~around~, ~before~
+  and ~after~ methods).
+- The dispatch process is based on types rather than classes.
+- The dispatch process is conditioned on all arguments, not just
+  required arguments.
+
+A quick illustration of the specialization store system is shown
+below.
+#+begin_src lisp
+  ;; New Function
+  (defstore naxpy (alpha x y)
+    (:documentation "Perform the operation Y := alpha X + Y."))
+
+  ;; Specializations
+  (deftype float-matrix ()
+    `(simple-array single-float (* *)))
+
+  (defspecialization naxpy ((alpha (eql 1s0)) (x float-matrix) (y float-matrix))
+    ...)
+
+  (defspecialization naxpy ((alpha (eql 0s0)) (x float-matrix) (y float-matrix))
+    ...)
+
+  (defspecialization naxpy ((alpha single-float) (x float-matrix) (y float-matrix))
+    ...)
+#+end_src
+
+#+TOC: headlines
+
+* Introduction
+The ~specialization-store~ system provides a new type of function,
+called a store function, whose behavior is conditioned on the types of
+the objects given as arguments to the function. The behavior for a
+specific set of object types is referred to as a specialization of the
+store function.
+
+When the store function is invoked at run-time, the function consults
+an object containing all of the specializations (the store object) and
+determines the most applicable specialization for the given
+arguments. 
+
+The implementation of the store function consists of the following
+layers:
+- [[* Syntax Layer][The Syntax Layer]]
+- [[* Object Layer][The Object Layer]]
+- [[* Glue Layer][The Glue Layer]]
+
+The syntax layer provides a convenient method of defining new store
+functions and adding specializations. The object layer provides
+opportunities for users to alter the default functionality found in
+the ~specialization-store~ system. The glue layer connects the syntax
+and object layers and is responsible for modifying the global
+environment.
+
+A dependency of all layers is the specification of the arguments
+accepted by the store function and associated specializations. This
+detail is captured by new lambda lists defined in the section on [[* Lambda
+ Lists][lambda lists]].
+
+The functionality of the default store function and its
+specializations can be found in the section on [[* Standard Classes][the standard classes]].
+
+Lastly, all of the functionality is provided in the
+~SPECIALIZATION-STORE~ package.
+
+* Syntax Layer
+In this section we outline the syntax the user can use to create store
+functions and add specializations to them. 
+
+** Stores
+A new store function can be created using the macro ~defstore~.
+#+begin_src lisp
+  (defmacro defstore store-name store-lambda-list &body store-options)
+#+end_src
+This macro defines a new store function in the global environment with
+the specified ~store-name~. The argument ~store-lambda-list~ specifies
+what arguments the function is to accept (see [[* Store Lambda List]] for
+more details). The ~store-options~ can be used to supply documentation
+as is done in this example
+#+begin_src lisp
+  (defstore my-task (&rest args)
+    (:documentation "Perform my task using the specified asks."))
+#+end_src
+~Store-options~ can also be used to alter the operation of the
+store. These options are specified using ~(:keyword value)~
+forms. Users should be aware that the ~value~ argument will be
+evaluated unless the keyword option is one of ~:documentation~,
+~:store-class~ or ~:specialization-class~. These options are required
+by the [[* Glue Layer][glue]] and [[* Object Layer][object]] layers.
+
+The default values for ~:store-class~ and ~:specialization-class~ are
+the symbols [[* ~standard-store~][~standard-store~]] and [[* ~standard-specialization~][~standard-specialization~]]
+respectively. 
+
+The ~defstore~ macro ensures that any changes to the global
+environment are performed at compile time. The changes to the global
+environment are:
+- The definition of a new function named ~store-name~.
+- The definition of a new compiler macro named ~store-name~.
+- The definition of a new store object named ~store-name~.
+
+** Specializations
+A convenient syntax for adding behavior to a store function for a
+specific set of types can be performed using the ~defspecialization~
+macro.
+#+begin_src lisp
+  (defmacro defspecialization store-name specialized-lambda-list &body body)
+#+end_src
+This macro registers a new specialization with the store object with
+the given ~store-name~. The forms in ~body~ are evaluated when the
+types specified in [[* Specialized Lambda List][~specialized-lambda-list~]] match the types of the
+objects given as arguments to the store function.
+
+The ~store-name~ argument to ~defspecialization~ may be a compound
+form satisfying ~(store-name &key inline name
+&allow-other-keys)~. Valid keyword arguments depend on the class used
+to represent the specialization. The keyword arguments ~:inline~,
+~:name~, ~:function~, ~:expand-function~ and ~:documentation~ are
+reserved for the [[* Glue Layer][glue]] and [[* Object Layer][object layers]]. All other keyword arguments
+will be evaluated in the current lexical environment.
+
+The body of the ~defspecialization~ is an [[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_i.htm#implicit_progn][/implicit progn/]] and can
+also be used to specify documentation for the specialization.
+
+Setting the ~inline~ keyword argument to ~T~ instructs the
+specialization to inline the ~body~ when there is enough information
+at compile time to deduce the specialization. The ~inline~ keyword is
+only applicable to bodies that do not reference any symbols in the
+current lexical environment.
+
+The ~name~ keyword argument to ~defspecialization~ causes a function
+to be created in the global environment with the given ~name~. This
+function can be used to invoke the specialization directly rather than
+via the store function. 
+
+A long form of ~defspecialization~ is provided by the macro
+~define-specialization~.
+#+begin_src lisp
+  (defmacro define-specialization store-name specialized-lambda-list &body options)
+#+end_src
+The ~store-name~ argument is identical to the ~store-name~ argument in
+~defspecialization~ except that ~store-name~ cannot be a compound
+form. The ~specialized-lambda-list~ is identical to the argument found
+in ~defspecialization~. The ~options~ to ~define-specialization~
+consists of ~(key value)~ forms.
+
+A mandatory ~option~ form to ~define-specialization~ is ~(:function
+value)~. The ~value~ specifies what function object is to be invoked
+when the store function receives objects that match the types
+specified in ~specialization-lambda-list~. The value of the
+~:function~ form is typically a lambda form as shown in the following
+example:
+#+begin_src lisp
+  (define-specialization my-function ((a integer))
+    (:function (lambda (a)
+                 (declare (type integer a))
+                 (1+ a))))
+#+end_src
+Note that the lambda form is evaluated and closes over the lexical
+environment of the ~define-specialization~ form. The value of the
+~:function~ form can also be forms which evaluate to functions. For example:
+#+begin_src lisp
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (defun make-special-function ()
+      #'(lambda (a)
+          (print a)))
+
+    (defun my-special-function-for-floats (a)
+      (declare (type float a))
+      (1+ a)))
+
+  (define-specialization my-store ((a integer))
+    (:function (make-special-function)))
+
+  (define-specialization my-store ((a float))
+    (:function #'my-special-function-for-floats))
+#+end_src
+
+Compile time optimizations for the specialization can be supplied by
+using the ~:expand-function~ keyword.
+#+begin_src lisp
+  (define-specialization my-function ((a integer))
+    (:function ...)
+    (:expand-function (lambda (form env)
+                        ...)))
+#+end_src
+The function specified is equivalent to a [[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_c.htm#compiler_macro_function][compiler macro function]]. The
+macro ~compiler-macro-lambda~ is provided to simplify the
+specification of expand functions.
+#+begin_src lisp
+  (define-specialization my-function ((a integer))
+    (:function ...)
+    (:expand-function (compiler-macro-lambda (a)
+                        ...)))
+#+end_src
+
+The ~(:inline t)~ option form to ~define-specialization~ can be used
+as an alternative to the ~:expand-function~ option. When this is
+specified, the lambda form given as the value in ~(:function value)~
+is substituted directly in to the call site.
+
+The ~(:documentation "...")~ option allows documentation to be
+associated with the specialization.
+
+The ~(:name name)~ option results in the binding of the
+specialization to ~name~ in the global environment.
+
+Users should be aware that the value form for all ~(:keyword value)~
+forms except for ~name~ are evaluated in the lexical environment of
+the ~define-specialization~ form.
+
+Both ~defspecialization~ and ~define-specialization~ ensure that the
+defined specialization is added to the store function at compile time.
+
+* Object Layer
+** Stores
+A store object is used to encapsulate the information needed by a
+store function. This section outlines the generic functions a store
+object class must have methods for.
+
+Invoking a store object with a list of arguments is performed by the
+functions:
+#+begin_src lisp
+  (defgeneric funcall-store (store &rest args)
+    (:documentation "Call the most applictable specialization in the
+    STORE for the given arguments."))
+
+  (defgeneric apply-store (store &rest args)
+    (:documentation "The function APPLY-STORE is to FUNCALL-STORE as
+    APPLY is to FUNCALL."))
+#+end_src
+
+The compile time optimzations provided by a store object are accessed
+by the function
+#+begin_src lisp
+  (defgeneric expand-store (store form &optional env)
+    (:documentation "Perform a store macro expansion on FORM if
+    possible, otherwise return FORM."))
+#+end_src
+
+A store object is also responsible for managing its set of
+specializations. This behavior is modeled by the functions
+#+begin_src lisp
+  (defgeneric add-specialization (store specialization)
+    (:documentation "Add a SPECIALIZATION to the set of specializations
+    in STORE. If an existing specialization with equal
+    specialized-lambda-list exists, then it is removed prior to adding
+    the new specialization."))
+
+  (defgeneric remove-specialization (store specialization)
+    (:documentation "Remove SPECIALIZATION from the set of
+    specializations in STORE."))
+
+  (defgeneric store-specializations (store)
+    (:documentation "Return a sequence of specializations managed by the
+    STORE."))
+#+end_src
+
+The following functions represent the reflective component of the
+store object
+#+begin_src lisp
+  (defgeneric store-name (store)
+    (:documentation "The name of the store function."))
+
+  (defgeneric store-lambda-list (store)
+    (:documentation "Return the lambda list for STORE."))
+
+  (defgeneric store-documentation (store)
+    (:documentation "Return the documentation associated with the
+    store."))
+#+end_src
+
+Users should also be aware that the [[* Glue Layer][glue layer]] requires store object
+classes to have implementations for other generic functions.
+
+** Specializations
+Objects representing specializations used in store objects must adhere
+to the protocols outlined in this section.
+
+Invoking a specialization is done by calling the function returned by
+the ~specialization-function~ function.
+#+begin_src lisp
+  (defgeneric specialization-function (specialization)
+    (:documentation "Return the function containing the behavior of the
+    specialization."))
+#+end_src
+Compile time optimizations for specializations are performed by the
+function returned by the ~expand-specialization~ function.
+#+begin_src lisp
+  (defgeneric specialization-expand-function (specialization)
+    (:documentation "Return a function which accepts two arguments, FORM
+    and ENVIRONMENT, performs a specialization macro expansion on FORM
+    using the given ENVIRONMENT. If no expansion is possible, the
+    function should return FORM."))
+#+end_src
+
+The function ~specialization-applicable-p~ is used to determined if a
+specialization is applicable to a set of types
+#+begin_src lisp
+  (defgeneric specialization-applicable-p (specialization argument-types)
+    (:documentation "Return non-NIL if SPECIALIZATION is applicable for
+    the given arguments. ARGUMENT-TYPES must be the types of the objects
+    rather than the objects themselves."))
+#+end_src
+The list ~argument-types~ must be congruent with the specialized
+lambda list for the specialization. See the function
+~congruent-specialized-lambda-list-p~ in the [[* Lambda Lists][lambda lists section]].
+
+The functions ~add-specialization~ and ~remove-specialization~
+implemented by ~store~ object classes require the following predicate
+to be implemented
+#+begin_src lisp
+  (defgeneric specialization-equal (specialization-a specialization-b)
+    (:documentation "Return non-NIL if SPECIALIZATION-A is equal to SPECIALIZATION-B."))
+#+end_src
+
+The following functions represent the reflective component of the
+specialization object:
+#+begin_src lisp
+  (defgeneric specialization-name (specialization)
+    (:documentation "The name of the specialization."))
+
+  (defgeneric specialization-documentation (specialization)
+    (:documentation "Return the documentation for the specialization."))
+
+  (defgeneric (setf specialization-documentation) (value specialization)
+    (:documentation "Change the documentation for the specialization."))
+
+  (defgeneric specialization-lambda-list (specialization)
+    (:documentation "Return the lambda list for the store function."))
+#+end_src
+
+Users should also be aware that the [[* Glue Layer][glue layer]] requires specialization
+object classes to have implementations for other generic functions.
+ 
+* Glue Layer
+The glue layer provides a bridge between the syntactic and object
+layers. The main responsibility of the bridge is to:
+- Create and find the correct store object.
+- Create and add specialization objects to store objects.
+- Perform the necessary changes to the global environment.
+
+The glue layer consists of two components, creating store functions,
+and creating new specializations.
+
+** Stores
+The function ~ensure-store~ can be used to create a new store and
+associate it with the symbol.
+#+begin_src lisp
+  (defun ensure-store (name store-lambda-list
+                       &rest args
+                       &key store-class specialization-class documentation
+                       &allow-other-keys))
+#+end_src
+The arguments to ~ensure-store~ are as follows:
+- ~name~ :: The [[http://www.lispworks.com/documentation/HyperSpec/Body/26_glo_f.htm#function_name][name]] of the store inserted in to the global
+            environment.
+- ~store-lambda-list~ :: A specification of the arguments accepted by
+     the function. This lambda list must adhere to the grammar
+     outlined in [[* Store Lambda List]]
+- ~store-class~ :: The class of the store object to create that
+                   controls the new store function. The default value
+                   is ~standard-store~.
+- ~specialization-class~ :: All specialization objects created using
+     ~defspecialization~ and ~define-specialization~ will be instances
+     of ~specialization-class~. The default value is
+     ~standard-specialization~.
+- ~documentation~ :: The documentation for the store function.
+
+Note that ~ensure-store~ will replace any function and compiler macro
+associated with ~name~.
+
+The resulting store object associated with ~name~ can be retrieved
+(and assigned) using the functions
+#+begin_src lisp
+(defun find-store (name))
+(defun (setf find-store) (value name))
+#+end_src
+
+The function ~ensure-store~ requires that the ~make-instance~ method
+for the ~store-class~ argument accept the following initialization
+arguments (i.e. initargs):
+- ~:name~ :: The name of the new store being created.
+- ~:lambda-list~ :: The store lambda list.
+- ~:specialization-class~ :: The class of the specialization instance that is to be created for each added specialization.
+- ~:documentation~ :: Documentation of what the store function does.
+
+All other keyword arguments given to ~ensure-store~ will be passed to
+the method ~make-instance~ for the store class.
+
+** Specializations
+The function ~ensure-specialization~ is used to create a new store
+function and associate it with a store.
+#+begin_src lisp
+  (defun ensure-specialization (store-name specialized-lambda-list function
+                                &rest args
+                                &key name inline documentation expand-function
+                                  &allow-other-keys))
+#+end_src
+The arguments to ~ensure-specialization~ are 
+- ~store-name~ :: The name of the store that the new specialization is
+                  to be added to.
+- ~specialization-lambda-list~ :: A [[* Specialized Lambda List][~specialized-lambda-list~]] denoting
+     the argument types accepted by the specialization. This must be
+     congruent with the lambda list for the store.
+- ~function~ :: The function denoting the behavior of the
+                specialization.
+- ~expand-function~ :: The expand function for the specialization.
+- ~name~ :: Establish a binding of ~function~ to ~name~ in the global
+            environment.
+- ~inline~ :: The ~expand-function~ is used as the compiler macro
+              function for ~name~ when ~name~ is specified.
+
+The class of the object created by ~ensure-specialization~ to
+represent the specialization is obtained by invoking the function
+~store-specialization-class~ on the ~store~ object associated with the
+specified ~store-name~.
+#+begin_src lisp
+  (defgeneric store-specialization-class (store)
+    (:documentation "Return the class of the specialization instances
+    used by this store."))
+#+end_src
+
+The function ~ensure-specialization~ also requires that the
+~make-instance~ method accept the following initialization arguments
+(i.e. initargs):
+- ~:name~ :: The name of the specialization. Can be ~NIL~.
+- ~:lambda-list~ :: The specialized lambda list.
+- ~:function~ :: A function encapsulating the behavior of the
+                 specialization.
+- ~:expand-function~ :: A function that performs compile time
+     expansion for the specialization.
+- ~:documentation~ :: The documentation for the specialization.
+
+All other keyword arguments given to ~ensure-specialization~ will be
+passed to the method ~make-instance~ for the specified specialization
+class.
+
+* Lambda Lists
+This section outlines the different types of lambda lists supported in
+the specialization store system. The symbols in this package provided
+in the ~specialization-store.lambda-list~ package.
+
+The functions ~parse-store-lambda-list~ and
+~parse-specialized-store-lambda-list~ return an object which
+implements the following ~parameters~ protocol
+#+begin_src lisp
+  (defgeneric original-lambda-list (parameters))             ;; Return the original lambda list.
+  (defgeneric required-parameters (parameters))              ;; Return the required parameters in normalized form.
+  (defgeneric optional-parameters (parameters))              ;; Return the optional parameters in normalized form.
+  (defgeneric rest-parameter (parameters))                   ;; Return the rest argument name.
+  (defgeneric keyword-parameters-p (parameters))             ;; Return T if &key is present.
+  (defgeneric allow-other-keys-p (parameters))               ;; Return T if &allow-other-keys was present.
+  (defgeneric keyword-parameters (parameters))               ;; Return the keyword parameters in normalized form.
+  (defgeneric parameters-equal (parameters-1 parameters-2))  ;; Test if two specialized lambda lists are equal.
+#+end_src
+
+** Store Lambda Lists
+A store lambda list encapsulates the parameters accepted by a store
+function. The syntax for a store lambda list is the following
+#+begin_src
+store-lambda-list ::= (var*
+                       [&optional {var | (var [init-form])}*]
+                       [&rest var]
+                       [&key {var | (var [init-form])} [&allow-other-keys]])
+#+end_src
+
+A store lambda list is similar to an [[http://www.lispworks.com/reference/HyperSpec/Body/03_db.htm][generic function lambda list]]
+except that initialization forms for optional and keyword parameters
+are permitted. The objects returned by these initialization forms are
+used to determine the specialization to invoke in scenarios where no
+value is provided by the caller.
+
+Note that keyword parameters present in the store function impact
+specialization lambda lists.
+
+Store lambda lists can be read using the function
+~parse-store-lambda-list~.
+#+begin_src lisp
+  (defun parse-store-lambda-list (store-lambda-list &optional errorp error-value))
+#+end_src
+
+** Specialized Lambda List
+The ~specialized-lambda-list~ encapsulates the parameters accepted by a
+specialization. The syntax for a specialized lambda list is the
+following
+#+begin_src
+specialized-lambda-list ::= ({var | (var [type])}
+                             [&optional {var | (var [init-form [supplied-p-var]])}*]
+                             [&rest var]
+                             [&key {keyword-argument-in-store-lambda-list | ordinary-keyword-argument}* [&allow-other-keys]])
+
+keyword-argument-in-store-lambda-list ::= { var | ({var | (keyword var)} [type]) }
+
+ordinary-keyword-argument ::= { var | ({var | (keyword var)} [init-form [supplied-p-var]]) }
+
+#+end_src
+
+
+Specialized lambda lists can be read using the function ~parse-specialized-lambda-list~.
+#+begin_src lisp
+  (defun parse-specialized-lambda-list (specialized-lambda-list &optional errorp error-value))
+#+end_src
+
+Other functions associated with specialized lambda-lists
+#+begin_src lisp
+  ;; Return all of the keyword parameters in common between LAMBDA-LIST-1 and LAMBDA-LIST-2.
+  (defgeneric keyword-argument-intersection (lambda-list-1 lambda-list-2))
+
+  ;; Return all of the keyword parameters in LAMBDA-LIST-1 that are not in LAMBDA-LIST-2.
+  (defgeneric keyword-argument-difference (lambda-list-1 lambda-list-2))
+
+  ;; Test to see if specialized-lambda-list is congruent with the store lambda list.
+  (defgeneric congruent-specialized-lambda-list-p (specialized-lambda-list store-lambda-list))
+#+end_src
+
+The function ~specialized-lambda-list-equal~ is used to determine if
+two ~specialized-lambda-lists~ are equivalent i.e. they accept the
+same number of parameters and the types they accept are equal.
+#+begin_src lisp
+  (defun specialized-lambda-list-equal (lambda-list-a lambda-list-b))
+#+end_src
+
+The function ~more-specific-specialized-lambda-list-p~ is used to
+determine if each type specified in the first lambda list corresponds
+to a more specific type (or subtype) of the corresponding type in the
+second lambda list.
+#+begin_src lisp
+  (defun more-specific-specialized-lambda-list-p (lambda-list-a lambda-list-b))
+#+end_src
+
+Specialized lambda lists contain information that can be useful for
+constructing functions. 
+
+The function ~specialized-lambda-list->ordinary-lambda-list~
+constructs an lambda list that can be used in ~lambda~ or ~defun~
+forms.
+#+begin_src lisp
+(defun specialized-lambda-list->ordinary-lambda-list (specialized-lambda-list))
+#+end_src
+
+The function ~specialized-lambda-list->type-declarations~ returns a
+list of ~(type type var)~ forms that can be used in a ~declare~
+expression.
+#+begin_src lisp
+(defun specialized-lambda-list->type-declarations (specialized-lambda-list))
+#+end_src
+
+* Standard Classes
+The default classes used for the store and specialization protocols
+outlined in section [[* Object Layer]] are the classes ~standard-store~
+and ~standard-specialization~ respectively.
+
+** ~standard-store~
+The ~standard-store~ class provides a simple implementation of the
+store object protocol.
+
+The specializations managed by the store object are guaranteed to be
+unique i.e. there exists no pair of specializations in the list
+returned by ~store-specializations~ that have specialized lambda lists
+that are equal according to ~specialized-lambda-list-equal~.
+
+The ~standard-store~ class selects the most specific specialization
+which matches the types of the objects given as arguments. It is the
+user's responsibility to ensure specializations are unique when using
+optional, rest and keyword arguments.
+
+The ~standard-store~ implementation of the function ~expand-store~
+provides opportunities for the specialization selection to occur at
+compile time. The examples below illustrate the different ways the
+~expand-store~ method can extract type information provided by the
+user at compile time.
+#+begin_src lisp
+  (defstore what-is-this (object))
+
+  ;; Constants
+  (what-is-this 1)
+  (defconstant +two+ 2)
+  (what-is-this +two+)
+
+  ;; Using THE expressions
+  (what-is-this (the string (hello-in-spanish)))
+
+  ;; Lexical environments
+  ;; - symbol macrolet
+  (symbol-macrolet ((x (the string (hello-in-spanish))))
+    (what-is-this x))
+
+  ;; - let and declarations forms
+  (let ((x (hello-in-spanish)))
+    (declare (type string x))
+    (what-is-this x))    
+#+end_src
+
+** ~standard-specialization~
+The ~standard-specialization~ class is a straightforward
+implementation of the specialization protocol. There is nothing
+notable about this class.
+
+# Local Variables:
+# ispell-local-dictionary: "american"
+# End:
+** Selecting a specialization
+The rules in this section outline how a single specialization from a
+set of specializations is chosen when using a standard store.
+
+1. Applicability.
+
+   Only specializations that are applicable to /all/ arguments are
+   chosen.
+
+2. Strict subtype
+   
+   The specialization with the most specific subtype for an
+   argument. This is determined in left to right order.
+
+   If an object is an instance of class has superclasses matching two
+   or more specializations, then the specialization is chosen
+   according to precedence. i.e. the position of the superclass in the
+   list of superclasses for the object's class.
+
+3. Specificity
+
+Specificity is required to do resolve the situations involving
+optional, rest and keyword arguments. The way this is handled is to
+separate the problem in to positional and keyword arguments. 
+
+The handling of keyword arguments involves making a distinction
+between keyword arguments which are declared in the store function and
+those that are not. This is shown in the following example.
+
+#+begin_src lisp
+  ;; The Store function
+  ;; - Note that default values are stored here.
+  (defstore gemm (a b c &key (alpha 1) (beta 0) &allow-other-keys))
+
+  ;; Specialization 1
+  (defspecialization gemm (a b c &key (alpha (eql 1)) (beta (eql 0)) a-tr))
+
+  ;; specialization 2
+  (defspecialization gemm (a b c &key (alpha number) (beta number)))
+#+end_src
+
+The way the standard store handles this situation is as follows:
+#+begin_src lisp
+(gemm a b c)                   ;; invokes specialization 1
+(gemm a b c :alpha 2)          ;; invokes specialization 2
+(gemm a b c :beta 0)           ;; invokes specialization 2
+(gemm a b c :alpha 2 :beta 1)  ;; invokes specialization 2
+(gemm a b c :alpha 1 :beta 0)  ;; invokes specialization 1
+#+end_src
+
+The rules for keyword parameters are as follows:
+- There are two different types of keyword arguments: those present in
+  the store function and those present in the specialization. Keyword
+  arguments present in the store function are not allowed to have
+  default values in the specialization. Keyword arguments of the
+  specialization which are not present in the store function are
+  permitted to have default values.
+
+- Default values for keyword arguments are computed from information
+  in the store function.
+
+- The applicable specializations are selected.
+
+- Uninvokeable specializations are removed.
+
+- The specialization with the most number of keyword arguments
+  specified in the specialization lambda list is selected.
+
+4. Specificity
+
+   The specialization with largest number of required arguments (then
+   optional arguments) is chosen.
+
+   Specificity is required to resolve the following problem.
+
+   #+begin_src lisp
+     (defstore example (a &rest args))
+     (defspecialization example (a &rest args))
+     (defspecialization example (a &optional b &rest args)
+     (defspecialization example (a b &rest args))
+   #+end_src
+
+   All specializations match for the invocation ~(example 1 2)~,
+   however, it is the last specialization that is invoked as required
+   arguments take precedence over optional and rest arguments. The
+   first specialization is invoked only for the case ~(example 1)~ as
+   it was added first. It should be noted that the ~&rest~ specifier
+   is not required Additionally, the second specialization will never
+   be invoked.
+
+5. Specialization index.
+
+   The index of the specialization in the store. 
+   
+   This is needed for examples like the following.    
+   #+begin_src lisp
+     (defstore gemm (a b c &key a-tr b-tr alpha beta))
+     (defspecialization gemm (a b c &rest args &key a-tr b-tr &allow-other-keys)
+       )
+
+     (defspecialization gemm (a b c &rest args &key alpha beta &allow-other-keys)
+       )
+
+     (let ((a ...)
+           (b ...)
+           (c ...))
+       (gemm a b c :a-tr t :b-tr t :alpha 1 :beta 1))
+   #+end_src
+   Both of the specified specializations match the use of ~GEMM~ in
+   the ~LET~ block. This situation is resolved by invoking the first
+   specialization as it was the first specialization to be added to
+   the ~GEMM~ store.
