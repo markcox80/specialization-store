@@ -3,6 +3,21 @@
 ;;;; The code in this file provides operations for working with the
 ;;;; different types of lambda lists used in the specialization store
 ;;;; system.
+
+
+;;;; Helpers
+
+(defun filter-duplicates (list &key (test #'eql) (key #'identity))
+  (loop
+     with duplicates = nil
+     with processed = nil
+     for item in list
+     do
+       (cond ((find item processed :test test :key key)
+	      (pushnew item duplicates :test test :key key))
+	     (t
+	      (push item processed)))
+     finally (return duplicates)))
 
 ;;;; Parameters Protocol
 
@@ -17,6 +32,8 @@
 
 ;; Operations
 (defgeneric parameters-equal (parameters-1 parameters-2))
+(defgeneric duplicate-keywords-p (parameters))
+(defgeneric duplicate-variables-p (parameters))
 
 (defclass parameters ()
   ((original-lambda-list :initarg :original-lambda-list
@@ -201,6 +218,19 @@
 (defclass store-parameters (parameters)
   ())
 
+(defmethod duplicate-keywords-p ((parameters store-parameters))
+  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
+    (loop
+       with duplicates = nil
+       with processed = nil
+       for keyword in keywords
+       do
+	 (cond ((find keyword processed)
+		(pushnew keyword duplicates))
+	       (t
+		(push keyword processed)))
+       finally (return duplicates))))
+
 (defun parse-store-lambda-list (store-lambda-list)
   (labels ((process (command value)
 	     (case command 
@@ -229,9 +259,12 @@
 				(signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))))))
     (let* ((*lambda-list* store-lambda-list)
 	   (*lambda-list-description* "store-lambda-list")
-	   (*parse-lambda-list-error-class* 'parse-store-lambda-list-error))
-      (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list))))
-
+	   (*parse-lambda-list-error-class* 'parse-store-lambda-list-error)
+	   (rv (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list))
+	   (duplicate-keywords (duplicate-keywords-p rv)))
+      (when duplicate-keywords
+	(signal-parse-lambda-list-error "The keywords ~W are used more than once in the store lambda list." duplicate-keywords))
+      rv)))
 
 ;;;; Specialization Lambda Lists
 
@@ -240,6 +273,20 @@
 
 (defclass specialization-parameters (parameters)
   ())
+
+(defmethod duplicate-keywords-p ((parameters specialization-parameters))
+  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
+    (filter-duplicates keywords)))
+
+(defmethod duplicate-variables-p ((parameters specialization-parameters))
+  (let ((variables (append (mapcar #'first (required-parameters parameters))
+			   (mapcar #'first (optional-parameters parameters))
+			   (mapcar #'third (optional-parameters parameters))
+			   (alexandria:when-let ((v (rest-parameter parameters)))
+			     (list v))
+			   (mapcar #'second (keyword-parameters parameters))
+			   (mapcar #'fourth (keyword-parameters parameters)))))
+    (filter-duplicates variables)))
 
 (defun parse-specialization-lambda-list (specialization-lambda-list)
   (labels ((process (what value)
@@ -278,5 +325,12 @@
 				    (list keyword var init-form supplied-p-var)))))))))
     (let* ((*lambda-list* specialization-lambda-list)
 	   (*lambda-list-description* "specialization-lambda-list")
-	   (*parse-lambda-list-error-class* 'parse-specialization-lambda-list-error))
-      (parse-ordinary-lambda-list 'specialization-parameters #'process specialization-lambda-list))))
+	   (*parse-lambda-list-error-class* 'parse-specialization-lambda-list-error)
+	   (rv (parse-ordinary-lambda-list 'specialization-parameters #'process specialization-lambda-list))
+	   (duplicate-keywords (duplicate-keywords-p rv))
+	   (duplicate-variables (duplicate-variables-p rv)))
+      (when duplicate-keywords
+	(signal-parse-lambda-list-error "The keywords ~W are used more than once in the specialization lambda list." duplicate-keywords))
+      (when duplicate-variables
+	(signal-parse-lambda-list-error "The variables ~W appear more than once in the specialization lambda list." duplicate-variables))
+      rv)))
