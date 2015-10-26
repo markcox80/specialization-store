@@ -45,13 +45,32 @@
 ;;;; list. This code is used by parse-store-lambda-list and
 ;;;; parse-specialization-lambda-list.
 
+(defvar *lambda-list*)
 (defvar *lambda-list-description*)
+(defvar *parse-lambda-list-error-class*)
 
-(defun throw-ordinary-lambda-list-error (control-string &rest args)
-  (throw 'ordinary-lambda-list-error (apply #'format nil control-string args)))
+(define-condition parse-lambda-list-error (error)
+  ((message :initarg :message)
+   (lambda-list-description :initarg :lambda-list-description)
+   (lambda-list :initarg :lambda-list))
+  (:default-initargs
+   :lambda-list *lambda-list*
+   :lambda-list-description *lambda-list-description*)
+  (:report (lambda (condition stream)
+	     (with-slots (lambda-list-description lambda-list message) condition
+	       (format stream "Error parsing ~A ~W.~%~%~A." lambda-list-description lambda-list message)))))
+
+(defun parse-lambda-list-error-message (parse-lambda-list-error)
+  (slot-value parse-lambda-list-error 'message))
+
+(defun parse-lambda-list-error-lambda-list (parse-lambda-list-error)
+  (slot-value parse-lambda-list-error 'lambda-list))
+
+(defun signal-parse-lambda-list-error (control-string &rest args)
+  (signal *parse-lambda-list-error-class* :message (apply #'format nil control-string args)))
 
 (defun invalid-ordinary-lambda-list-item (item)
-  (throw-ordinary-lambda-list-error "Invalid item ~W in ~A lambda list." item *lambda-list-description*))
+  (signal-parse-lambda-list-error "Invalid item ~W in ~A lambda list." item *lambda-list-description*))
 
 (defun parse-ordinary-lambda-list/required (fn list)
   (let ((item (first list)))
@@ -95,7 +114,7 @@
 	   (let ((item (first list)))
 	     (cond
 	       ((null list)
-		(throw-ordinary-lambda-list-error "&rest marker requires a symbol."))
+		(signal-parse-lambda-list-error "&rest marker requires a symbol."))
 	       ((or (null item) (listp item) (member item '(&optional &rest &key &allow-other-keys)))
 		(invalid-ordinary-lambda-list-item item))
 	       (t
@@ -141,7 +160,7 @@
       ((eql '&allow-other-keys item)
        (funcall fn :allow-other-keys? t)
        (when (rest list)
-	 (throw-ordinary-lambda-list-error "Found elements ~W after &allow-other-keys." (rest list)))
+	 (signal-parse-lambda-list-error "Found elements ~W after &allow-other-keys." (rest list)))
        (rest list))
       (t
        (invalid-ordinary-lambda-list-item item)))))
@@ -176,36 +195,28 @@
 
 ;;;; Parsing
 
-(define-condition parse-store-lambda-list-error (error)
-  ((original-lambda-list :initarg :original-lambda-list
-			 :reader original-lambda-list)
-   (message :initarg :message))
-  (:report (lambda (condition stream)
-	     (with-slots (original-lambda-list message) condition
-	       (format stream "Error parsing store lambda list ~W.~%~%~A." original-lambda-list message)))))
-
-(defun throw-store-lambda-list-error (control-string &rest arguments)
-  (apply #'throw-ordinary-lambda-list-error control-string arguments))
+(define-condition parse-store-lambda-list-error (parse-lambda-list-error)
+  ())
 
 (defclass store-parameters (parameters)
   ())
 
-(defun parse-store-lambda-list (store-lambda-list &optional (errorp t) error-value)
+(defun parse-store-lambda-list (store-lambda-list)
   (labels ((process (command value)
 	     (case command 
 	       (:required (if (symbolp value)
 			      value
-			      (throw-store-lambda-list-error "Invalid required parameter name ~W." value)))
+			      (signal-parse-lambda-list-error "Invalid required parameter name ~W." value)))
 	       (:optional (cond ((symbolp value)
 				 (list value nil))
 				((and (listp value) (<= 1 (length value) 2))
 				 (destructuring-bind (var &optional init-form) value
 				   (cond ((null var)
-					  (throw-store-lambda-list-error "Invalid optional parameter specification ~W." value))
+					  (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
 					 (t
 					  (list var init-form)))))
 				(t
-				 (throw-store-lambda-list-error "Invalid optional parameter specification ~W." value))))
+				 (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))))
 	       (:keyword (cond ((symbolp value)
 				(list (intern (symbol-name value) "KEYWORD") nil))
 			       ((and (listp value) (<= 1 (length value) 2))
@@ -213,38 +224,24 @@
 				  (cond ((and name (symbolp name))
 					 (list (intern (symbol-name name) "KEYWORD") init-form))
 					(t
-					 (throw-store-lambda-list-error "Invalid keyword parameter specification." value)))))
+					 (signal-parse-lambda-list-error "Invalid keyword parameter specification." value)))))
 			       (t
-				(throw-store-lambda-list-error "Invalid keyword parameter specification ~W." value)))))))
-    (let* ((*lambda-list-description* "store-lambda-list")
-	   (rv (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list)))
-      (cond
-	((and (stringp rv) errorp)
-	 (error 'parse-store-lambda-list-error :original-lambda-list store-lambda-list :message rv))
-	((and (stringp rv) (null errorp))
-	 (values error-value rv))
-	((typep rv 'store-parameters)
-	 rv)
-	(t
-	 (error "Should not get here."))))))
+				(signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))))))
+    (let* ((*lambda-list* store-lambda-list)
+	   (*lambda-list-description* "store-lambda-list")
+	   (*parse-lambda-list-error-class* 'parse-store-lambda-list-error))
+      (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list))))
 
 
 ;;;; Specialization Lambda Lists
 
-(define-condition parse-specialization-lambda-list-error (error)
-  ((lambda-list :initarg :lambda-list)
-   (message :initarg :message))
-  (:report (lambda (condition stream)
-	     (with-slots (lambda-list message) condition
-	       (format stream "Error parsing specialization lambda list ~W.~%~%~A." lambda-list message)))))
-
-(defun throw-parse-specialization-lambda-list-error (control-string &rest arguments)
-  (apply #'throw-ordinary-lambda-list-error control-string arguments))
+(define-condition parse-specialization-lambda-list-error (parse-lambda-list-error)
+  ())
 
 (defclass specialization-parameters (parameters)
   ())
 
-(defun parse-specialization-lambda-list (specialization-lambda-list &optional (errorp t) error-value)
+(defun parse-specialization-lambda-list (specialization-lambda-list)
   (labels ((process (what value)
 	     (ecase what
 	       (:required (cond ((symbolp value)
@@ -253,7 +250,7 @@
 				 (destructuring-bind (name &optional (type t)) value
 				   (list name type)))
 				(t
-				 (throw-parse-specialization-lambda-list-error "Invalid required parameter specification ~W." value))))
+				 (signal-parse-lambda-list-error "Invalid required parameter specification ~W." value))))
 	       (:optional (cond ((symbolp value)
 				 (list value nil nil))
 				((and (listp value) (<= 1 (length value) 3))
@@ -261,7 +258,7 @@
 				   (when (not (and var
 						   (or (not supplied-p-var?)
 						       (and supplied-p-var supplied-p-var?))))
-				     (throw-parse-specialization-lambda-list-error "Invalid optional parameter specification ~W." value))
+				     (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
 				   (list var init-form supplied-p-var)))))
 	       (:keyword (cond ((symbolp value)
 				(list (intern (symbol-name value) "KEYWORD")
@@ -273,21 +270,13 @@
 							   (first var) (second var)))
 						  (or (not supplied-p-var?)
 						      (and supplied-p-var supplied-p-var?))))
-				    (throw-parse-specialization-lambda-list-error "Invalid keyword parameter specification ~W."
-										  value))
+				    (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value))
 				  (destructuring-bind (keyword var) (if (listp var)
 									var
 									(list (intern (symbol-name var) "KEYWORD")
 									      var))
 				    (list keyword var init-form supplied-p-var)))))))))
-    (let* ((*lambda-list-description* "specialization-lambda-list")
-	   (rv (parse-ordinary-lambda-list 'specialization-parameters #'process specialization-lambda-list)))
-      (cond
-	((and (stringp rv) errorp)
-	 (error 'parse-specialization-lambda-list-error :lambda-list specialization-lambda-list :message rv))
-	((and (stringp rv) (null errorp))
-	 (values error-value rv))
-	((typep rv 'specialization-parameters)
-	 rv)
-	(t
-	 (error "Should not get here."))))))
+    (let* ((*lambda-list* specialization-lambda-list)
+	   (*lambda-list-description* "specialization-lambda-list")
+	   (*parse-lambda-list-error-class* 'parse-specialization-lambda-list-error))
+      (parse-ordinary-lambda-list 'specialization-parameters #'process specialization-lambda-list))))

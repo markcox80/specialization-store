@@ -38,8 +38,6 @@
 
 (test parse-store-lambda-list/invalid-store-lambda-lists
   (flet ((trial (store-lambda-list)
-	   (is (null (parse-store-lambda-list store-lambda-list nil nil))
-	       "PARSE-STORE-LAMBDA-LIST failed to signal an error when parsing ~W." store-lambda-list)
 	   (signals parse-store-lambda-list-error (parse-store-lambda-list store-lambda-list))))
     ;; Invalid markers
     (trial '(&rest))
@@ -109,8 +107,6 @@
 
 (test parse-specialization-lambda-list/invalid-specialization-lambda-lists
   (flet ((trial (specialization-lambda-list)
-	   (is (null (parse-specialization-lambda-list specialization-lambda-list nil nil))
-	       "PARSE-SPECIALIZATION-LAMBDA-LIST somehow succeeded in parsing ~W." specialization-lambda-list)
 	   (signals parse-specialization-lambda-list-error (parse-specialization-lambda-list specialization-lambda-list))))
     ;; Invalid markers
     (trial '(&rest))
