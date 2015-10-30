@@ -29,6 +29,8 @@
 (defgeneric keyword-parameters-p (parameters))
 (defgeneric allow-other-keys-p (parameters))
 (defgeneric keyword-parameters (parameters))
+(defgeneric positional-parameters-lower-bound (parameters))
+(defgeneric positional-parameters-upper-bound (parameters))
 
 ;; Operations
 (defgeneric parameters-equal (parameters-1 parameters-2))
@@ -55,6 +57,16 @@
   (print-unreadable-object (object stream :type t :identity t)
     (write (original-lambda-list object) :stream stream :pretty t)))
 
+(defmethod positional-parameters-lower-bound ((parameters parameters))
+  (length (required-parameters parameters)))
+
+(defmethod positional-parameters-upper-bound ((parameters parameters))
+  (cond
+    ((and (rest-parameter parameters) (not (keyword-parameters-p parameters)))
+     lambda-parameters-limit)
+    (t
+     (+ (length (required-parameters parameters))
+	(length (optional-parameters parameters))))))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
@@ -334,3 +346,60 @@
       (when duplicate-variables
 	(signal-parse-lambda-list-error "The variables ~W appear more than once in the specialization lambda list." duplicate-variables))
       rv)))
+
+;;;; Congruency
+;;
+;; This section contains the code for establishing if a specialization
+;; lambda list is congruent with a store lambda list. The predicate
+;; congruent-lambda-list-p is responsible for this task. If a
+;; specialization lambda list is congruent with a store lambda list
+;; then an object of type CONGRUENCE is returned. Otherwise NIL.
+;;
+;; The reason a object with the class CONGRUENCE is returned is that
+;; these objects are used to order the specializations.
+
+;;;; Congruence Protocol
+
+(defgeneric store-parameters (congruence))
+(defgeneric specialization-parameters (congruence))
+
+;;;; Congruence Operations
+(defgeneric congruent-lambda-list-p (store-lambda-list specialization-lambda-list))
+
+;;;; Congruence Class
+
+(defclass congruence ()
+  ((store-parameters :initarg :store-parameters
+		     :reader store-parameters)
+   (specialization-parameters :initarg :specialization-parameters
+			      :reader specialization-parameters)))
+
+(defmethod congruent-lambda-list-p ((store-lambda-list list) specialization-lambda-list)
+  (congruent-lambda-list-p (parse-store-lambda-list store-lambda-list) specialization-lambda-list))
+
+(defmethod congruent-lambda-list-p (store-lambda-list (specialization-lambda-list list))
+  (congruent-lambda-list-p store-lambda-list (parse-specialization-lambda-list specialization-lambda-list)))
+
+(defmethod congruent-lambda-list-p ((store store-parameters) (specialization specialization-parameters))
+  (and (<= (+ (length (required-parameters store))
+	      (length (optional-parameters store)))
+	   (length (required-parameters specialization))
+	   (positional-parameters-upper-bound specialization)
+	   (positional-parameters-upper-bound store))
+       (cond ((keyword-parameters-p store)
+	      (and (keyword-parameters specialization)
+		   ;; All keyword parameters in the store must be
+		   ;; present in the specialization and must be in the
+		   ;; type form.
+		   (loop
+		      with st-keys = (keyword-parameters store)
+		      with sp-keys = (keyword-parameters specialization)
+		      for (st-key-name nil) in st-keys
+		      for sp-key = (find st-key-name sp-keys :key #'first)
+		      always
+			sp-key)))
+	     (t
+	      (not (keyword-parameters-p specialization))))
+       (make-instance 'congruence
+		      :store-parameters store
+		      :specialization-parameters specialization)))

@@ -183,3 +183,33 @@
       (trial (&key a (a nil)))
       (trial (&key a (a nil a-p)))
       (trial (&key a (b nil a))))))
+
+
+;;;; Congruent Lambda lists
+
+(test congruent-lambda-list-p
+  (flet ((do-trial (expected store-lambda-list specialization-lambda-list)
+	   (let ((congruence (congruent-lambda-list-p store-lambda-list specialization-lambda-list)))
+	     (if expected
+		 (is (typep congruence 'congruence))
+		 (is-false congruence)))))
+    (macrolet ((true (store-lambda-list specialization-lambda-list)
+		 `(do-trial t ',store-lambda-list ',specialization-lambda-list))
+	       (false (store-lambda-list specialization-lambda-list)
+		 `(do-trial nil ',store-lambda-list ',specialization-lambda-list)))
+      ;; Positional
+      (true (a) (b))
+      (false (a) ())
+
+      (true (a &optional b) (b c))
+      (false (a &optional b) (b))
+
+      (true (a &rest args) (a b))
+      (true (a &rest args) (a &optional b))
+
+      ;; Keys
+      (true (a &optional b &key c) (a b &key c))
+      (true (a &optional b &key c) (a b &key c d))
+      (true (&key c) (&key ((:c d))))
+      (false (a &key c d) (a &key d))
+      (false (a &key c d) (a &key c)))))
