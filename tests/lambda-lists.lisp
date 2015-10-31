@@ -212,4 +212,6 @@
       (true (a &optional b &key c) (a b &key c d))
       (true (&key c) (&key ((:c d))))
       (false (a &key c d) (a &key d))
-      (false (a &key c d) (a &key c)))))
+      (false (a &key c d) (a &key c))
+      (false (a) (b &key))
+      (false (a &key) (b)))))
