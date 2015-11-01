@@ -10,5 +10,6 @@
   :components ((:module "src"
 			:serial t
 			:components ((:file "packages")
-				     (:file "lambda-lists"))))
+				     (:file "lambda-lists")
+				     (:file "dispatch"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))
