@@ -48,6 +48,8 @@
 
 (defgeneric rule-equal (rule-a rule-b))
 (defgeneric evaluate-rule (rule specialization-parameters))
+(defgeneric remove-rule-tautologies (rule known-rule))
+(defgeneric remove-constant-rules (rule specializations))
 
 (defclass rule ()
   ())
@@ -90,6 +92,17 @@
     (with-slots (rules) object
       (write rules :stream stream))))
 
+(defclass constantly-rule (dispatch-rule)
+  ((value :initarg :value)))
+
+(defun constantly-rule-value (constantly-rule)
+  (slot-value constantly-rule 'value))
+
+(defmethod print-object ((object constantly-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (value) object
+      (write value :stream stream))))
+
 ;;;; Constructors
 (defun make-parameter-count-bound-rule (lower-bound upper-bound)
   (make-instance 'parameter-count-bound-rule :lower-bound lower-bound :upper-bound upper-bound))
@@ -102,6 +115,9 @@
 
 (defun conjoin-dispatch-rules (&rest rules)
   (make-instance 'conjoined-dispatch-rule :rules rules))
+
+(defun make-constantly-rule (value)
+  (make-instance 'constantly-rule :value value))
 
 ;;;; Functions
 
@@ -143,30 +159,20 @@
 ;;;; Training
 
 (defclass data ()
-  ((specializations :initarg :specializations)
-   (weights :initarg :weights)
-   (remaining-dispatch-rules :initarg :remaining-dispatch-rules)))
+  ((store-parameters :initarg :store-parameters)
+   (all-specialization-parameters :initarg :all-specialization-parameters)
+   (weights :initarg :weights)))
 
 (defmethod print-object ((object data) stream)
   (print-unreadable-object (object stream :type t :identity t)
-    (with-slots (specializations remaining-dispatch-rules) object
-      (format stream "~d rule~:P remaining for ~d specialization~:P"
-	      (length remaining-dispatch-rules)
-	      (length specializations)))))
+    (with-slots (all-specialization-parameters) object
+      (format stream "~d specialization~:P" (length all-specialization-parameters)))))
 
-(defun make-data (specializations weights remaining-dispatch-rules)
+(defun make-data (store-parameters all-specialization-parameters weights)
   (make-instance 'data
-		 :specializations specializations
-		 :weights weights
-		 :remaining-dispatch-rules remaining-dispatch-rules))
-
-(defun make-root-data (store-parameters all-specialization-parameters all-weights)
-  (let ((dispatch-rules (loop
-			   for specialization-parameters in all-specialization-parameters
-			   append (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters))))
-    (make-data all-specialization-parameters
-	       all-weights
-	       (remove-duplicates dispatch-rules :test #'rule-equal))))
+		 :store-parameters store-parameters
+		 :all-specialization-parameters all-specialization-parameters
+		 :weights weights))
 
 (defun split-data (data)
   (flet ((partition-weight (weights)
@@ -179,53 +185,120 @@
 		t)
 	       (t
 		nil)))))
-    (with-slots (specializations weights remaining-dispatch-rules) data
-      (cond
-	((null remaining-dispatch-rules)
-	 (error "Unable to discimrinate between specializations ~W." specializations))
-	(t
-	 (let ((trials (loop
-			  for dispatch-rule in remaining-dispatch-rules
-			  for other-rules = (remove dispatch-rule remaining-dispatch-rules)
-			  collect
-			    (let (a-weights a-specializations b-weights b-specializations)
-			      (loop
-				 for specialization in specializations
-				 for weight in weights
-				 do
-				   (cond
-				     ((evaluate-rule dispatch-rule specialization)
-				      (push weight a-weights)
-				      (push specialization a-specializations))
-				     (t
-				      (push weight b-weights)
-				      (push specialization b-specializations))))
-			      (list (abs (- (partition-weight a-weights)
-					    (partition-weight b-weights)))
-				    ;; The order here must align with the
-				    ;; splitting function protocol in
-				    ;; split-leaf.
-				    dispatch-rule
-				    (make-data a-specializations a-weights other-rules)
-				    (make-data b-specializations b-weights other-rules))))))
-	   (rest (reduce #'(lambda (current next)
-			     (if (trial< current next)
-				 current
-				 next))
-			 (rest trials)
-			 :initial-value (first trials)))))))))
+    (with-slots (store-parameters all-specialization-parameters weights) data
+      (let* ((dispatch-rules (loop
+				for specialization-parameters in all-specialization-parameters
+				append (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters)))
+	     (trials (loop
+			for dispatch-rule in dispatch-rules
+			for trial = (let (a-weights a-specializations b-weights b-specializations)
+				      (loop
+					 for specialization in all-specialization-parameters
+					 for weight in weights
+					 do
+					   (cond
+					     ((evaluate-rule dispatch-rule specialization)
+					      (push weight a-weights)
+					      (push specialization a-specializations))
+					     (t
+					      (push weight b-weights)
+					      (push specialization b-specializations))))
+				      (list (or (zerop (length a-weights))
+						(zerop (length b-weights)))
+					    (abs (- (partition-weight a-weights)
+						    (partition-weight b-weights)))
+					    ;; The order here must align with the
+					    ;; splitting function protocol in
+					    ;; split-leaf.
+					    dispatch-rule
+					    (make-data store-parameters a-specializations a-weights)
+					    (make-data store-parameters b-specializations b-weights)))
+			unless (first trial)
+			collect (rest trial))))
+	(unless trials
+	  (error "Unable to split the specializations ~W." all-specialization-parameters))
+	(rest (reduce #'(lambda (current next)
+			  (if (trial< current next)
+			      current
+			      next))
+		      (rest trials)
+		      :initial-value (first trials)))))))
 
 (defun split-data-p (data)
-  (with-slots (specializations) data
-    (> (length specializations) 1)))
+  (with-slots (all-specialization-parameters) data
+    (> (length all-specialization-parameters) 1)))
 
-(defun make-dispatch-tree (store-parameters all-specialization-parameters all-weights)
+(defun make-initial-dispatch-tree (store-parameters all-specialization-parameters all-weights)
   (labels ((process (tree)
 	     (multiple-value-bind (new-tree split?) (deepen-tree tree #'split-data-p #'split-data)
 	       (if split?
 		   (process new-tree)
 		   new-tree))))
-    (process (make-node (make-root-data store-parameters all-specialization-parameters all-weights)))))
+    (process (make-node (make-data store-parameters all-specialization-parameters all-weights)))))
+
+(defmethod remove-rule-tautologies ((rule t) (known-rules list))
+  (reduce #'(lambda (current-rule known-rule)
+	      (remove-rule-tautologies current-rule known-rule))
+	  known-rules
+	  :initial-value rule))
+
+(defmethod remove-rule-tautologies ((rule t) (known-rule t))
+  (if (rule-equal rule known-rule)
+      (make-constantly-rule t)      
+      rule))
+
+(defun remove-dispatch-tree-tautologies (tree)
+  (labels ((process (node knowledge)
+	     (cond
+	       ((leafp node)
+		node)
+	       (t
+		(let* ((rule (node-value node))
+		       (new-rule (remove-rule-tautologies rule knowledge))
+		       (new-knowledge (cons new-rule knowledge)))
+		  (make-node new-rule
+			     (process (node-left node) new-knowledge)
+			     (process (node-right node) knowledge)))))))
+    (process tree nil)))
+
+(defmethod remove-constant-rules ((rule constantly-rule) (specializations t))
+  rule)
+
+(defmethod remove-constant-rules ((rule t) (all-specialization-parameters list))
+  (let* ((results (mapcar #'(lambda (specialization-parameters)
+			      (evaluate-rule rule specialization-parameters))
+			  all-specialization-parameters))
+	 (unique-results (remove-duplicates results))
+	 (unique-result-count (length unique-results)))
+    (case unique-result-count
+      (0 (make-constantly-rule t))
+      (1 (make-constantly-rule (first unique-results)))
+      (otherwise rule))))
+
+(defun remove-dispatch-tree-constant-rules (tree)
+  (labels ((node-specialization-parameters (node)
+	     (cond
+	       ((leafp node)
+		(slot-value (node-value node) 'all-specialization-parameters))
+	       (t
+		(append (node-specialization-parameters (node-left node))
+			(node-specialization-parameters (node-right node))))))
+	   (process (node)
+	     (cond
+	       ((leafp node)
+		node)
+	       (t
+		(let* ((current-rule (node-value node))
+		       (new-rule (remove-constant-rules current-rule (node-specialization-parameters node))))
+		  (make-node new-rule
+			     (process (node-left node))
+			     (process (node-right node))))))))
+    (process tree)))
+
+(defun make-dispatch-tree (store-parameters all-specialization-parameters all-weights)
+  (remove-dispatch-tree-constant-rules
+   (remove-dispatch-tree-tautologies
+    (make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights))))
 
 ;;;; Rule Implementation
 (defun compare-slot-values (slot-name test-fn &rest objects)
@@ -279,3 +352,55 @@
   (loop
      for r in (slot-value rule 'rules)
      always (evaluate-rule r specialization-parameters)))
+
+(defmethod evaluate-rule ((rule constantly-rule) specialization-parameters)
+  (declare (ignore specialization-parameters))
+  (constantly-rule-value rule))
+
+(defmethod remove-rule-tautologies ((rule conjoined-dispatch-rule) known-rule)
+  (with-slots (rules) rule
+    (cond
+      ((find-if #'(lambda (x)
+		    (and (typep x 'constantly-rule)
+			 (null (constantly-rule-value x))))
+		rules)
+       (make-constantly-rule nil))
+      (t
+       (let ((new-rules (loop
+			   for rule in rules
+			   for new-rule = (remove-rule-tautologies rule known-rule)
+			   when (and (typep new-rule 'constantly-rule)
+				     (null (constantly-rule-value new-rule)))
+			   return (list new-rule)
+			   unless (and (typep new-rule 'constantly-rule)
+				       (constantly-rule-value new-rule))
+			   collect new-rule)))
+	 (cond
+	   ((null new-rules)
+	    (make-constantly-rule t))
+	   ((null (rest new-rules))
+	    (first new-rules))
+	   (t
+	    (make-instance 'conjoined-dispatch-rule :rules new-rules))))))))
+
+(defmethod remove-rule-tautologies ((rule t) (known-rule conjoined-dispatch-rule))
+  (remove-rule-tautologies rule (slot-value known-rule 'rules)))
+
+(defmethod remove-constant-rules ((rule conjoined-dispatch-rule) (all-specialization-parameters t))
+  (with-slots (rules) rule
+    (let ((new-rules (loop
+			for rule in rules
+			for new-rule = (remove-constant-rules rule all-specialization-parameters)
+			when (and (typep new-rule 'constantly-rule)
+				  (null (constantly-rule-value new-rule)))
+			return (list new-rule)
+			unless (and (typep new-rule 'constantly-rule)
+				    (constantly-rule-value new-rule))
+			collect new-rule)))
+      (cond
+	((null new-rules)
+	 (make-constantly-rule t))
+	((null (rest new-rules))
+	 (first new-rules))
+	(t
+	 (make-instance 'conjoined-dispatch-rule :rules new-rules))))))
