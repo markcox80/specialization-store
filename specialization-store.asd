@@ -10,6 +10,7 @@
   :components ((:module "src"
 			:serial t
 			:components ((:file "packages")
+				     (:file "common")
 				     (:file "lambda-lists")
 				     (:file "dispatch")
 				     (:file "protocols"))))

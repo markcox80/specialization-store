@@ -353,8 +353,3 @@
 				,@(mapcan #'(lambda (item)
 					      (list (first item) (second item)))
 					  others))))))
-
-(defmacro compiler-macro-lambda (lambda-list &body body)
-  (introspect-environment:parse-compiler-macro (gensym "COMPILER-MACRO-LAMBDA")
-					       lambda-list
-					       body))
