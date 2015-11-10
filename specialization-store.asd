@@ -11,5 +11,6 @@
 			:serial t
 			:components ((:file "packages")
 				     (:file "lambda-lists")
-				     (:file "dispatch"))))
+				     (:file "dispatch")
+				     (:file "protocols"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))

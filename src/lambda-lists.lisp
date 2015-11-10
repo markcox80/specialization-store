@@ -403,3 +403,34 @@
        (make-instance 'congruence
 		      :store-parameters store
 		      :specialization-parameters specialization)))
+
+
+;;;; Lambda list conversions
+(defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
+(defgeneric type-declarations (store-parameters specialization-parameters))
+
+(defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
+  (append (mapcar #'first (required-parameters specialization-parameters))
+	  (optional-parameters specialization-parameters)
+	  (when (rest-parameter specialization-parameters)
+	    `(&rest ,(rest-parameter specialization-parameters)))
+	  (when (keyword-parameters-p specialization-parameters)
+	    `(&key ,(loop
+		       with store-keyword-parameters = (keyword-parameters store-parameters)
+		       for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
+		       for init-form = (if (find keyword store-keyword-parameters :key #'first)
+					   nil
+					   form)
+		       collect `((,keyword ,var) ,init-form ,supplied-p-var))))
+	  (when (allow-other-keys-p specialization-parameters)
+	    `(&allow-other-keys))))
+
+(defmethod type-declarations (store-parameters specialization-parameters)
+  (append (loop
+	     for (var type) in (required-parameters specialization-parameters)
+	     collect `(type ,type ,var))
+	  (loop
+	     with store-keyword-parameters = (keyword-parameters store-parameters)
+	     for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
+	     when (find keyword store-keyword-parameters :key #'first)
+	     append `((type ,form ,var) (type (eql t) ,supplied-p-var)))))
