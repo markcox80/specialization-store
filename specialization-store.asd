@@ -13,5 +13,6 @@
 				     (:file "common")
 				     (:file "lambda-lists")
 				     (:file "dispatch")
-				     (:file "protocols"))))
+				     (:file "protocols")
+				     (:file "standard-store"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))
