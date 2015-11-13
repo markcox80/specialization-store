@@ -15,6 +15,7 @@ CLOS' generic functions in the following ways:
 - The dispatch process is based on types rather than classes.
 - The dispatch process is conditioned on all arguments, not just
   required arguments.
+- The dispatch process does not consider multiple inheritance.
 
 A quick illustration of the specialization store system is shown
 below.
@@ -724,3 +725,7 @@ The rules for keyword parameters are as follows:
    the ~LET~ block. This situation is resolved by invoking the first
    specialization as it was the first specialization to be added to
    the ~GEMM~ store.
+* Multiple Inheritance
+The reason multiple inheritance is not considered as it is
+incompatible with the type system.
+
