@@ -26,9 +26,10 @@
 		  ((&rest args) . args)))
 	  (keys '((nil nil nil nil)
 		  ((&key) nil t nil)
-		  ((&key m) ((:m nil)) t nil)
-		  ((&key m (n 2)) ((:m nil) (:n 2)) t nil)
-		  ((&key (o 5) &allow-other-keys) ((:o 5)) t t))))
+		  ((&key m) ((:m m nil)) t nil)
+		  ((&key m (n 2)) ((:m m nil) (:n n 2)) t nil)
+		  ((&key (o 5) &allow-other-keys) ((:o o 5)) t t)
+		  ((&key ((:o p) 5)) ((:o p 5)) t nil))))
       (loop for (r-list . r) in required do
 	   (loop for (o-list . o) in optional do
 		(loop for (rest-list . rest-var) in rest do
@@ -62,7 +63,6 @@
     (trial '(&rest nil))
     (trial '(&rest (args 1)))
     (trial '(&key nil))
-    (trial '(&key ((:a b))))
     (trial '(&key (a nil a-p)))
     (trial '(&key (nil nil)))))
 
