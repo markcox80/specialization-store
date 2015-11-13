@@ -102,24 +102,36 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (setf (get name indicator) value)))
 
-(defgeneric ensure-store-using-class (store-class store-name &key lambda-list store-class specialization-class documentation &allow-other-keys)
+(defgeneric ensure-store-using-class (store-class store-name lambda-list completion-function
+				      &key store-class specialization-class documentation &allow-other-keys)
   (:documentation "Create a new store object and install it as STORE-NAME."))
 
-(defun ensure-store (name store-lambda-list &rest args
+(defmethod ensure-store-using-class ((class null) store-name lambda-list completion-function &rest args
+				     &key store-class specialization-class documentation &allow-other-keys)
+  (declare (ignore specialization-class documentation))
+  (ensure-store-using-class (apply #'make-instance
+				   (or store-class 'standard-store)
+				   :name store-name
+				   :lambda-list lambda-list
+				   :completion-function completion-function
+				   args)
+			    store-name lambda-list completion-function))
+
+(defun ensure-store (name store-lambda-list completion-function &rest args
                      &key store-class specialization-class documentation
                        &allow-other-keys)
   (let* ((current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
          (store (apply #'ensure-store-using-class
-                       current-store name
-                       :lambda-list store-lambda-list
+                       current-store name store-lambda-list completion-function
                        :store-class store-class
                        :specialization-class specialization-class
                        :documentation documentation
                        args)))
     store))
 
-(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list function &rest args &key expand-function name documentation &allow-other-keys))
+(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list function &rest args
+					       &key expand-function name documentation &allow-other-keys))
 
 (defun ensure-specialization (store-name specialized-lambda-list function
 			      &rest args &key expand-function documentation name &allow-other-keys)
@@ -139,20 +151,21 @@
 ;; DEFSTORE
 
 (defmacro defstore (store-name store-lambda-list &body body)
-  `(eval-when (:compile-toplevel :load-toplevel :execute)
-     ;; Register the store.
-     (ensure-store ',store-name ',store-lambda-list
-                   ,@(mapcan #'(lambda (item)
-                                 (alexandria:destructuring-case item
-                                   ((:documentation doc)
-                                    (list :documentation doc))
-                                   ((:store-class name)
-                                    (list :store-class `',name))
-                                   ((:specialization-class name)
-                                    (list :specialization-class `',name))
-                                   ((t &rest args)
-                                    (list (first item) args))))
-                             body))))
+  (let ((completion-function (specialization-store.lambda-lists:make-store-completion-function store-lambda-list)))
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
+       ;; Register the store.
+       (ensure-store ',store-name ',store-lambda-list ,completion-function
+		     ,@(mapcan #'(lambda (item)
+				   (alexandria:destructuring-case item
+				     ((:documentation doc)
+				      (list :documentation doc))
+				     ((:store-class name)
+				      (list :store-class `',name))
+				     ((:specialization-class name)
+				      (list :specialization-class `',name))
+				     ((t &rest args)
+				      (list (first item) args))))
+			       body)))))
 
 ;; DEFSPECIALIZATION
 (defun canonicalize-store-name (store-name)  
