@@ -102,53 +102,34 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (setf (get name indicator) value)))
 
-(defun ensure-store-only (name store-lambda-list
-			  &rest args
-			  &key store-class specialization-class documentation
-			    &allow-other-keys)
-  (let* ((store-class (or store-class (find-class 'standard-store)))
-         (specialization-class (or specialization-class (find-class 'standard-specialization)))
-         (store (apply #'make-instance store-class
-		       :name name
-                       :lambda-list store-lambda-list
-                       :specialization-class specialization-class
-                       :documentation documentation
-                       args)))
-    (setf (find-store name) store)
-    store))
+(defgeneric ensure-store-using-class (store-class store-name &key lambda-list store-class specialization-class &allow-other-keys)
+  (:documentation "Create a new store object and install it as STORE-NAME."))
 
 (defun ensure-store (name store-lambda-list &rest args
                      &key store-class specialization-class documentation
                        &allow-other-keys)
-  (declare (ignore store-class specialization-class))
-  (let ((store (apply #'ensure-store-only name store-lambda-list args)))
-    (setf (fdefinition name) #'(lambda (&rest args)
-				 (apply-store (find-store name) args))
-	  (compiler-macro-function name) #'(lambda (form env)
-					     (expand-store (find-store name) form env))
-	  ;; Documentation must be set last as (setf fdefinition) may
-	  ;; clear the documentation for the function.
-	  (documentation name 'function) documentation)
+  (let* ((current-store (multiple-value-bind (name indicator) (%find-store-helper name)
+                          (get name indicator)))
+         (store (apply #'ensure-store-using-class
+                       current-store name
+                       :lambda-list store-lambda-list
+                       :store-class store-class
+                       :specialization-class specialization-class
+                       :documentation documentation
+                       args)))
     store))
+
+(defgeneric ensure-specialization-using-class (store-class function &rest args &key expand-function name inline &allow-other-keys))
 
 (defun ensure-specialization (store-name specialized-lambda-list function
 			      &rest args &key expand-function documentation inline name &allow-other-keys)
-  (alexandria:remove-from-plistf args :inline)
-  (let* ((store (find-store store-name))
-         (specialization-class (store-specialization-class store))
-         (specialization (apply #'make-instance specialization-class
-				:lambda-list specialized-lambda-list
-				:function function
-				args)))
-    (add-specialization store specialization)
-    
-    (when name
-      (setf (fdefinition name) function
-	    (compiler-macro-function name) (if inline
-					       expand-function
-					       nil)
-	    (documentation name 'function) documentation))
-    specialization))
+  (declare (ignore expand-function documentation inline name))
+  (let* ((store (find-store store-name)))
+    (apply #'ensure-specialization-using-class
+           store function
+           :lambda-list specialized-lambda-list
+           :function function
+           args)))
 
 ;; Store Object Requirements for the Glue Layer
 (defgeneric store-specialization-class (store)
@@ -159,82 +140,21 @@
 
 ;; DEFSTORE
 
-(defstruct (defstore-defun (:conc-name defstore-defun-) (:constructor %make-defstore-defun))
-  lambda-list apply-arguments variable-list)
-
-(defun make-defstore-defun (store-lambda-list)
-  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list))
-	 (parameters-required (specialization-store.lambda-lists:required-parameters parameters))
-	 (parameters-optional (specialization-store.lambda-lists:optional-parameters parameters))
-	 (parameters-rest-parameter (specialization-store.lambda-lists:rest-parameter parameters))
-	 (parameters-keyword-arguments-p (specialization-store.lambda-lists:keyword-parameters-p parameters))
-	 (parameters-keywords (specialization-store.lambda-lists:keyword-parameters parameters))
-	 (parameters-allow-other-keys-p (specialization-store.lambda-lists:allow-other-keys-p parameters))
-	 (rest-parameter (cond
-			   (parameters-rest-parameter
-			    parameters-rest-parameter)
-			   (parameters-keyword-arguments-p
-			    (gensym "KEYWORD-ARGS"))
-			   (t
-			    nil)))
-	 (lambda-list (append parameters-required
-			      (when parameters-optional
-				`(&optional ,@parameters-optional))
-			      (when rest-parameter
-				`(&rest ,rest-parameter))
-			      (when parameters-keyword-arguments-p
-				`(&key ,@parameters-keywords))
-			      (when parameters-allow-other-keys-p
-				`(&allow-other-keys))))
-	 (apply-arguments (append parameters-required
-				  (mapcar #'first parameters-optional)
-				  (cond
-				    (parameters-keyword-arguments-p
-				     (append (mapcar #'second parameters-keywords)
-					     (list `(alexandria:delete-from-plist ,rest-parameter
-										  ,@(mapcar #'first parameters-keywords)))))
-				    (t
-				     (list rest-parameter)))))
-	 (variable-list (append parameters-required
-				(mapcar #'first parameters-optional)
-				(when rest-parameter
-				  (list rest-parameter))
-				(when parameters-keywords
-				  (mapcar #'second parameters-keywords)))))
-    (%make-defstore-defun :lambda-list lambda-list
-			  :apply-arguments apply-arguments
-			  :variable-list variable-list)))
-
 (defmacro defstore (store-name store-lambda-list &body body)
-  (let ((defstore-defun-data (make-defstore-defun store-lambda-list))
-	documentation
-	(form-var (gensym "FORM"))
-	(env-var (gensym "ENV")))
-    `(eval-when (:compile-toplevel :load-toplevel :execute)
-       ;; Register the store.
-       (ensure-store-only ',store-name ',store-lambda-list
-			  ,@(mapcan #'(lambda (item)
-					(alexandria:destructuring-case item
-					  ((:documentation doc)
-					   (setf documentation doc)
-					   (list :documentation doc))
-					  ((:store-class name)
-					   (list :store-class `',name))
-					  ((:specialization-class name)
-					   (list :specialization-class `',name))
-					  ((t &rest args)
-					   (list (first item) args))))
-				    body))
-       
-       ;; Install a function which invokes APPLY-STORE.
-       (defun ,store-name ,(defstore-defun-lambda-list defstore-defun-data)
-	 ,documentation
-	 (apply-store (find-store ',store-name) ,@(defstore-defun-apply-arguments defstore-defun-data)))
-
-       ;; Install a compiler macro which invokes EXPAND-STORE.
-       (define-compiler-macro ,store-name (&whole ,form-var ,@store-lambda-list &environment ,env-var)
-	 (declare (ignore ,@(defstore-defun-variable-list defstore-defun-data)))
-	 (expand-store (find-system ',store-name) ,form-var ,env-var)))))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     ;; Register the store.
+     (ensure-store ',store-name ',store-lambda-list
+                   ,@(mapcan #'(lambda (item)
+                                 (alexandria:destructuring-case item
+                                   ((:documentation doc)
+                                    (list :documentation doc))
+                                   ((:store-class name)
+                                    (list :store-class `',name))
+                                   ((:specialization-class name)
+                                    (list :specialization-class `',name))
+                                   ((t &rest args)
+                                    (list (first item) args))))
+                             body))))
 
 ;; DEFSPECIALIZATION
 (defun canonicalize-store-name (store-name)  
