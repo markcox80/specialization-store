@@ -21,7 +21,7 @@
 (defgeneric apply-store (store &rest args)
   (:documentation "The apply equivalent of FUNCALL-STORE. i.e. APPLY-STORE is to FUNCALL-STORE as APPLY is to FUNCALL."))
 
-(defgeneric expand-store (store form &optional env)
+(defgeneric expand-store (store form &optional environment)
   (:documentation "Return code that performs the equivalent of FUNCALL-STORE on the specified args."))
 
 (defgeneric add-specialization (store specialization)
@@ -102,7 +102,7 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (setf (get name indicator) value)))
 
-(defgeneric ensure-store-using-class (store-class store-name &key lambda-list store-class specialization-class &allow-other-keys)
+(defgeneric ensure-store-using-class (store-class store-name &key lambda-list store-class specialization-class documentation &allow-other-keys)
   (:documentation "Create a new store object and install it as STORE-NAME."))
 
 (defun ensure-store (name store-lambda-list &rest args
@@ -119,16 +119,14 @@
                        args)))
     store))
 
-(defgeneric ensure-specialization-using-class (store-class function &rest args &key expand-function name inline &allow-other-keys))
+(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list function &rest args &key expand-function name documentation &allow-other-keys))
 
 (defun ensure-specialization (store-name specialized-lambda-list function
-			      &rest args &key expand-function documentation inline name &allow-other-keys)
-  (declare (ignore expand-function documentation inline name))
+			      &rest args &key expand-function documentation name &allow-other-keys)
+  (declare (ignore expand-function documentation name))
   (let* ((store (find-store store-name)))
     (apply #'ensure-specialization-using-class
-           store function
-           :lambda-list specialized-lambda-list
-           :function function
+           store specialized-lambda-list function
            args)))
 
 ;; Store Object Requirements for the Glue Layer
@@ -269,7 +267,6 @@
 	 (ensure-specialization ',store-name ,specialized-lambda-list ,function
 				:expand-function ,expand-function
 				:name ',name
-				:inline ,inline
 				,@(mapcan #'(lambda (item)
 					      (list (first item) (second item)))
 					  others))))))
