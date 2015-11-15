@@ -102,11 +102,11 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (setf (get name indicator) value)))
 
-(defgeneric ensure-store-using-class (store-class store-name lambda-list completion-function
+(defgeneric ensure-store-using-class (class store-name lambda-list completion-function expand-completion-function
 				      &key store-class specialization-class documentation &allow-other-keys)
   (:documentation "Create a new store object and install it as STORE-NAME."))
 
-(defmethod ensure-store-using-class ((class null) store-name lambda-list completion-function &rest args
+(defmethod ensure-store-using-class ((class null) store-name lambda-list completion-function expand-completion-function &rest args
 				     &key store-class specialization-class documentation &allow-other-keys)
   (declare (ignore specialization-class documentation))
   (ensure-store-using-class (apply #'make-instance
@@ -156,10 +156,11 @@
 ;; DEFSTORE
 
 (defmacro defstore (store-name store-lambda-list &body body)
-  (let ((completion-function (specialization-store.lambda-lists:make-store-completion-function store-lambda-list)))
+  (let ((completion-function (specialization-store.lambda-lists:make-store-completion-function store-lambda-list))
+        (expand-completion-function nil))
     `(eval-when (:compile-toplevel :load-toplevel :execute)
        ;; Register the store.
-       (ensure-store ',store-name ',store-lambda-list ,completion-function
+       (ensure-store ',store-name ',store-lambda-list ,completion-function ,expand-completion-function
 		     ,@(mapcan #'(lambda (item)
 				   (alexandria:destructuring-case item
 				     ((:documentation doc)

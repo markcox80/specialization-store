@@ -89,7 +89,7 @@
 
 ;;;; Standard Store Implementation (Glue Layer)
 
-(defmethod ensure-store-using-class ((class standard-store) store-name &key lambda-list store-class specialization-class &allow-other-keys)
+(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list completion-function expand-completion-function &key store-class specialization-class &allow-other-keys)
   )
 
 
