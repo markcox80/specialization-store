@@ -114,21 +114,26 @@
 				   :name store-name
 				   :lambda-list lambda-list
 				   :completion-function completion-function
+                                   :expand-completion-function expand-completion-function
 				   args)
-			    store-name lambda-list completion-function))
+			    store-name lambda-list completion-function expand-completion-function))
 
-(defun ensure-store (name store-lambda-list completion-function &rest args
+(defun ensure-store (name store-lambda-list completion-function expand-completion-function &rest args
                      &key store-class specialization-class documentation
                        &allow-other-keys)
+  (declare (ignore store-class specialization-class documentation))
   (let* ((current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
          (store (apply #'ensure-store-using-class
-                       current-store name store-lambda-list completion-function
-                       :store-class store-class
-                       :specialization-class specialization-class
-                       :documentation documentation
+                       current-store name store-lambda-list completion-function expand-completion-function
                        args)))
     store))
+
+(defun make-store-unbound (name)
+  (fmakunbound name)
+  (setf (compiler-macro-function name) nil)
+  (multiple-value-bind (name indicator) (%find-store-helper name)
+    (remprop name indicator)))
 
 (defgeneric ensure-specialization-using-class (store-class specialized-lambda-list function &rest args
 					       &key expand-function name documentation &allow-other-keys))
