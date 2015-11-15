@@ -94,3 +94,19 @@
   (:use "COMMON-LISP"
 	"SPECIALIZATION-STORE"
 	"SPECIALIZATION-STORE.DISPATCH"))
+
+
+;;;; Meta Object Requirements
+
+#-(or sbcl ccl cmucl)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (error "No attempt has been made to determine if this implementation supports the Metaobject Protocol."))
+
+(defpackage "SPECIALIZATION-STORE.MOP"
+  (:export "FUNCALLABLE-STANDARD-CLASS"
+           "SET-FUNCALLABLE-INSTANCE-FUNCTION")
+  (:import-from #+sbcl "SB-MOP"
+                #+ccl "CCL"
+                #+cmucl "PCL"
+                "FUNCALLABLE-STANDARD-CLASS"
+                "SET-FUNCALLABLE-INSTANCE-FUNCTION"))
