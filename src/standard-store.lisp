@@ -28,8 +28,7 @@
                   :accessor store-documentation)
    (specializations :initarg :specializations
                     :accessor store-specializations)
-   (run-time-discriminating-function)
-   (compile-time-discriminating-function))
+   (discriminating-function))
   (:default-initargs
    :name nil
    :documentation nil    
@@ -53,18 +52,14 @@
 
 ;;;; Standard Store Implementation (Object Layer)
 
-(defun compute-run-time-discriminating-function (store specializations)
+(defun compute-discriminating-function (store specializations)
   )
 
-(defun compute-compile-time-discriminating-function (store specializations)
-  )
-
-(defun update-discriminating-functions (store)
+(defun update-discriminating-function (store)
   (check-type store standard-store)
-  (with-slots (run-time-discriminating-function compile-time-discriminating-function) store
+  (with-slots (discriminating-function) store
     (let* ((specializations (store-specializations store)))
-      (setf run-time-discriminating-function (compute-run-time-discriminating-function store specializations)
-            compile-time-discriminating-function (compute-compile-time-discriminating-function store specializations)))))
+      (setf discriminating-function (compute-discriminating-function store specializations)))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
   )
