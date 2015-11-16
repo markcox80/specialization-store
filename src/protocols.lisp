@@ -163,7 +163,7 @@
       (declare (ignore names))
       (let* ((rewritten-parameters (specialization-store.lambda-lists:parse-store-lambda-list rewritten-lambda-list))
              (completion (specialization-store.lambda-lists:make-runtime-completion-lambda-form rewritten-parameters))
-             (form-type-completion (specialization-store.lambda-lists:make-form-type-completion-lambda-form rewritten-parameters env)))
+             (form-type-completion (specialization-store.lambda-lists:make-form-type-completion-lambda-form parameters env)))
         `(eval-when (:compile-toplevel :load-toplevel :execute)
            ;; Introduce global function definitions for initforms
            ,@definitions
