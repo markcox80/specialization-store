@@ -500,6 +500,7 @@
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-runtime-completion-lambda-form (parameters))
+(defgeneric make-compile-time-type-completion-lambda-form (parameters environment))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -556,3 +557,57 @@
       (t
        `(lambda (,continuation ,@original-lambda-list)
           (funcall ,continuation ,@positional-vars))))))
+
+(defmethod make-compile-time-type-completion-lambda-form ((parameters store-parameters) environment)
+  (let* ((continuation (gensym "CONTINUATION"))
+         (lambda-environment (gensym "ENVIRONMENT"))
+         (required (required-parameters parameters))
+         (optional (optional-parameters parameters))
+         (optional-supplied-p (alexandria:make-gensym-list (length optional)))
+         (optional-lambda-list (loop
+                                  for (var init-form) in optional
+                                  for suppliedp in optional-supplied-p
+                                  for init-form-type = (specialization-store:determine-form-type init-form environment)
+                                  collect `(,var ',init-form-type ,suppliedp)))
+         (positional-vars (append (loop
+                                     for var in required
+                                     collect `(specialization-store:determine-form-type ,var ,lambda-environment))
+                                  (loop
+                                     for (var init-form suppliedp-var) in optional-lambda-list
+                                     collect `(if ,suppliedp-var
+                                                  (specialization-store:determine-form-type ,var ,lambda-environment)
+                                                  ,var))))
+         (positional-lambda-list (append required `(&optional ,@optional-lambda-list)))
+         (rest (rest-parameter parameters))
+         (keywordsp (keyword-parameters-p parameters))
+         (keywords (keyword-parameters parameters))
+         (keywords-supplied-p (alexandria:make-gensym-list (length keywords)))
+         (keywords-lambda-list (loop
+                                  for (keyword var init-form) in keywords
+                                  for suppliedp in keywords-supplied-p
+                                  for init-form-type = (specialization-store:determine-form-type init-form environment)
+                                  collect `((,keyword ,var) ',init-form-type ,suppliedp)))
+         (keywords-vars (loop
+                           for ((keyword var) init-form suppliedp) in keywords-lambda-list
+                           collect `(if ,suppliedp
+                                        (specialization-store:determine-form-type ,var ,lambda-environment)
+                                        ,var)))
+         (allow-other-keys (allow-other-keys-p parameters)))
+    (cond
+      ((and keywordsp allow-other-keys)
+       (let* ((rest (or rest (gensym "REST")))
+              (lambda-list `(,@positional-lambda-list &rest ,rest &key ,@keywords-lambda-list &allow-other-keys)))
+         `(lambda (,continuation ,lambda-environment ,@lambda-list)
+            (alexandria:remove-from-plistf ,rest ,@(mapcar #'first keywords))
+            (apply ,continuation ,lambda-environment ,@positional-vars ,@keywords-vars ,rest))))
+      (keywordsp
+       (let* ((lambda-list `(,@positional-lambda-list &key ,@keywords-lambda-list)))
+         `(lambda (,continuation ,lambda-environment ,@lambda-list)
+            (funcall ,continuation ,lambda-environment ,@positional-vars ,@keywords-vars))))
+      (rest
+       (let* ((lambda-list `(,@positional-lambda-list &rest ,rest)))
+         `(lambda (,continuation ,lambda-environment ,@lambda-list)
+            (apply ,continuation ,lambda-environment ,@positional-vars ,rest))))
+      (t
+       `(lambda (,continuation ,lambda-environment ,@positional-lambda-list)
+          (funcall ,continuation ,lambda-environment ,@positional-vars))))))
