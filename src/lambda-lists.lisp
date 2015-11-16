@@ -500,7 +500,7 @@
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-runtime-completion-lambda-form (parameters))
-(defgeneric make-compile-time-type-completion-lambda-form (parameters environment))
+(defgeneric make-form-type-completion-lambda-form (parameters environment))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -558,7 +558,7 @@
        `(lambda (,continuation ,@original-lambda-list)
           (funcall ,continuation ,@positional-vars))))))
 
-(defmethod make-compile-time-type-completion-lambda-form ((parameters store-parameters) environment)
+(defmethod make-form-type-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((continuation (gensym "CONTINUATION"))
          (lambda-environment (gensym "ENVIRONMENT"))
          (required (required-parameters parameters))
