@@ -499,6 +499,7 @@
 ;;;; Lambda list conversions
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
+(defgeneric make-runtime-completion-lambda-form (parameters))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -525,3 +526,33 @@
 	     for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
 	     when (find keyword store-keyword-parameters :key #'first)
 	     append `((type ,form ,var) (type (eql t) ,supplied-p-var)))))
+
+(defmethod make-runtime-completion-function ((parameters store-parameters))
+  (let* ((original-lambda-list (original-lambda-list parameters))
+         (required (required-parameters parameters))
+         (optional (optional-parameters parameters))
+         (positional-vars (append (required-parameters parameters)
+                                  (mapcar #'first (optional-parameters parameters))))
+         (rest (rest-parameter parameters))
+         (keywordsp (keyword-parameters-p parameters))
+         (keywords (keyword-parameters parameters))
+         (keyword-vars (loop
+                          for (keyword var nil) in keywords
+                          append (list keyword var)))
+         (allow-other-keys (allow-other-keys-p parameters))
+         (continuation (gensym "CONTINUATION")))
+    (cond
+      ((and keywordsp allow-other-keys)
+       (let* ((rest (or rest (gensym "REST")))
+              (lambda-list `(,@required &optional ,@optional &rest ,rest &key ,@keywords &allow-other-keys)))
+         `(lambda (,continuation ,@lambda-list)
+            (apply ,continuation ,@positional-vars ,@keyword-vars ,rest))))
+      (keywords
+       `(lambda (,continuation ,@original-lambda-list)
+          (funcall ,continuation ,@positional-vars ,@keyword-vars)))
+      (rest
+       `(lambda (,continuation ,@original-lambda-list)
+          (apply ,continuation ,@positional-vars ,rest)))
+      (t
+       `(lambda (,continuation ,@original-lambda-list)
+          (funcall ,continuation ,@positional-vars))))))
