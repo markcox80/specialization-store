@@ -410,6 +410,92 @@
 		      :specialization-parameters specialization)))
 
 
+;;;; Rewriting lexical functions as global functions
+
+(defun rewrite-form-p (form environment)
+  (cond ((and form
+              (symbolp form)
+              (eql :symbol-macro (introspect-environment:variable-information form environment)))
+         t)
+        ((atom form)
+         nil)
+        (t t)))
+
+(defgeneric rewrite-init-forms (parameters environment)
+  (:documentation "Ensure all init forms are either constant or invoke global functions."))
+
+(defun random-init-function-name ()
+  (let ((symbol (gensym "INIT-FUNCTION")))
+    (multiple-value-bind (symbol status) (intern (symbol-name symbol) "SPECIALIZATION-STORE.GLOBALS")
+      (if status
+          (random-init-function-name)
+          symbol))))
+
+(defmethod rewrite-init-forms ((parameters store-parameters) environment)
+  (labels ((rewrite (fn vars parameters)
+             (loop
+                for parameter in parameters
+                for (var data name definition) = (funcall fn vars parameter)
+                do
+                  (alexandria:appendf vars (list var))
+                collect data into new-data
+                when name collect name into names
+                when definition collect definition into definitions
+                finally (return (list new-data definitions names))))
+           (rewrite-optional (required optional)
+             (rewrite #'(lambda (vars optional)
+                          (destructuring-bind (var init-form) optional
+                            (cond
+                              ((rewrite-form-p init-form environment)
+                               (let ((name (random-init-function-name)))
+                                 (list var `(,var (,name ,@vars))
+                                       name `(defun ,name ,vars
+                                               (declare (ignorable ,@vars))
+                                               ,init-form))))
+                              (t
+                               (list var optional)))))
+                      required optional))
+           (rewrite-keywords (required optional rest keywords)
+             (rewrite #'(lambda (vars keyword)
+                          (destructuring-bind (keyword-name var init-form) keyword
+                            (cond
+                              ((rewrite-form-p init-form environment)
+                               (let ((name (random-init-function-name)))
+                                 (list var `(,keyword-name ,var (,name ,@vars))
+                                       name `(defun ,name ,vars
+                                               (declare (ignorable ,@vars))
+                                               ,init-form))))
+                              (t
+                               (list var keyword)))))
+                      (append required
+                              (mapcar #'first optional)
+                              (when rest
+                                (list rest)))
+                      keywords)))
+    (let* ((required (required-parameters parameters))
+           (optional (optional-parameters parameters))
+           (rest (rest-parameter parameters))
+           (keywordsp (keyword-parameters-p parameters))
+           (keywords (keyword-parameters parameters))
+           (allow-other-keys? (allow-other-keys-p parameters)))
+      (destructuring-bind (optional-data optional-definitions optional-names) (rewrite-optional required optional)
+        (destructuring-bind (keyword-data keyword-definitions keyword-names) (rewrite-keywords required optional rest keywords)
+          (let* ((new-lambda-list (append required
+                                          (when optional
+                                            `(&optional ,@optional-data))
+                                          (when keywordsp
+                                            `(&key ,@ (loop
+                                                         for (key var init-form) in keyword-data
+                                                         collect `((,key ,var) ,init-form))))
+                                          (when allow-other-keys?
+                                            '(&allow-other-keys))))
+                 (global-functions (append optional-definitions keyword-definitions))
+                 (global-names (append optional-names keyword-names)))
+            (list new-lambda-list
+                  global-functions
+                  global-names)))))))
+
+
 ;;;; Lambda list conversions
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
