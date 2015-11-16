@@ -28,6 +28,8 @@
                   :accessor store-documentation)
    (specializations :initarg :specializations
                     :accessor store-specializations)
+   (specialization-class :initarg :specialization-class
+                         :reader store-specialization-class)
    (completion-function :initarg :completion-function)
    (form-type-completion-function :initarg :form-type-completion-function)
    (discriminating-function))
@@ -86,8 +88,43 @@
 
 ;;;; Standard Store Implementation (Glue Layer)
 
-(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list completion-function form-type-completion-function &key store-class specialization-class &allow-other-keys)
-  )
+(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list completion-function form-type-completion-function
+                                     &rest args &key store-class specialization-class documentation &allow-other-keys)
+  (declare (ignore store-class))
+  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list lambda-list)))
+    (apply #'reinitialize-instance class
+           :name store-name
+           :lambda-list lambda-list
+           :completion-function completion-function
+           :form-type-completion-function form-type-completion-function
+           :specialization-class specialization-class
+           args)
+    ;; Function
+    (let* ((continuation (funcall (compile nil
+                                           `(lambda ()
+                                              (lambda (&rest args)
+                                                (apply (funcall ,(make-runtime-type-of-lambda-form parameters)
+                                                                (lambda (&rest arg-types)
+                                                                  (print args)
+                                                                  (print arg-types)
+                                                                  nil))
+                                                       args)))))))
+      (setf (fdefinition store-name) (compile nil (funcall completion-function continuation))))
+
+    ;; Compiler Macro
+    (let* ()
+      (setf (compiler-macro-function store-name) (compiler-macro-lambda (&rest args &environment env)
+                                                   (apply form-type-completion-function
+                                                          (lambda (environment &rest args)
+                                                            (declare (ignore environment))
+                                                            (print args)
+                                                            nil)
+                                                          env
+                                                          args))))
+
+    ;; Documentation
+    (setf (documentation store-name 'function) documentation)
+    class))
 
 
 ;;;; Standard Specialization Implementation (Glue Layer)
@@ -105,3 +142,59 @@
       (setf (compiler-macro-function name) expand-function))
     (add-specialization class specialization)
     specialization))
+
+
+;;;; Helpers
+
+(defun convert-optional-to-required (parameters)
+  (check-type parameters specialization-store.lambda-lists:store-parameters)
+  (let* ((required (specialization-store.lambda-lists:required-parameters parameters))
+         (optional (specialization-store.lambda-lists:optional-parameters parameters))
+         (rest (specialization-store.lambda-lists:rest-parameter parameters))
+         (keywordsp (specialization-store.lambda-lists:keyword-parameters-p parameters))
+         (keywords (specialization-store.lambda-lists:keyword-parameters parameters))
+         (allow-other-keys (specialization-store.lambda-lists:allow-other-keys-p parameters))
+         (positional-lambda-list (append required (mapcar #'first optional)))         
+         (keyword-lambda-list (when keywordsp
+                                `(&key ,@(loop
+                                            for (keyword var init-form) in keywords
+                                            collect `((,keyword ,var) ,init-form))
+                                       ,@(when allow-other-keys
+                                            '(&allow-other-keys)))))
+         (rest-lambda-list (when rest
+                             `(&rest ,rest)))
+         (lambda-list `(,@positional-lambda-list ,@rest-lambda-list ,@keyword-lambda-list)))
+    (specialization-store.lambda-lists:parse-store-lambda-list lambda-list)))
+
+(defun make-runtime-type-of-lambda-form (parameters)
+  (check-type parameters specialization-store.lambda-lists:store-parameters)
+  (let* ((parameters (convert-optional-to-required parameters))
+         (original-lambda-list (specialization-store.lambda-lists:original-lambda-list parameters))
+         (required (specialization-store.lambda-lists:required-parameters parameters))
+         (optional (specialization-store.lambda-lists:optional-parameters parameters))
+         (rest (specialization-store.lambda-lists:rest-parameter parameters))
+         (keywordsp (specialization-store.lambda-lists:keyword-parameters-p parameters))
+         (keywords (specialization-store.lambda-lists:keyword-parameters parameters))
+         (continuation (gensym "CONTINUATION"))
+         (positional-vars (loop
+                             for var in required
+                             collect `(type-of ,var)))
+         (keywords-vars (loop
+                           for (keyword-name var nil) in keywords
+                           append `(,keyword-name (type-of ,var)))))
+    (assert (null optional))
+    (cond
+      (keywordsp
+       (let* ((rest (or rest (gensym "REST")))
+              (lambda-list `(,@required &rest ,rest &key ,@keywords &allow-other-keys)))
+         `(lambda (,continuation)
+            (lambda ,lambda-list
+              (apply ,continuation ,@positional-vars ,keywords-vars ,rest)))))
+      (rest
+       `(lambda (,continuation)
+          (lambda ,original-lambda-list
+            (apply ,continuation ,@positional-vars (mapcar #'type-of ,rest)))))
+      (t
+       `(lambda (,continuation)
+          (lambda ,original-lambda-list
+            (funcall ,continuation ,@positional-vars)))))))
