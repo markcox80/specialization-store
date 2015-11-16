@@ -102,27 +102,32 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (setf (get name indicator) value)))
 
-(defgeneric ensure-store-using-class (class store-name lambda-list &key store-class specialization-class documentation &allow-other-keys)
+(defgeneric ensure-store-using-class (class store-name lambda-list completion-function form-type-completion-function
+                                      &key store-class specialization-class documentation &allow-other-keys)
   (:documentation "Create a new store object and install it as STORE-NAME."))
 
-(defmethod ensure-store-using-class ((class null) store-name lambda-list &rest args
+(defmethod ensure-store-using-class ((class null) store-name lambda-list
+                                     completion-function form-type-completion-function
+                                     &rest args
 				     &key store-class specialization-class documentation &allow-other-keys)
   (declare (ignore specialization-class documentation))
   (ensure-store-using-class (apply #'make-instance
 				   (or store-class 'standard-store)
 				   :name store-name
 				   :lambda-list lambda-list
+                                   :completion-function completion-function
+                                   :form-type-completion-function form-type-completion-function
 				   args)
-			    store-name lambda-list))
+			    store-name lambda-list completion-function form-type-completion-function))
 
-(defun ensure-store (name store-lambda-list &rest args
+(defun ensure-store (name store-lambda-list completion-function form-type-completion-function &rest args
                      &key store-class specialization-class documentation
                        &allow-other-keys)
   (declare (ignore store-class specialization-class documentation))
   (let* ((current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
          (store (apply #'ensure-store-using-class
-                       current-store name store-lambda-list
+                       current-store name store-lambda-list completion-function form-type-completion-function
                        args)))
     store))
 
@@ -156,22 +161,25 @@
   (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list)))
     (destructuring-bind (rewritten-lambda-list definitions names) (specialization-store.lambda-lists:rewrite-init-forms parameters env)
       (declare (ignore names))
-      `(eval-when (:compile-toplevel :load-toplevel :execute)
-         ;; Introduce global function definitions for initforms
-         ,@definitions
-         ;; Register the store.
-         (ensure-store ',store-name ',rewritten-lambda-list
-                       ,@(mapcan #'(lambda (item)
-                                     (alexandria:destructuring-case item
-                                       ((:documentation doc)
-                                        (list :documentation doc))
-                                       ((:store-class name)
-                                        (list :store-class `',name))
-                                       ((:specialization-class name)
-                                        (list :specialization-class `',name))
-                                       ((t &rest args)
-                                        (list (first item) args))))
-                                 body))))))
+      (let* ((rewritten-parameters (specialization-store.lambda-lists:parse-store-lambda-list rewritten-lambda-list))
+             (completion (specialization-store.lambda-lists:make-runtime-completion-lambda-form rewritten-parameters))
+             (form-type-completion (specialization-store.lambda-lists:make-form-type-completion-lambda-form rewritten-parameters env)))
+        `(eval-when (:compile-toplevel :load-toplevel :execute)
+           ;; Introduce global function definitions for initforms
+           ,@definitions
+           ;; Register the store.
+           (ensure-store ',store-name ',rewritten-lambda-list ,completion ,form-type-completion
+                         ,@(mapcan #'(lambda (item)
+                                       (alexandria:destructuring-case item
+                                         ((:documentation doc)
+                                          (list :documentation doc))
+                                         ((:store-class name)
+                                          (list :store-class `',name))
+                                         ((:specialization-class name)
+                                          (list :specialization-class `',name))
+                                         ((t &rest args)
+                                          (list (first item) args))))
+                                   body)))))))
 
 ;; DEFSPECIALIZATION
 (defun canonicalize-store-name (store-name)  

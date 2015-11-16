@@ -28,6 +28,8 @@
                   :accessor store-documentation)
    (specializations :initarg :specializations
                     :accessor store-specializations)
+   (completion-function :initarg :completion-function)
+   (form-type-completion-function :initarg :form-type-completion-function)
    (discriminating-function))
   (:default-initargs
    :name nil
@@ -84,7 +86,7 @@
 
 ;;;; Standard Store Implementation (Glue Layer)
 
-(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list &key store-class specialization-class &allow-other-keys)
+(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list completion-function form-type-completion-function &key store-class specialization-class &allow-other-keys)
   )
 
 
