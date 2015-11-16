@@ -528,7 +528,7 @@
 	     when (find keyword store-keyword-parameters :key #'first)
 	     append `((type ,form ,var) (type (eql t) ,supplied-p-var)))))
 
-(defmethod make-runtime-completion-function ((parameters store-parameters))
+(defmethod make-runtime-completion-lambda-form ((parameters store-parameters))
   (let* ((original-lambda-list (original-lambda-list parameters))
          (required (required-parameters parameters))
          (optional (optional-parameters parameters))
