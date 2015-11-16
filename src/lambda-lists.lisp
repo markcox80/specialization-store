@@ -499,7 +499,6 @@
 ;;;; Lambda list conversions
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
-(defgeneric make-store-completion-function (store-parameters))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -526,40 +525,3 @@
 	     for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
 	     when (find keyword store-keyword-parameters :key #'first)
 	     append `((type ,form ,var) (type (eql t) ,supplied-p-var)))))
-
-(defmethod make-store-completion-function ((store-lambda-list list))
-  (make-store-completion-function (parse-store-lambda-list store-lambda-list)))
-
-(defmethod make-store-completion-function ((store-parameters store-parameters))
-  (let* ((lambda-list (original-lambda-list store-parameters))
-	 (required (required-parameters store-parameters))
-	 (optional (optional-parameters store-parameters))
-	 (keywords (keyword-parameters store-parameters))
-	 (keywordsp (keyword-parameters-p store-parameters))
-	 (rest (rest-parameter store-parameters))
-	 (arguments (gensym "ARGUMENTS"))
-	 (continuation (gensym "CONTINUATION"))
-	 (vars (append required
-		       (mapcar #'first optional)
-		       (loop
-			  for (keyword var nil nil) in keywords
-			  append (list keyword var)))))
-    (cond
-      (keywordsp
-       (let ((rest (or rest (gensym "REST"))))
-	 `(lambda (,arguments ,continuation)
-	    (destructuring-bind (,@required ,@optional
-					    &rest ,rest
-					    &key ,@(loop
-						      for (keyword var init-form) in keywords
-						      collect `((,keyword ,var) ,init-form))
-					    &allow-other-keys) ,arguments
-	      (apply ,continuation ,@vars ,rest)))))
-      (rest
-       `(lambda (,arguments ,continuation)
-	  (destructuring-bind ,lambda-list ,arguments
-	    (apply ,continuation ,@vars ,rest))))
-      (t
-       `(lambda (,arguments ,continuation)
-	  (destructuring-bind ,lambda-list ,arguments
-	    (funcall ,continuation ,@vars)))))))
