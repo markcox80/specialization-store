@@ -152,21 +152,26 @@
 
 ;; DEFSTORE
 
-(defmacro defstore (store-name store-lambda-list &body body)
-  `(eval-when (:compile-toplevel :load-toplevel :execute)
-     ;; Register the store.
-     (ensure-store ',store-name ',store-lambda-list
-                   ,@(mapcan #'(lambda (item)
-                                 (alexandria:destructuring-case item
-                                   ((:documentation doc)
-                                    (list :documentation doc))
-                                   ((:store-class name)
-                                    (list :store-class `',name))
-                                   ((:specialization-class name)
-                                    (list :specialization-class `',name))
-                                   ((t &rest args)
-                                    (list (first item) args))))
-                             body))))
+(defmacro defstore (store-name store-lambda-list &body body &environment env)
+  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list)))
+    (destructuring-bind (rewritten-lambda-list definitions names) (specialization-store.lambda-lists:rewrite-init-forms parameters env)
+      (declare (ignore names))
+      `(eval-when (:compile-toplevel :load-toplevel :execute)
+         ;; Introduce global function definitions for initforms
+         ,@definitions
+         ;; Register the store.
+         (ensure-store ',store-name ',rewritten-lambda-list
+                       ,@(mapcan #'(lambda (item)
+                                     (alexandria:destructuring-case item
+                                       ((:documentation doc)
+                                        (list :documentation doc))
+                                       ((:store-class name)
+                                        (list :store-class `',name))
+                                       ((:specialization-class name)
+                                        (list :specialization-class `',name))
+                                       ((t &rest args)
+                                        (list (first item) args))))
+                                 body))))))
 
 ;; DEFSPECIALIZATION
 (defun canonicalize-store-name (store-name)  
