@@ -607,7 +607,10 @@
       (rest
        (let* ((lambda-list `(,@positional-lambda-list &rest ,rest)))
          `(lambda (,continuation ,lambda-environment ,@lambda-list)
-            (apply ,continuation ,lambda-environment ,@positional-vars ,rest))))
+            (apply ,continuation ,lambda-environment ,@positional-vars
+                   (mapcar #'(lambda (form)
+                               (specialization-store:determine-form-type form ,lambda-environment))
+                           ,rest)))))
       (t
        `(lambda (,continuation ,lambda-environment ,@positional-lambda-list)
           (funcall ,continuation ,lambda-environment ,@positional-vars))))))
