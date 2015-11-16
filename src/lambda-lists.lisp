@@ -546,17 +546,25 @@
       ((and keywordsp allow-other-keys)
        (let* ((rest (or rest (gensym "REST")))
               (lambda-list `(,@required &optional ,@optional &rest ,rest &key ,@keywords &allow-other-keys)))
-         `(lambda (,continuation ,@lambda-list)
-            (apply ,continuation ,@positional-vars ,@keyword-vars ,rest))))
+         `(lambda ,continuation
+            (declare (type function ,continuation))
+            (lambda ,lambda-list
+              (apply ,continuation ,@positional-vars ,@keyword-vars ,rest)))))
       (keywords
-       `(lambda (,continuation ,@original-lambda-list)
-          (funcall ,continuation ,@positional-vars ,@keyword-vars)))
+       `(lambda (,continuation)
+          (declare (type function ,continuation))
+          (lambda ,original-lambda-list
+            (funcall ,continuation ,@positional-vars ,@keyword-vars))))
       (rest
-       `(lambda (,continuation ,@original-lambda-list)
-          (apply ,continuation ,@positional-vars ,rest)))
+       `(lambda (,continuation)
+          (declare (type function ,continuation))
+          (lambda ,original-lambda-list
+            (apply ,continuation ,@positional-vars ,rest))))
       (t
-       `(lambda (,continuation ,@original-lambda-list)
-          (funcall ,continuation ,@positional-vars))))))
+       `(lambda (,continuation)
+          (declare (type function ,continuation))
+          (lambda ,original-lambda-list
+            (funcall ,continuation ,@positional-vars)))))))
 
 (defmethod make-form-type-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((continuation (gensym "CONTINUATION"))
