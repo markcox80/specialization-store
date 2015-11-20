@@ -57,46 +57,76 @@
 (defclass dispatch-rule (rule)
   ())
 
+;;;; Parameter Count Bound Rule
+(defgeneric parameter-count-upper-bound (dispatch-rule))
+(defgeneric parameter-count-lower-bound (dispatch-rule))
+(defgeneric parameter-count-bound (dispatch-rule))
+
 (defclass parameter-count-bound-rule (dispatch-rule)
-  ((lower-bound :initarg :lower-bound)
-   (upper-bound :initarg :upper-bound)))
+  ((lower-bound :initarg :lower-bound
+                :reader parameter-count-lower-bound)
+   (upper-bound :initarg :upper-bound
+                :reader parameter-count-upper-bound)))
 
 (defmethod print-object ((object parameter-count-bound-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (lower-bound upper-bound) object
       (format stream "[~W, ~W]" lower-bound upper-bound))))
 
+(defmethod parameter-count-bound ((rule parameter-count-bound-rule))
+  (list (parameter-count-lower-bound rule)
+        (parameter-count-upper-bound rule)))
+
+;;;; Positional Parameter Type Rule
+(defgeneric parameter-position (dispatch-rule))
+(defgeneric parameter-type (dispatch-rule))
+
 (defclass positional-parameter-type-rule (dispatch-rule)
-  ((position :initarg :position)
-   (type :initarg :type)))
+  ((position :initarg :position
+             :reader parameter-position)
+   (type :initarg :type
+         :reader parameter-type)))
 
 (defmethod print-object ((object positional-parameter-type-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (position type) object
       (format stream "~d ~W" position type))))
 
+;;;; Keyword Parameter Type Rule
+
+(defgeneric parameter-keyword (dispatch-rule))
+;; (defgeneric parameter-type (dispatch-rule)) ;; This is defined earlier.
+
 (defclass keyword-parameter-type-rule (dispatch-rule)
-  ((keyword :initarg :keyword)
-   (type :initarg :type)))
+  ((keyword :initarg :keyword
+            :reader parameter-keyword)
+   (type :initarg :type
+         :reader parameter-type)))
 
 (defmethod print-object ((object keyword-parameter-type-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (keyword type) object
       (format stream "~W ~W" keyword type))))
 
+;;;; Conjoined Dispatch Rule
+
+(defgeneric rules (dispatch-rule))
+
 (defclass conjoined-dispatch-rule (dispatch-rule)
-  ((rules :initarg :rules)))
+  ((rules :initarg :rules
+          :reader rules)))
 
 (defmethod print-object ((object conjoined-dispatch-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (rules) object
       (write rules :stream stream))))
 
-(defclass constantly-rule (dispatch-rule)
-  ((value :initarg :value)))
+;;;; Consantly rule
+(defgeneric constantly-rule-value (dispatch-rule))
 
-(defun constantly-rule-value (constantly-rule)
-  (slot-value constantly-rule 'value))
+(defclass constantly-rule (dispatch-rule)
+  ((value :initarg :value
+          :reader constantly-rule-value)))
 
 (defmethod print-object ((object constantly-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
