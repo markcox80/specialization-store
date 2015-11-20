@@ -90,47 +90,11 @@
 (defpackage "SPECIALIZATION-STORE.DISPATCH"
   (:use "COMMON-LISP"
 	"SPECIALIZATION-STORE.LAMBDA-LISTS")
-  (:export "MAKE-DISPATCH-TREE")
-
-  ;; Tree structure
-  (:export "NODE"
-           "NODE-LEFT"
-           "NODE-RIGHT"
-           "NODE-VALUE"
-           "MAKE-NODE"
-           "LEAFP")
-
-  ;; Rules
-  (:export "DISPATCH-RULE"
-           
-           "PARAMETER-COUNT-BOUND-RULE"
-           "PARAMETER-COUNT-UPPER-BOUND"
-           "PARAMETER-COUNT-LOWER-BOUND"
-           "PARAMETER-COUNT-BOUND"
-           
-           "POSITIONAL-PARAMETER-TYPE-RULE"
-           "PARAMETER-POSITION"
-           "PARAMETER-TYPE"
-           
-           "KEYWORD-PARAMETER-TYPE-RULE"
-           "PARAMETER-KEYWORD"
-           "PARAMETER-TYPE"
-           
-           "CONJOINED-DISPATCH-RULE"
-           "RULES"
-           
-           "CONSTANTLY-RULE"
-           "CONSTANTLY-RULE-VALUE"
-
-           "RULE-EQUAL"
-           "EVALUATE-RULE"
-           "REMOVE-RULE-TAUTOLOGIES"
-           "REMOVE-CONSTANT-RULES"))
+  (:export "MAKE-DISPATCH-TREE"))
 
 (defpackage "SPECIALIZATION-STORE.STANDARD-STORE"
   (:use "COMMON-LISP"
-	"SPECIALIZATION-STORE"
-	"SPECIALIZATION-STORE.DISPATCH"))
+	"SPECIALIZATION-STORE"))
 
 (defpackage "SPECIALIZATION-STORE.GLOBALS")
 
