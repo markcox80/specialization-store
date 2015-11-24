@@ -15,6 +15,17 @@
 	     (with-slots (name) condition
 	       (format stream "No store exists with name ~A" name)))))
 
+(define-condition no-applicable-specialization-error (store-error)
+  ((store :initarg :store)
+   (arguments :initarg :arguments))
+  (:report (lambda (condition stream)
+             (with-slots (store arguments) condition
+               (format stream "No applicable specialization exists in store ~W for the arguments: ~W."
+                       store arguments)))))
+
+(defun signal-no-applicable-specialization-error (store arguments)
+  (error 'no-applicable-specialization-error :store store :arguments arguments))
+
 (defgeneric funcall-store (store &rest args)
   (:documentation "Call the most applictable function in the store for the given arguments."))
 
