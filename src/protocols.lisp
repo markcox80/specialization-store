@@ -42,6 +42,9 @@
 (defgeneric remove-specialization (store specialization)
   (:documentation "Remove SPECIALIZATION from the set of specializations in STORE."))
 
+(defgeneric specialization-equal (store specialization-a specializabion-b)
+  (:documentation "Return non-NIL if SPECIALIZATION-A is equal to SPECIALIZATION-B."))
+
 (defgeneric store-specializations (store)
   (:documentation "Return a sequence of specializations used by the STORE."))
 
@@ -71,9 +74,6 @@
   and ENVIRONMENT, performs a specialization macro expansion on FORM
   using the given ENVIRONMENT. If no expansion is possible, the
   function should return FORM."))
-
-(defgeneric specialization-equal (specialization-a specializabion-b)
-  (:documentation "Return non-NIL if SPECIALIZATION-A is equal to SPECIALIZATION-B."))
 
 (defgeneric specialization-lambda-list (specialization)
   (:documentation "Return the lambda list for the store function."))
