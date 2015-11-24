@@ -144,6 +144,9 @@
   (make-instance 'keyword-parameter-type-rule :keyword keyword :type type))
 
 (defun conjoin-dispatch-rules (&rest rules)
+  (make-conjoined-dispatch-rule rules))
+
+(defun make-conjoined-dispatch-rule (rules)
   (make-instance 'conjoined-dispatch-rule :rules rules))
 
 (defun make-constantly-rule (value)
