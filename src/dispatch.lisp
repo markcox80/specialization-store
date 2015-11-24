@@ -179,8 +179,11 @@
 	 (parameter-rules (append (loop
 				     for (nil type) in (required-parameters specialization-parameters)
 				     for position from 0
+                                     if (eql type t)
+                                     collect parameter-count-rule
+                                     else
 				     collect (conjoin-dispatch-rules (make-positional-parameter-type-rule position type)
-								     parameter-count-rule))
+								     parameter-count-rule))                                  
 				  (loop
 				     with sp-keys = (keyword-parameters specialization-parameters)
 				     for (st-keyword nil) in (keyword-parameters store-parameters)
