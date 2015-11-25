@@ -112,23 +112,7 @@
                                              (specialization (funcall fn args)))
                                         (if specialization
                                             (apply (specialization-function specialization) args)
-                                            (signal-no-applicable-specialization-error instance args))))))
-    #- (and)
-    (let* ((continuation (funcall (compile nil
-                                           `(lambda ()
-                                              (flet ((process (args arg-types)
-                                                       (let* ((store ,instance)
-                                                              (fn (discriminating-function store))
-                                                              (s (funcall fn arg-types)))
-                                                         (if s
-                                                             (apply (specialization-function s) args)
-                                                             (signal-no-applicable-specialization-error store args)))))
-                                                (let ((fn )))
-                                                (lambda (&rest args)
-                                                  (funcall ,(make-runtime-type-of-lambda-form parameters)
-                                                           (lambda (&rest arg-types)
-                                                             (process args arg-types))))))))))
-      (setf runtime-function (funcall completion-function continuation))))
+                                            (signal-no-applicable-specialization-error instance args)))))))
   
   ;; Compile Time Function  
   (with-slots (form-type-completion-function compile-time-function) instance
