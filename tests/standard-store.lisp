@@ -31,9 +31,7 @@
       (bad (a &optional b) (c &optional d))
       (bad (a &optional b) (c d &optional e))
 
-      (trace specialization-store.standard-store::dispatch-tree-to-lambda-form)
       (good (a &optional b &key hey) (c d &key hey))
-      (untrace)
       (bad (a &optional b &key hey) (a b &key))
 
       (good (a &rest args) (b &rest args))
