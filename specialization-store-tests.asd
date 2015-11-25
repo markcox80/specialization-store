@@ -7,4 +7,5 @@
 			:serial t
 			:components ((:file "packages")
 				     (:file "asdf")
-				     (:file "lambda-lists")))))
+				     (:file "lambda-lists")
+                                     (:file "standard-store")))))

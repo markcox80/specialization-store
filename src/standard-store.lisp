@@ -19,6 +19,9 @@
 
 ;;;; Standard Store Class
 
+(defgeneric runtime-discriminating-function (standard-store))
+(defgeneric compile-time-discriminating-function (standard-store))
+
 (defclass standard-store ()
   ((name :initarg :name
          :reader store-name)
@@ -32,11 +35,21 @@
                          :reader store-specialization-class)
    (completion-function :initarg :completion-function)
    (form-type-completion-function :initarg :form-type-completion-function)
-   (discriminating-function))
+   (runtime-discriminating-function :initarg :runtime-discriminating-function
+                                    :reader runtime-discriminating-function)
+   (compile-time-discriminating-function :initarg :compile-time-discriminating-function
+                                         :reader compile-time-discriminating-function)
+   (runtime-function :initarg :runtime-function)
+   (compile-time-function :initarg :compile-time-function))
   (:default-initargs
    :name nil
    :documentation nil    
-   :specializations nil))
+   :specializations nil
+   :form-type-completion-function nil))
+
+(defmethod print-object ((object standard-store) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (princ (store-lambda-list object) stream)))
 
 (defclass standard-specialization ()
   ((name :initarg :name
@@ -48,88 +61,183 @@
    (function :initarg :function
              :reader specialization-function)
    (expand-function :initarg :expand-function
-                    :reader specialization-expand-function))
+                    :reader specialization-expand-function)
+   (weight :initarg :weight
+           :reader specialization-weight))
   (:default-initargs
    :name nil
    :expand-function nil
-   :documentation nil))
+   :documentation nil
+   :weight 1))
+
+(defmethod print-object ((object standard-specialization) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (princ (specialization-lambda-list object) stream)))
 
 ;;;; Standard Store Implementation (Object Layer)
 
-(defun compute-discriminating-function (store specializations)
-  )
+(defun compute-discriminating-functions (store specializations)
+  (let* ((store-parameters (parse-store-lambda-list (store-lambda-list store)))
+         (all-specialization-parameters (loop
+                                           for specialization in specializations
+                                           collect (parse-specialization-lambda-list
+                                                    (specialization-lambda-list specialization))))
+         (weights (mapcar #'specialization-weight specializations))
+         (dispatch-tree (make-dispatch-tree store-parameters all-specialization-parameters weights)))
+    (list (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :objects)))
+          (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :types))))))
 
-(defun update-discriminating-function (store)
+(defun update-discriminating-functions (store)
   (check-type store standard-store)
-  (with-slots (discriminating-function) store
+  (with-slots (runtime-discriminating-function compile-time-discriminating-function) store
     (let* ((specializations (store-specializations store)))
-      (setf discriminating-function (compute-discriminating-function store specializations)))))
+      (destructuring-bind (runtime compile-time) (if (alexandria:emptyp specializations)
+                                                     (list (lambda (&rest args)
+                                                             (signal-no-applicable-specialization-error store args))
+                                                           (lambda (form env &rest args)
+                                                             (declare (ignore env args))
+                                                             form))
+                                                     (compute-discriminating-functions store specializations))
+        (setf runtime-discriminating-function runtime
+              compile-time-discriminating-function compile-time)))))
+
+(defmethod initialize-instance :after ((instance standard-store) &key)
+  (update-discriminating-functions instance)
+    
+  ;; Runtime Function
+  (with-slots (completion-function runtime-function) instance
+    (setf runtime-function (funcall completion-function
+                                    (lambda (&rest args)
+                                      (let* ((fn (runtime-discriminating-function instance))
+                                             (specialization (funcall fn args)))
+                                        (if specialization
+                                            (apply (specialization-function specialization) args)
+                                            (signal-no-applicable-specialization-error instance args))))))
+    #- (and)
+    (let* ((continuation (funcall (compile nil
+                                           `(lambda ()
+                                              (flet ((process (args arg-types)
+                                                       (let* ((store ,instance)
+                                                              (fn (discriminating-function store))
+                                                              (s (funcall fn arg-types)))
+                                                         (if s
+                                                             (apply (specialization-function s) args)
+                                                             (signal-no-applicable-specialization-error store args)))))
+                                                (let ((fn )))
+                                                (lambda (&rest args)
+                                                  (funcall ,(make-runtime-type-of-lambda-form parameters)
+                                                           (lambda (&rest arg-types)
+                                                             (process args arg-types))))))))))
+      (setf runtime-function (funcall completion-function continuation))))
+  
+  ;; Compile Time Function  
+  (with-slots (form-type-completion-function compile-time-function) instance
+    (setf compile-time-function (if form-type-completion-function                                      
+                                    (funcall form-type-completion-function
+                                             (lambda (form env &rest arg-types)
+                                               (let* ((fn (compile-time-discriminating-function instance))
+                                                      (specialization (funcall fn arg-types)))
+                                                 (if specialization
+                                                     (funcall (specialization-expand-function specialization) form env)
+                                                     form))))
+                                    (lambda (form env &rest args)
+                                      (declare (ignore env args))
+                                      form)))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
-  )
+  (with-slots (runtime-function) store
+    (apply runtime-function args)))
 
 (defmethod apply-store ((store standard-store) &rest args)
-  (apply #'apply #'funcall-store args))
+  (with-slots (runtime-function) store
+    (apply #'apply runtime-function args)))
 
 (defmethod expand-store ((store standard-store) form &optional env)
-  )
+  (with-slots (compile-time-function) store
+    (funcall compile-time-function form env)))
 
 (defmethod add-specialization ((store standard-store) (specialization standard-specialization))
-  )
+  (unless (congruent-lambda-list-p (store-lambda-list store) (specialization-lambda-list specialization))
+    (error 'store-error :store store :message (format nil "Specialization ~W is not congruent with store ~W."
+                                                      specialization store)))
+
+  (loop
+     for sublist on (store-specializations store)
+     for existing-specialization = (car sublist)
+     when (specialization-equal store specialization existing-specialization)
+     return (progn (setf (car sublist) specialization)
+                   nil)
+     finally
+       (alexandria:appendf (store-specializations store) (list specialization)))
+  (update-discriminating-functions store)
+  store)
 
 (defmethod remove-specialization ((store standard-store) (specialization standard-specialization))
-  )
+  (alexandria:deletef (store-specializations store) specialization
+                      :test #'(lambda (a b)
+                                (specialization-equal store a b)))
+  (update-discriminating-functions store)
+  store)
+
+(defmethod specialization-equal ((store standard-store) (a standard-specialization) (b standard-specialization))
+  (let* ((parameters-a (parse-specialization-lambda-list (specialization-lambda-list a)))
+         (parameters-b (parse-specialization-lambda-list (specialization-lambda-list b)))
+         (parameters (parse-store-lambda-list (store-lambda-list store))))
+    (labels ((compare/value (keys object)
+               (reduce #'funcall keys :initial-value object :from-end t))
+             (compare (test &rest keys)
+               (funcall test (compare/value keys parameters-a) (compare/value keys parameters-b)))
+             (ensure-key (match keyword specialization)
+               (assert match nil "Unable to find keyword argument specification ~W in specialization ~W." keyword specialization)))
+      (and (compare #'= #'length #'required-parameters)
+           (compare #'= #'length #'optional-parameters)
+           (compare #'eql #'rest-parameter)
+           (compare #'eql #'keyword-parameters-p)
+           (loop
+              for (nil type-a) in (required-parameters parameters-a)
+              for (nil type-b) in (required-parameters parameters-b)
+              always
+                (alexandria:type= type-a type-b))
+           (loop
+              with keys-a = (keyword-parameters parameters-a)
+              with keys-b = (keyword-parameters parameters-b)
+              for (keyword nil) in (keyword-parameters parameters)
+              for key-a = (find keyword keys-a :key #'first)
+              for key-b = (find keyword keys-b :key #'first)
+              do
+                (ensure-key key-a keyword a)
+                (ensure-key key-b keyword b)
+              always
+                (alexandria:type= (third key-a) (third key-b)))))))
 
 ;;;; Standard Specialization Implementation (Object Layer)
-
-(defmethod specialization-equal ((a standard-specialization) (b standard-specialization))
-  )
 
 
 ;;;; Standard Store Implementation (Glue Layer)
 
-(defmethod ensure-store-using-class ((class standard-store) store-name lambda-list completion-function form-type-completion-function
+(defmethod ensure-store-using-class ((instance standard-store) store-name lambda-list completion-function form-type-completion-function
                                      &rest args &key store-class specialization-class documentation &allow-other-keys)
   (declare (ignore store-class))
-  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list lambda-list)))
-    (apply #'reinitialize-instance class
-           :name store-name
-           :lambda-list lambda-list
-           :completion-function completion-function
-           :form-type-completion-function form-type-completion-function
-           :specialization-class specialization-class
-           args)
-    ;; Function
-    (let* ((continuation (funcall (compile nil
-                                           `(lambda ()
-                                              (lambda (&rest args)
-                                                (apply (funcall ,(make-runtime-type-of-lambda-form parameters)
-                                                                (lambda (&rest arg-types)
-                                                                  (print args)
-                                                                  (print arg-types)
-                                                                  nil))
-                                                       args)))))))
-      (setf (fdefinition store-name) (compile nil (funcall completion-function continuation))))
+  (apply #'reinitialize-instance instance
+         :name store-name
+         :lambda-list lambda-list
+         :completion-function completion-function
+         :form-type-completion-function form-type-completion-function
+         :specialization-class specialization-class
+         args)
 
-    ;; Compiler Macro
-    (let* ()
-      (setf (compiler-macro-function store-name) (compiler-macro-lambda (&rest args &environment env)
-                                                   (apply form-type-completion-function
-                                                          (lambda (environment &rest args)
-                                                            (declare (ignore environment))
-                                                            (print args)
-                                                            nil)
-                                                          env
-                                                          args))))
-
-    ;; Documentation
-    (setf (documentation store-name 'function) documentation)
-    class))
+  (with-slots (runtime-function compile-time-function) instance    
+    (setf (fdefinition store-name) runtime-function
+          (compiler-macro-function store-name) (compiler-macro-lambda (&whole form &rest args &environment env)
+                                                 (apply compile-time-function form env args))
+          (documentation store-name 'function) documentation))  
+    
+  instance)
 
 
 ;;;; Standard Specialization Implementation (Glue Layer)
 
-(defmethod ensure-specialization-using-class ((class standard-store) lambda-list function &key expand-function name documentation &allow-other-keys)
+(defmethod ensure-specialization-using-class ((store standard-store) lambda-list function &key expand-function name documentation &allow-other-keys)
   (let* ((specialization (make-instance 'standard-specialization
                                         :name name
                                         :lambda-list lambda-list
@@ -140,7 +248,7 @@
       (setf (fdefinition name) function))
     (when (and name expand-function)
       (setf (compiler-macro-function name) expand-function))
-    (add-specialization class specialization)
+    (add-specialization store specialization)
     specialization))
 
 
@@ -198,3 +306,166 @@
        `(lambda (,continuation)
           (lambda ,original-lambda-list
             (funcall ,continuation ,@positional-vars)))))))
+
+
+;;;; Dispatch Tree Compiler
+
+;; The code in this section converts the tree computed by
+;; MAKE-DISPATCH-TREE in to code.
+;;
+;; Each dispatch rule queries one or more of the following information
+;; constructed from the input arguments.
+;; 1. The number of positional arguments.
+;; 2. The positional arguments themselves.
+;; 3. Keyword arguments.
+;;
+;; The values of the positional and keyword arguments are types.
+
+(defclass dispatch-tree-symbols ()
+  ((all-arguments :initarg :all-arguments)
+   (argument-count :initarg :argument-count)
+   (positional-arguments :initarg :positional-arguments)
+   (keywords-plist :initarg :keywords-plist))
+  (:default-initargs
+   :all-arguments (gensym "ALL-ARGUMENTS")
+   :argument-count (gensym "ARGUMENT-COUNT")
+   :positional-arguments (gensym "POSITIONAL-ARGUMENTS")
+   :keywords-plist (gensym "KEYWORDS-PLIST")))
+
+(defgeneric predicate-code-for-type (dispatch-rule dispatch-tree-symbols))
+(defgeneric predicate-code-for-object (dispatch-rule dispatch-tree-symbols))
+
+(defun dispatch-tree-to-lambda-form/build (store-parameters specializations all-specialization-parameters dispatch-tree code-function dispatch-tree-symbols)
+  (check-type dispatch-tree node)
+  (check-type dispatch-tree-symbols dispatch-tree-symbols)
+  (labels ((process (node knowledge specializations all-specialization-parameters)
+             (assert (= (length specializations)
+                        (length all-specialization-parameters)))
+             (assert (not (alexandria:emptyp specializations)))
+             (cond
+               ((leafp node)
+                (assert (= 1 (length specializations)))
+                (assert (= 1 (length all-specialization-parameters)))
+                (let* ((specialization-parameters (first all-specialization-parameters))
+                       (conjoined-rule (make-conjoined-dispatch-rule
+                                        (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters)))
+                       (rule (remove-rule-tautologies conjoined-rule knowledge)))
+                  `(if ,(funcall code-function rule dispatch-tree-symbols)
+                       ,(first specializations)
+                       nil)))
+               (t
+                (loop
+                   with rule = (node-value node)
+                   for specialization in specializations
+                   for specialization-parameters in all-specialization-parameters
+                   for result = (evaluate-rule rule specialization-parameters)
+                   if result
+                   collect specialization into left-specializations
+                   and collect specialization-parameters into left-specialization-parameters
+                   else
+                   collect specialization into right-specializations
+                   and collect specialization-parameters into right-specialization-parameters
+                   finally
+                     (return (list 'if
+                                   (funcall code-function rule dispatch-tree-symbols)
+                                   (process (node-left node) (cons rule knowledge)
+                                            left-specializations left-specialization-parameters)
+                                   (process (node-right node) knowledge
+                                            right-specializations right-specialization-parameters))))))))
+    (process dispatch-tree nil specializations all-specialization-parameters)))
+
+(defun dispatch-tree-to-lambda-form (store specializations dispatch-tree lambda-form-type)
+  (check-type lambda-form-type (member :types :objects))
+  (let* ((code-function (ecase lambda-form-type
+                          (:types #'predicate-code-for-type)
+                          (:objects #'predicate-code-for-object)))
+         (store-parameters (parse-store-lambda-list (specialization-store:store-lambda-list store)))
+         (all-specialization-parameters (loop
+                                           for specialization in specializations
+                                           collect (parse-specialization-lambda-list
+                                                    (specialization-store:specialization-lambda-list specialization))))
+         (maximum-required-count (loop
+                                    for specialization-parameters in all-specialization-parameters
+                                    maximizing (length (required-parameters specialization-parameters))))
+         (keywordsp (keyword-parameters-p store-parameters))
+         (keywords-position-diff (if keywordsp
+                                     (- (+ (length (required-parameters store-parameters))
+                                           (length (optional-parameters store-parameters)))
+                                        maximum-required-count)
+                                     0))
+         (symbols (make-instance 'dispatch-tree-symbols)))
+    (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
+      `(lambda ()
+         (let* ((,positional-arguments (make-array ,maximum-required-count)))
+           (lambda (,all-arguments)
+             (let* ((,argument-count 0)
+                    (,keywords-plist nil))
+               (declare (ignorable ,argument-count ,keywords-plist))
+               (loop
+                  for arg on ,all-arguments
+                  for index from 0 below ,maximum-required-count
+                  do
+                    (setf (aref ,positional-arguments index) (car arg))
+                    (incf ,argument-count)
+                  finally
+                    (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))
+               ,(dispatch-tree-to-lambda-form/build store-parameters specializations all-specialization-parameters
+                                                    dispatch-tree code-function symbols))))))))
+
+;;;; Predicate code for object implementations
+(defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
+  (destructuring-bind (lower upper) (parameter-count-bound rule)
+    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
+      `(<= ,lower ,symbol ,upper))))
+
+(defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
+  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
+    (let* ((position (parameter-position rule))
+           (type (parameter-type rule)))
+      `(typep (elt ,positional-arguments ,position) ',type))))
+
+(defmethod predicate-code-for-object ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
+  (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
+         (keyword (parameter-keyword rule))
+         (type (parameter-type rule)))
+    `(typep (or (getf ,keywords-plist ,keyword)
+                (error "No keyword argument present for ~W." ,keyword))
+            ',type)))
+
+(defmethod predicate-code-for-object ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
+  `(and ,@(loop
+             for subrule in (rules rule)
+             collect (predicate-code-for-object subrule dispatch-tree-symbols))))
+
+(defmethod predicate-code-for-object ((rule constantly-rule) dispatch-tree-symbol)
+  (declare (ignore dispatch-tree-symbol))
+  (constantly-rule-value rule))
+
+;;;; Predicate code for type implementations.
+(defmethod predicate-code-for-type ((rule parameter-count-bound-rule) dispatch-tree-symbols)
+  (destructuring-bind (lower upper) (parameter-count-bound rule)
+    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
+      `(<= ,lower ,symbol ,upper))))
+
+(defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
+  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
+    (let* ((position (parameter-position rule))
+           (type (parameter-type rule)))
+      `(subtypep (elt ,positional-arguments ,position) ',type))))
+
+(defmethod predicate-code-for-type ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
+  (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
+         (keyword (parameter-keyword rule))
+         (type (parameter-type rule)))
+    `(subtypep (or (getf ,keywords-plist ,keyword)
+                   (error "No keyword argument present for ~W." ,keyword))
+               ',type)))
+
+(defmethod predicate-code-for-type ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
+  `(and ,@(loop
+             for subrule in (rules rule)
+             collect (predicate-code-for-type subrule dispatch-tree-symbols))))
+
+(defmethod predicate-code-for-type ((rule constantly-rule) dispatch-tree-symbol)
+  (declare (ignore dispatch-tree-symbol))
+  (constantly-rule-value rule))
