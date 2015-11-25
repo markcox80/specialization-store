@@ -66,6 +66,32 @@
           (is (= 3 (specialization-count store)))
           (is-false (find s2 (store-specializations store))))))))
 
+(test add-specialization/keywords
+  (let* ((store (make-instance 'standard-store :lambda-list '(&key a) :completion-function (default-completion-function))))
+    (flet ((add (specialized-lambda-list)
+             (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
+               (add-specialization store s)
+               s))
+           (specialization-count (store)
+             (length (store-specializations store))))
+      (add '(&key a))
+      (is (= 1 (specialization-count store)))
+      (add '(&key (a t)))
+      (is (= 1 (specialization-count store))))))
+
+(test add-specialization/positional
+  (let* ((store (make-instance 'standard-store :lambda-list '(a) :completion-function (default-completion-function))))
+    (flet ((add (specialized-lambda-list)
+             (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
+               (add-specialization store s)
+               s))
+           (specialization-count (store)
+             (length (store-specializations store))))
+      (add '(a))
+      (is (= 1 (specialization-count store)))
+      (add '((a t)))
+      (is (= 1 (specialization-count store))))))
+
 (test invoking-store
   (let* ((store (make-instance 'standard-store :lambda-list '(a) :completion-function (default-completion-function)))
          (specialization (make-instance 'standard-specialization
