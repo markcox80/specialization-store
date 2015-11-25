@@ -204,11 +204,13 @@
               for (keyword nil) in (keyword-parameters parameters)
               for key-a = (find keyword keys-a :key #'first)
               for key-b = (find keyword keys-b :key #'first)
+              for type-a = (or (third key-a) t)
+              for type-b = (or (third key-b) t)
               do
                 (ensure-key key-a keyword a)
                 (ensure-key key-b keyword b)
               always
-                (alexandria:type= (third key-a) (third key-b)))))))
+                (alexandria:type= type-a type-b))))))
 
 ;;;; Standard Specialization Implementation (Object Layer)
 
