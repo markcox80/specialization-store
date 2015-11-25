@@ -402,15 +402,18 @@
 		rules)
        (make-constantly-rule nil))
       (t
-       (let ((new-rules (loop
-			   for rule in rules
-			   for new-rule = (remove-rule-tautologies rule known-rule)
-			   when (and (typep new-rule 'constantly-rule)
-				     (null (constantly-rule-value new-rule)))
-			   return (list new-rule)
-			   unless (and (typep new-rule 'constantly-rule)
-				       (constantly-rule-value new-rule))
-			   collect new-rule)))
+       (let* ((known-rules (list known-rule))
+              (new-rules (loop
+                            for rule in rules
+                            for new-rule = (remove-rule-tautologies rule known-rules)
+                            when (and (typep new-rule 'constantly-rule)
+                                      (null (constantly-rule-value new-rule)))
+                            return (list new-rule)
+                            unless (and (typep new-rule 'constantly-rule)
+                                        (constantly-rule-value new-rule))
+                            do
+                              (push new-rule known-rules)
+                            and collect new-rule)))
 	 (cond
 	   ((null new-rules)
 	    (make-constantly-rule t))
