@@ -21,12 +21,15 @@
 
 (defgeneric runtime-discriminating-function (standard-store))
 (defgeneric compile-time-discriminating-function (standard-store))
+(defgeneric store-parameters (standard-store))
 
 (defclass standard-store ()
   ((name :initarg :name
          :reader store-name)
    (lambda-list :initarg :lambda-list
                 :reader store-lambda-list)
+   (parameters :initarg :parameters
+               :reader store-parameters)
    (documentation :initarg :documentation
                   :accessor store-documentation)
    (specializations :initarg :specializations
@@ -51,11 +54,15 @@
   (print-unreadable-object (object stream :type t :identity t)
     (princ (store-lambda-list object) stream)))
 
+(defgeneric specialization-parameters (standard-specialization))
+
 (defclass standard-specialization ()
   ((name :initarg :name
          :reader specialization-name)
    (lambda-list :initarg :lambda-list
                 :reader specialization-lambda-list)
+   (parameters :initarg :parameters
+               :reader specialization-parameters)
    (documentation :initarg :documentation
                   :accessor specialization-documentation)
    (function :initarg :function
@@ -102,6 +109,8 @@
               compile-time-discriminating-function compile-time)))))
 
 (defmethod initialize-instance :after ((instance standard-store) &key)
+  (setf (slot-value instance 'parameters) (parse-store-lambda-list (store-lambda-list instance)))
+  
   (update-discriminating-functions instance)
     
   ;; Runtime Function
@@ -164,9 +173,9 @@
   store)
 
 (defmethod specialization-equal ((store standard-store) (a standard-specialization) (b standard-specialization))
-  (let* ((parameters-a (parse-specialization-lambda-list (specialization-lambda-list a)))
-         (parameters-b (parse-specialization-lambda-list (specialization-lambda-list b)))
-         (parameters (parse-store-lambda-list (store-lambda-list store))))
+  (let* ((parameters-a (specialization-parameters a))
+         (parameters-b (specialization-parameters b))
+         (parameters (store-parameters store)))
     (labels ((compare/value (keys object)
                (reduce #'funcall keys :initial-value object :from-end t))
              (compare (test &rest keys)
@@ -198,6 +207,8 @@
 
 ;;;; Standard Specialization Implementation (Object Layer)
 
+(defmethod initialize-instance :after ((instance standard-specialization) &key)
+  (setf (slot-value instance 'parameters) (parse-specialization-lambda-list (specialization-lambda-list instance))))
 
 ;;;; Standard Store Implementation (Glue Layer)
 
@@ -321,18 +332,15 @@
 (defgeneric predicate-code-for-type (dispatch-rule dispatch-tree-symbols))
 (defgeneric predicate-code-for-object (dispatch-rule dispatch-tree-symbols))
 
-(defun dispatch-tree-to-lambda-form/build (store-parameters specializations all-specialization-parameters dispatch-tree code-function dispatch-tree-symbols)
+(defun dispatch-tree-to-lambda-form/build (store-parameters specializations dispatch-tree code-function dispatch-tree-symbols)
   (check-type dispatch-tree node)
   (check-type dispatch-tree-symbols dispatch-tree-symbols)
-  (labels ((process (node knowledge specializations all-specialization-parameters)
-             (assert (= (length specializations)
-                        (length all-specialization-parameters)))
+  (labels ((process (node knowledge specializations)
              (assert (not (alexandria:emptyp specializations)))
              (cond
                ((leafp node)
                 (assert (= 1 (length specializations)))
-                (assert (= 1 (length all-specialization-parameters)))
-                (let* ((specialization-parameters (first all-specialization-parameters))
+                (let* ((specialization-parameters (specialization-parameters (first specializations)))
                        (conjoined-rule (make-conjoined-dispatch-rule
                                         (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters)))
                        (rule (remove-rule-tautologies conjoined-rule knowledge)))
@@ -343,36 +351,28 @@
                 (loop
                    with rule = (node-value node)
                    for specialization in specializations
-                   for specialization-parameters in all-specialization-parameters
+                   for specialization-parameters = (specialization-parameters specialization)
                    for result = (evaluate-rule rule specialization-parameters)
                    if result
                    collect specialization into left-specializations
-                   and collect specialization-parameters into left-specialization-parameters
                    else
                    collect specialization into right-specializations
-                   and collect specialization-parameters into right-specialization-parameters
                    finally
                      (return (list 'if
                                    (funcall code-function rule dispatch-tree-symbols)
-                                   (process (node-left node) (cons rule knowledge)
-                                            left-specializations left-specialization-parameters)
-                                   (process (node-right node) knowledge
-                                            right-specializations right-specialization-parameters))))))))
-    (process dispatch-tree nil specializations all-specialization-parameters)))
+                                   (process (node-left node) (cons rule knowledge) left-specializations)
+                                   (process (node-right node) knowledge right-specializations))))))))
+    (process dispatch-tree nil specializations)))
 
 (defun dispatch-tree-to-lambda-form (store specializations dispatch-tree lambda-form-type)
   (check-type lambda-form-type (member :types :objects))
   (let* ((code-function (ecase lambda-form-type
                           (:types #'predicate-code-for-type)
                           (:objects #'predicate-code-for-object)))
-         (store-parameters (parse-store-lambda-list (specialization-store:store-lambda-list store)))
-         (all-specialization-parameters (loop
-                                           for specialization in specializations
-                                           collect (parse-specialization-lambda-list
-                                                    (specialization-store:specialization-lambda-list specialization))))
+         (store-parameters (store-parameters store))
          (maximum-required-count (loop
-                                    for specialization-parameters in all-specialization-parameters
-                                    maximizing (length (required-parameters specialization-parameters))))
+                                    for specialization in specializations
+                                    maximizing (length (required-parameters (specialization-parameters specialization)))))
          (keywordsp (keyword-parameters-p store-parameters))
          (keywords-position-diff (if keywordsp
                                      (- (+ (length (required-parameters store-parameters))
@@ -395,8 +395,7 @@
                     (incf ,argument-count)
                   finally
                     (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))
-               ,(dispatch-tree-to-lambda-form/build store-parameters specializations all-specialization-parameters
-                                                    dispatch-tree code-function symbols))))))))
+               ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols))))))))
 
 ;;;; Predicate code for object implementations
 (defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
