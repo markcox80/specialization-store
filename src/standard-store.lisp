@@ -381,21 +381,30 @@
                                      0))
          (symbols (make-instance 'dispatch-tree-symbols)))
     (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
-      `(lambda ()
-         (let* ((,positional-arguments (make-array ,maximum-required-count)))
-           (lambda (,all-arguments)
-             (let* ((,argument-count 0)
-                    (,keywords-plist nil))
-               (declare (ignorable ,argument-count ,keywords-plist))
-               (loop
-                  for arg on ,all-arguments
-                  for index from 0 below ,maximum-required-count
-                  do
-                    (setf (aref ,positional-arguments index) (car arg))
-                    (incf ,argument-count)
-                  finally
-                    (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))
-               ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols))))))))
+      (cond
+        ((zerop maximum-required-count)
+         `(lambda ()
+            (lambda (,all-arguments)
+              (let* ((,argument-count 0)
+                     (,keywords-plist ,all-arguments))
+                (declare (ignorable ,argument-count ,keywords-plist))
+                ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
+        (t
+         `(lambda ()
+            (lambda (,all-arguments)
+              (let* ((,argument-count 0)
+                     (,keywords-plist nil)
+                     (,positional-arguments (make-array ,maximum-required-count)))
+                (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments))
+                (loop
+                   for arg on ,all-arguments
+                   for index from 0 below ,maximum-required-count
+                   do
+                     (setf (aref ,positional-arguments index) (car arg))
+                     (incf ,argument-count)
+                   finally
+                     (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))               
+                ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))))))
 
 ;;;; Predicate code for object implementations
 (defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
