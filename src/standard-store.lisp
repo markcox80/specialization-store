@@ -320,12 +320,12 @@
 
 (defclass dispatch-tree-symbols ()
   ((all-arguments :initarg :all-arguments)
-   (argument-count :initarg :argument-count)
+   (positional-count :initarg :positional-count)
    (positional-arguments :initarg :positional-arguments)
    (keywords-plist :initarg :keywords-plist))
   (:default-initargs
    :all-arguments (gensym "ALL-ARGUMENTS")
-   :argument-count (gensym "ARGUMENT-COUNT")
+   :positional-count (gensym "POSITIONAL-COUNT")
    :positional-arguments (gensym "POSITIONAL-ARGUMENTS")
    :keywords-plist (gensym "KEYWORDS-PLIST")))
 
@@ -380,28 +380,28 @@
                                         maximum-required-count)
                                      0))
          (symbols (make-instance 'dispatch-tree-symbols)))
-    (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
+    (with-slots (all-arguments positional-count positional-arguments keywords-plist) symbols
       (cond
         ((zerop maximum-required-count)
          `(lambda ()
             (lambda (,all-arguments)
-              (let* ((,argument-count 0)
+              (let* ((,positional-count 0)
                      (,keywords-plist ,all-arguments))
-                (declare (ignorable ,argument-count ,keywords-plist))
+                (declare (ignorable ,positional-count ,keywords-plist))
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
         (t
          `(lambda ()
             (lambda (,all-arguments)
-              (let* ((,argument-count 0)
+              (let* ((,positional-count 0)
                      (,keywords-plist nil)
                      (,positional-arguments (make-array ,maximum-required-count)))
-                (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments))
+                (declare (ignorable ,positional-count ,keywords-plist ,positional-arguments))
                 (loop
                    for arg on ,all-arguments
                    for index from 0 below ,maximum-required-count
                    do
                      (setf (aref ,positional-arguments index) (car arg))
-                     (incf ,argument-count)
+                     (incf ,positional-count)
                    finally
                      (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))               
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))))))
@@ -409,11 +409,11 @@
 ;;;; Predicate code for object implementations
 (defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
   (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
+    (let ((symbol (slot-value dispatch-tree-symbols 'positional-count)))
       `(<= ,lower ,symbol ,upper))))
 
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
-  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
+  (with-slots (positional-arguments) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
       `(typep (elt ,positional-arguments ,position) ',type))))
@@ -438,11 +438,11 @@
 ;;;; Predicate code for type implementations.
 (defmethod predicate-code-for-type ((rule parameter-count-bound-rule) dispatch-tree-symbols)
   (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
+    (let ((symbol (slot-value dispatch-tree-symbols 'positional-count)))
       `(<= ,lower ,symbol ,upper))))
 
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
-  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
+  (with-slots (positional-arguments) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
       `(subtypep (elt ,positional-arguments ,position) ',type))))
