@@ -320,12 +320,12 @@
 
 (defclass dispatch-tree-symbols ()
   ((all-arguments :initarg :all-arguments)
-   (positional-count :initarg :positional-count)
+   (argument-count :initarg :argument-count)
    (positional-arguments :initarg :positional-arguments)
    (keywords-plist :initarg :keywords-plist))
   (:default-initargs
    :all-arguments (gensym "ALL-ARGUMENTS")
-   :positional-count (gensym "POSITIONAL-COUNT")
+   :argument-count (gensym "ARGUMENT-COUNT")
    :positional-arguments (gensym "POSITIONAL-ARGUMENTS")
    :keywords-plist (gensym "KEYWORDS-PLIST")))
 
@@ -380,36 +380,37 @@
                                         maximum-required-count)
                                      0))
          (symbols (make-instance 'dispatch-tree-symbols)))
-    (with-slots (all-arguments positional-count positional-arguments keywords-plist) symbols
+    (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
       (cond
         ((zerop maximum-required-count)
          `(lambda ()
             (lambda (,all-arguments)
-              (let* ((,positional-count 0)
+              (let* ((,argument-count 0)
                      (,keywords-plist ,all-arguments))
-                (declare (ignorable ,positional-count ,keywords-plist))
+                (declare (ignorable ,argument-count ,keywords-plist))
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
         (t
          `(lambda ()
             (lambda (,all-arguments)
-              (let* ((,positional-count 0)
+              (let* ((,argument-count 0)
                      (,keywords-plist nil)
                      (,positional-arguments (make-array ,maximum-required-count)))
-                (declare (ignorable ,positional-count ,keywords-plist ,positional-arguments))
+                (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments))
                 (loop
                    for arg on ,all-arguments
                    for index from 0 below ,maximum-required-count
                    do
                      (setf (aref ,positional-arguments index) (car arg))
-                     (incf ,positional-count)
+                     (incf ,argument-count)
                    finally
-                     (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))               
+                     (setf ,keywords-plist (nthcdr ,keywords-position-diff arg)))
+                (incf ,argument-count (length ,keywords-plist))
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))))))
 
 ;;;; Predicate code for object implementations
 (defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
   (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'positional-count)))
+    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
       `(<= ,lower ,symbol ,upper))))
 
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
@@ -438,7 +439,7 @@
 ;;;; Predicate code for type implementations.
 (defmethod predicate-code-for-type ((rule parameter-count-bound-rule) dispatch-tree-symbols)
   (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'positional-count)))
+    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
       `(<= ,lower ,symbol ,upper))))
 
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
