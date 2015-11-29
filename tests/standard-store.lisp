@@ -179,3 +179,22 @@
       (is (= 5 (funcall-store store "blah" 5.0 :c -1)))
       (signals no-applicable-specialization-error (funcall-store store 1 "here"))
       (signals no-applicable-specialization-error (funcall-store store "blah")))))
+
+(test store-reinitialisation
+  (let* ((store (make-instance 'standard-store
+                               :lambda-list '(&optional a)
+                               :completion-function (lambda (continuation)
+                                                      (lambda (&optional (a 1))
+                                                        (funcall continuation a))))))
+    (add-specialization store (make-instance 'standard-specialization
+                                             :lambda-list '((a (integer 0)))
+                                             :function (lambda (a)
+                                                         (1+ a))))
+    (is (= 2 (funcall-store store)))
+    (finishes (reinitialize-instance store :lambda-list '(&optional b)))
+    (signals store-error (reinitialize-instance store :lambda-list '(b)))
+
+    (reinitialize-instance store :completion-function (lambda (continuation)
+                                                        (lambda (&optional (b 2))
+                                                          (funcall continuation b))))
+    (is (= 3 (funcall-store store)))))

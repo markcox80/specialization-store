@@ -108,34 +108,75 @@
         (setf runtime-discriminating-function runtime
               compile-time-discriminating-function compile-time)))))
 
-(defmethod initialize-instance :after ((instance standard-store) &key)
-  (setf (slot-value instance 'parameters) (parse-store-lambda-list (store-lambda-list instance)))
-  
-  (update-discriminating-functions instance)
-    
-  ;; Runtime Function
-  (with-slots (completion-function runtime-function) instance
-    (setf runtime-function (funcall completion-function
-                                    (lambda (&rest args)
-                                      (let* ((fn (runtime-discriminating-function instance))
-                                             (specialization (funcall fn args)))
-                                        (if specialization
-                                            (apply (specialization-function specialization) args)
-                                            (signal-no-applicable-specialization-error instance args)))))))
-  
-  ;; Compile Time Function  
-  (with-slots (form-type-completion-function compile-time-function) instance
-    (setf compile-time-function (if form-type-completion-function                                      
-                                    (funcall form-type-completion-function
-                                             (lambda (form env &rest arg-types)
-                                               (let* ((fn (compile-time-discriminating-function instance))
-                                                      (specialization (funcall fn arg-types)))
-                                                 (if specialization
-                                                     (funcall (specialization-expand-function specialization) form env)
-                                                     form))))
-                                    (lambda (form env &rest args)
-                                      (declare (ignore env args))
-                                      form)))))
+(defmethod shared-initialize :after ((instance standard-store) slot-names
+                                     &key
+                                       (lambda-list nil lambda-list-p)
+                                       (specializations nil specializationsp)
+                                       (completion-function nil completion-function-p)
+                                       (form-type-completion-function nil form-type-completion-function-p)
+                                       &allow-other-keys)
+  (labels ((initialise/runtime-function ()
+             (with-slots (runtime-function) instance
+               (setf runtime-function (funcall completion-function
+                                               (lambda (&rest args)
+                                                 (let* ((fn (runtime-discriminating-function instance))
+                                                        (specialization (funcall fn args)))
+                                                   (if specialization
+                                                       (apply (specialization-function specialization) args)
+                                                       (signal-no-applicable-specialization-error instance args))))))))
+           (initialise/compile-time-function ()
+             (with-slots (compile-time-function) instance
+               (setf compile-time-function (if form-type-completion-function                                      
+                                               (funcall form-type-completion-function
+                                                        (lambda (form env &rest arg-types)
+                                                          (let* ((fn (compile-time-discriminating-function instance))
+                                                                 (specialization (funcall fn arg-types)))
+                                                            (if specialization
+                                                                (funcall (specialization-expand-function specialization) form env)
+                                                                form))))
+                                               (lambda (form env &rest args)
+                                                 (declare (ignore env args))
+                                                 form))))))
+
+    (let* ((initialisingp (eql slot-names t))
+           (reinitialisingp (null slot-names)))
+      (when initialisingp
+        (unless (and lambda-list-p completion-function-p)
+          (error 'store-error
+                 :message (format nil "Store functions must be initialised with a lambda list and a completion function.")
+                 :store instance)))
+      
+      (when initialisingp
+        (with-slots (parameters) instance
+          (setf parameters (parse-store-lambda-list lambda-list))))
+      
+      (when (and lambda-list-p reinitialisingp)
+        (with-slots (parameters) instance
+          (let ((new-parameters (parse-store-lambda-list lambda-list)))
+            (unless (congruent-parameters-p parameters new-parameters)
+              (error 'store-error
+                     :message (format nil "New lambda list ~W is not congruent with the old lambda list ~W."
+                                      lambda-list
+                                      (store-lambda-list instance))
+                     :store instance))
+            (setf parameters new-parameters))))
+      
+      (when (or initialisingp completion-function-p)        
+        (initialise/runtime-function))
+
+      (when (or initialisingp form-type-completion-function-p)
+        (initialise/compile-time-function))
+
+      (when specializationsp
+        (dolist (specialization specializations)
+          (unless (congruent-parameters-p (store-parameters instance) (specialization-parameters specialization))
+            (error 'store-error
+                   :message (format nil "Specialization ~W is not congruent with store ~W."
+                                    specialization instance)
+                   :store instance))))
+
+      (when (or initialisingp specializationsp)
+        (update-discriminating-functions instance)))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
   (with-slots (runtime-function) store
