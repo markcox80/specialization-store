@@ -369,6 +369,7 @@
 (defgeneric specialization-parameters (congruence))
 
 ;;;; Congruence Operations
+(defgeneric congruent-parameters-p (parameters-a parameters-b))
 (defgeneric congruent-lambda-list-p (store-lambda-list specialization-lambda-list))
 
 ;;;; Congruence Class
@@ -386,6 +387,9 @@
   (congruent-lambda-list-p store-lambda-list (parse-specialization-lambda-list specialization-lambda-list)))
 
 (defmethod congruent-lambda-list-p ((store store-parameters) (specialization specialization-parameters))
+  (congruent-parameters-p store specialization))
+
+(defmethod congruent-parameters-p ((store store-parameters) (specialization specialization-parameters))
   (and (<= (+ (length (required-parameters store))
 	      (length (optional-parameters store)))
 	   (length (required-parameters specialization))
@@ -408,6 +412,21 @@
        (make-instance 'congruence
 		      :store-parameters store
 		      :specialization-parameters specialization)))
+
+(defmethod congruent-parameters-p ((store-a store-parameters) (store-b store-parameters))
+  (flet ((compare (test &rest functions)
+           (funcall test
+                    (reduce #'funcall functions :from-end t :initial-value store-a)
+                    (reduce #'funcall functions :from-end t :initial-value store-b))))
+    (and (compare #'= #'length #'required-parameters)
+         (compare #'= #'length #'optional-parameters)
+         (compare #'eql #'not #'rest-parameter)
+         (compare #'eql #'not #'keyword-parameters-p)
+         (compare #'eql #'not #'allow-other-keys-p)
+         (alexandria:set-equal (keyword-parameters store-a) (keyword-parameters store-b)
+                               :test #'(lambda (a b)
+                                         ;; (keyword var init-form)
+                                         (eql (first a) (first b)))))))
 
 
 ;;;; Rewriting lexical functions as global functions
