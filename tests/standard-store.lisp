@@ -180,6 +180,24 @@
       (signals no-applicable-specialization-error (funcall-store store 1 "here"))
       (signals no-applicable-specialization-error (funcall-store store "blah")))))
 
+(test dispatch-function/key-with-null-type
+  (let* ((store (make-instance 'standard-store
+                               :lambda-list '(&key c)
+                               :completion-function (lambda (continuation)
+                                                      (lambda (&key c)
+                                                        (funcall continuation :c c))))))
+    (add-specialization store (make-instance 'standard-specialization
+                                             :lambda-list '(&key (c integer))
+                                             :function (lambda (&key c)
+                                                         (1+ c))))
+    (add-specialization store (make-instance 'standard-specialization
+                                             :lambda-list '(&key (c null))
+                                             :function (lambda (&key c)
+                                                         (declare (ignore c))
+                                                         'null)))
+    (is (= 2 (funcall-store store :c 1)))
+    (is (eql 'null (funcall-store store)))))
+
 (test store-reinitialisation
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(&optional a)
