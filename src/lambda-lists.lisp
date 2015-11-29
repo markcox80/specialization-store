@@ -354,40 +354,19 @@
 
 ;;;; Congruency
 ;;
-;; This section contains the code for establishing if a specialization
-;; lambda list is congruent with a store lambda list. The predicate
-;; congruent-lambda-list-p is responsible for this task. If a
-;; specialization lambda list is congruent with a store lambda list
-;; then an object of type CONGRUENCE is returned. Otherwise NIL.
+;; This section contains code for the following tasks:
 ;;
-;; The reason a object with the class CONGRUENCE is returned is that
-;; these objects are used to order the specializations.
+;; 1. Determining if a specialization lambda list is congruent with a
+;; store lambda list. This is needed when adding a specialization to a
+;; store function.
+;;
+;; 2. Determining if a store lambda list is congruent with a store
+;; lambda list. This is needed when reinitialising a store function.
+;;
+;; The generic function CONGRUENT-PARAMETERS-P provides an interface
+;; to the two cases. 
 
-;;;; Congruence Protocol
-
-(defgeneric store-parameters (congruence))
-(defgeneric specialization-parameters (congruence))
-
-;;;; Congruence Operations
-(defgeneric congruent-parameters-p (parameters-a parameters-b))
-(defgeneric congruent-lambda-list-p (store-lambda-list specialization-lambda-list))
-
-;;;; Congruence Class
-
-(defclass congruence ()
-  ((store-parameters :initarg :store-parameters
-		     :reader store-parameters)
-   (specialization-parameters :initarg :specialization-parameters
-			      :reader specialization-parameters)))
-
-(defmethod congruent-lambda-list-p ((store-lambda-list list) specialization-lambda-list)
-  (congruent-lambda-list-p (parse-store-lambda-list store-lambda-list) specialization-lambda-list))
-
-(defmethod congruent-lambda-list-p (store-lambda-list (specialization-lambda-list list))
-  (congruent-lambda-list-p store-lambda-list (parse-specialization-lambda-list specialization-lambda-list)))
-
-(defmethod congruent-lambda-list-p ((store store-parameters) (specialization specialization-parameters))
-  (congruent-parameters-p store specialization))
+(defgeneric congruent-parameters-p (store-parameters other-parameters))
 
 (defmethod congruent-parameters-p ((store store-parameters) (specialization specialization-parameters))
   (and (<= (+ (length (required-parameters store))
@@ -409,9 +388,7 @@
 			sp-key)))
 	     (t
 	      (not (keyword-parameters-p specialization))))
-       (make-instance 'congruence
-		      :store-parameters store
-		      :specialization-parameters specialization)))
+       t))
 
 (defmethod congruent-parameters-p ((store-a store-parameters) (store-b store-parameters))
   (flet ((compare (test &rest functions)
@@ -420,9 +397,10 @@
                     (reduce #'funcall functions :from-end t :initial-value store-b))))
     (and (compare #'= #'length #'required-parameters)
          (compare #'= #'length #'optional-parameters)
-         (compare #'eql #'not #'rest-parameter)
          (compare #'eql #'not #'keyword-parameters-p)
-         (compare #'eql #'not #'allow-other-keys-p)
+         (if (and (keyword-parameters-p store-a) (keyword-parameters-p store-b))
+             t
+             (compare #'eql #'not #'rest-parameter))
          (alexandria:set-equal (keyword-parameters store-a) (keyword-parameters store-b)
                                :test #'(lambda (a b)
                                          ;; (keyword var init-form)

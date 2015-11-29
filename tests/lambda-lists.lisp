@@ -187,11 +187,13 @@
 
 ;;;; Congruent Lambda lists
 
-(test congruent-lambda-list-p
+(test congruent-specialization-parameters
   (flet ((do-trial (expected store-lambda-list specialization-lambda-list)
-	   (let ((congruence (congruent-lambda-list-p store-lambda-list specialization-lambda-list)))
+	   (let* ((store-parameters (parse-store-lambda-list store-lambda-list))
+                  (specialization-parameters (parse-specialization-lambda-list specialization-lambda-list))
+                  (congruence (congruent-parameters-p store-parameters specialization-parameters)))
 	     (if expected
-		 (is (typep congruence 'congruence))
+		 (is-true congruence)
 		 (is-false congruence)))))
     (macrolet ((true (store-lambda-list specialization-lambda-list)
 		 `(do-trial t ',store-lambda-list ',specialization-lambda-list))
@@ -215,3 +217,71 @@
       (false (a &key c d) (a &key c))
       (false (a) (b &key))
       (false (a &key) (b)))))
+
+(test congruent-store-parameters
+  (flet ((do-trial (expected lambda-list-1 lambda-list-2)
+           (let* ((p1 (parse-store-lambda-list lambda-list-1))
+                  (p2 (parse-store-lambda-list lambda-list-2))
+                  (congruence-1 (congruent-parameters-p p1 p2))
+                  (congruence-2 (congruent-parameters-p p2 p1)))
+             (is (eql congruence-1 congruence-2) "The function ~W should be commutative with arguments ~W and ~W."
+                 'congruent-parameters-p lambda-list-1 lambda-list-2)
+             (if expected
+                 (is-true congruence-1 "Store lambda list ~W should not be congruent with ~W." lambda-list-1 lambda-list-2)
+                 (is-false congruence-1 "Store lambda list ~W should be congruent with ~W." lambda-list-1 lambda-list-2)))))
+    (macrolet ((true (lambda-list-1 lambda-list-2)
+                 `(do-trial t ',lambda-list-1 ',lambda-list-2))
+               (false (lambda-list-1 lambda-list-2)
+                 `(do-trial nil ',lambda-list-1 ',lambda-list-2)))
+      ;; Required
+      (true (a) (b))
+      (true (a b) (c d))
+      (false (a) ())
+      (false (a) (b c))
+      (false (a) (&optional b))
+      (false (a) (&rest args))
+      (false (a) (&key))
+      (false (a) (&key hey))
+      (false (a) (&key hey &allow-other-keys))
+
+      ;; Optional
+      (true (&optional a) (&optional b))
+      (true (&optional a b) (&optional b c))
+      (false (&optional c) ())
+      (false (&optional c) (a))
+      (false (&optional c) (a b))
+      (false (&optional c) (&rest args))
+      (false (&optional c) (&key))
+      (false (&optional c) (&key d))
+      (false (&optional c) (&key d &allow-other-keys))
+
+      ;; Rest
+      (true (&rest args) (&rest args))
+      (true (&rest args) (&rest others))
+      (false (&rest args) ())
+      (false (&rest args) (a))
+      (false (&rest args) (&optional a))
+      (false (&rest args) (&key c))
+      (false (&rest args) (&key c &allow-other-keys))
+
+      ;; Keys
+      (true (&key) (&key))
+      (true (&key) (&key &allow-other-keys))
+      (true (&key &allow-other-keys) (&key &allow-other-keys))
+      (true (&key c) (&key c))
+      (true (&key c) (&key ((:c d))))
+      (true (&rest args &key c) (&rest others &key c))
+      (true (&rest args &key c) (&key c))
+      (false (&key c) (a))
+      (false (&key c) (&optional a))
+      (false (&key c) (&rest args))
+      (false (&key c) (&key c d))
+      (false (&key c) (&key))
+      (false (&key c) (&key &allow-other-keys))
+
+      ;; Complex
+      (true (a b &optional c &rest args) (e f &optional g &rest others))
+      (true (a &optional b &rest args &key f) (z &optional y &rest others &key ((:f x))))
+      (false (a b &optional c &rest args) (e f &optional g &rest others &key &allow-other-keys))
+      (false (a b &optional c &rest args) (e f &optional g))
+      (false (a b &optional c &rest args) (e &optional g)))))
