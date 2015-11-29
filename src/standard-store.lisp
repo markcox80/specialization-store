@@ -465,10 +465,13 @@
 (defmethod predicate-code-for-object ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
          (keyword (parameter-keyword rule))
-         (type (parameter-type rule)))
-    `(typep (or (getf ,keywords-plist ,keyword)
-                (error "No keyword argument present for ~W." ,keyword))
-            ',type)))
+         (type (parameter-type rule))
+         (value (gensym "VALUE"))
+         (found? (gensym "FOUND?")))
+    `(multiple-value-bind (,value ,found?) (getf2 ,keywords-plist ,keyword)
+       (unless ,found?
+         (error "No keyword argument present for ~W." ,keyword))
+       (typep ,value ',type))))
 
 (defmethod predicate-code-for-object ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
   `(and ,@(loop
@@ -494,10 +497,13 @@
 (defmethod predicate-code-for-type ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
          (keyword (parameter-keyword rule))
-         (type (parameter-type rule)))
-    `(subtypep (or (getf ,keywords-plist ,keyword)
-                   (error "No keyword argument present for ~W." ,keyword))
-               ',type)))
+         (type (parameter-type rule))
+         (value (gensym "VALUE"))
+         (found? (gensym "FOUND?")))
+    `(multiple-value-bind (,value ,found?) (getf2 ,keywords-plist ,keyword)
+       (unless ,found?
+         (error "No keyword argument present for ~W." ,keyword))
+       (subtypep ,value ',type))))
 
 (defmethod predicate-code-for-type ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
   `(and ,@(loop
@@ -507,3 +513,10 @@
 (defmethod predicate-code-for-type ((rule constantly-rule) dispatch-tree-symbol)
   (declare (ignore dispatch-tree-symbol))
   (constantly-rule-value rule))
+
+(defun getf2 (plist indicator &optional default)
+  (loop
+     for arg on plist by #'cddr
+     when (eql (car arg) indicator)
+     return (values (cadr arg) t)
+     finally (return (values default nil))))
