@@ -191,7 +191,7 @@
     (funcall compile-time-function form env)))
 
 (defmethod add-specialization ((store standard-store) (specialization standard-specialization))
-  (unless (congruent-lambda-list-p (store-lambda-list store) (specialization-lambda-list specialization))
+  (unless (congruent-parameters-p (store-parameters store) (specialization-parameters specialization))
     (error 'store-error :store store :message (format nil "Specialization ~W is not congruent with store ~W."
                                                       specialization store)))
 
