@@ -202,6 +202,7 @@
       ;; Positional
       (true (a) (b))
       (false (a) ())
+      (false (a) (&rest args))
 
       (true (a &optional b) (b c))
       (false (a &optional b) (b))
@@ -213,6 +214,8 @@
       (true (a &optional b &key c) (a b &key c))
       (true (a &optional b &key c) (a b &key c d))
       (true (&key c) (&key ((:c d))))
+      (true (&key c) (&rest args &key c))
+      (true (&rest args &key c) (&key c))
       (false (a &key c d) (a &key d))
       (false (a &key c d) (a &key c))
       (false (a) (b &key))
