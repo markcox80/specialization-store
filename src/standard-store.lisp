@@ -101,9 +101,9 @@
       (destructuring-bind (runtime compile-time) (if (alexandria:emptyp specializations)
                                                      (list (lambda (&rest args)
                                                              (signal-no-applicable-specialization-error store args))
-                                                           (lambda (form env &rest args)
-                                                             (declare (ignore env args))
-                                                             form))
+                                                           (lambda (&rest args)
+                                                             (declare (ignore args))
+                                                             nil))
                                                      (compute-discriminating-functions store specializations))
         (setf runtime-discriminating-function runtime
               compile-time-discriminating-function compile-time)))))
@@ -131,9 +131,13 @@
                                                         (lambda (form env &rest arg-types)
                                                           (let* ((fn (compile-time-discriminating-function instance))
                                                                  (specialization (funcall fn arg-types)))
-                                                            (if specialization
-                                                                (funcall (specialization-expand-function specialization) form env)
-                                                                form))))
+                                                            (cond (specialization
+                                                                   (let* ((fn (specialization-expand-function specialization)))
+                                                                     (if fn
+                                                                         (funcall fn form env)
+                                                                         form)))
+                                                                  (t
+                                                                   form)))))
                                                (lambda (form env &rest args)
                                                  (declare (ignore env args))
                                                  form))))))

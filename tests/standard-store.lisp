@@ -93,18 +93,54 @@
       (is (= 1 (specialization-count store))))))
 
 (test invoking-store
-  (let* ((store (make-instance 'standard-store :lambda-list '(a) :completion-function (default-completion-function)))
+  (let* ((store (make-instance 'standard-store
+                               :lambda-list '(a)
+                               :completion-function (default-completion-function)
+                               :form-type-completion-function (lambda (continuation)
+                                                                (compiler-macro-lambda (&whole form a &environment env)
+                                                                  (funcall continuation form env
+                                                                           (determine-form-type a env))))))
          (specialization (make-instance 'standard-specialization
                                         :lambda-list '((a integer))
-                                        :function #'(lambda (c)                                                      
-                                                      (1+ c)))))
+                                        :function (lambda (c)
+                                                    (1+ c))
+                                        :expand-function (compiler-macro-lambda (a)
+                                                           `(1+ ,a))))
+         (specialization/no-expand-function (make-instance 'standard-specialization
+                                                           :lambda-list '((a integer))
+                                                           :function (lambda (c)
+                                                                       (1+ c)))))
     (signals error (funcall-store store))
+    (signals error (apply-store store nil))
+    (signals error (expand-store store '(test)))
+    
     (signals error (funcall-store store 1 2))
+    (signals error (apply-store store (list 1 2)))
+    (signals error (expand-store store '(test 1 2)))
+    
     (signals no-applicable-specialization-error (funcall-store store 1))
+    (signals no-applicable-specialization-error (apply-store store (list 1)))
+    (let ((form '(test 1)))
+      (is (eq form (expand-store store form))))
+    
     (add-specialization store specialization)
-    (= 2 (funcall-store store 1))
-    (= 3 (apply-store store (list 2)))
-    (signals no-applicable-specialization-error (funcall-store store 1d0))))
+    
+    (is (= 2 (funcall-store store 1)))
+    (is (= 3 (apply-store store (list 2))))
+    (is (equal `(1+ 2) (expand-store store '(test 2))))
+    
+    (signals no-applicable-specialization-error (funcall-store store 1d0))
+    (signals no-applicable-specialization-error (apply-store store (list 1d0)))
+    (let ((form '(test 1d0)))
+      (is (eq form (expand-store store form))))
+
+    ;; Replace current specialization with one that has no expand
+    ;; function.
+    (add-specialization store specialization/no-expand-function)
+    (is (= 2 (funcall-store store 1)))
+    (is (= 2 (apply-store store (list 1))))
+    (let ((form '(test 1)))
+      (is (eq form (expand-store store form))))))
 
 (test dispatch-function/basic
   (let* ((store (make-instance 'standard-store
