@@ -540,18 +540,18 @@
          (allow-other-keys (allow-other-keys-p parameters))
          (continuation (gensym "CONTINUATION")))
     (cond
-      ((and keywordsp allow-other-keys)
+      (keywordsp
        (let* ((rest (or rest (gensym "REST")))
-              (lambda-list `(,@required &optional ,@optional &rest ,rest &key ,@keywords &allow-other-keys)))
-         `(lambda ,continuation
+              (aok-lambda-list (when allow-other-keys
+                                 (list '&allow-other-keys)))
+              (keyword-lambda-list (loop
+                                      for (keyword var init-form) in keywords
+                                      collect (list (list keyword var) init-form)))
+              (lambda-list `(,@required &optional ,@optional &rest ,rest &key ,@keyword-lambda-list ,@aok-lambda-list)))
+         `(lambda (,continuation)
             (declare (type function ,continuation))
             (lambda ,lambda-list
               (apply ,continuation ,@positional-vars ,@keyword-vars ,rest)))))
-      (keywords
-       `(lambda (,continuation)
-          (declare (type function ,continuation))
-          (lambda ,original-lambda-list
-            (funcall ,continuation ,@positional-vars ,@keyword-vars))))
       (rest
        `(lambda (,continuation)
           (declare (type function ,continuation))

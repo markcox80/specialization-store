@@ -288,3 +288,64 @@
       (false (a b &optional c &rest args) (e f &optional g &rest others &key &allow-other-keys))
       (false (a b &optional c &rest args) (e f &optional g))
       (false (a b &optional c &rest args) (e &optional g)))))
+
+
+;;;; Conversions
+
+(test make-runtime-completion-lambda-form
+  (flet ((init-b ()
+           1)
+         (init-c ()
+           2))
+    (macrolet ((def (store-lambda-list)
+                 (make-runtime-completion-lambda-form (parse-store-lambda-list store-lambda-list))))
+      ;; keywords and allow-other-keys
+      (let ((fn (funcall (def (a &optional (b (init-b)) &key (c (init-c)) &allow-other-keys))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1 :c 2) (funcall fn 0)))
+        (is (equal '(0 2 :c 2 :d 5) (funcall fn 0 2 :d 5)))
+        (is (equal '(0 2 :c 4 :d 8 :c 4) (funcall fn 0 2 :d 8 :c 4)))
+        (signals error (funcall fn)))
+
+      ;; keywords
+      (let ((fn (funcall (def (a &optional (b (init-b)) &key (c (init-c))))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1 :c 2) (funcall fn 0)))
+        (is (equal '(0 2 :c 4 :c 4) (funcall fn 0 2 :c 4)))
+        (is (equal '(0 2 :c 2 :d 5 :allow-other-keys t) (funcall fn 0 2 :d 5 :allow-other-keys t)))
+        (signals error (funcall fn 0 2 :d 5)))
+
+      ;; Rest
+      (let ((fn (funcall (def (a &optional (b (init-b)) &rest args))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1) (funcall fn 0)))
+        (is (equal '(0 1) (funcall fn 0 1)))
+        (is (equal '(0 1 2) (funcall fn 0 1 2)))
+        (signals error (funcall fn)))
+
+      ;; Positional
+      (let ((fn (funcall (def (a &optional (b (init-b)) (c (init-c))))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1 2) (funcall fn 0)))
+        (is (equal '(0 2 2) (funcall fn 0 2)))
+        (is (equal '(0 2 4) (funcall fn 0 2 4)))
+        (signals error (funcall fn)))
+
+      ;; Dependents
+      (let ((fn (funcall (def (a &optional (b (init-b)) (c b)))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1 1) (funcall fn 0)))
+        (is (equal '(0 2 2) (funcall fn 0 2)))
+        (is (equal '(0 2 4) (funcall fn 0 2 4))))
+
+      (let ((fn (funcall (def (a &optional (b (init-b)) &key (c b)))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(0 1 :c 1) (funcall fn 0)))
+        (is (equal '(0 2 :c 2) (funcall fn 0 2)))
+        (is (equal '(0 2 :c 4 :c 4) (funcall fn 0 2 :c 4)))))))
