@@ -573,15 +573,15 @@
          (optional-lambda-list (loop
                                   for (var init-form) in optional
                                   for suppliedp in optional-supplied-p
-                                  for init-form-type = (specialization-store:determine-form-type init-form environment)
+                                  for init-form-type = (specialization-store:determine-form-value-type init-form environment)
                                   collect `(,var ',init-form-type ,suppliedp)))
          (positional-vars (append (loop
                                      for var in required
-                                     collect `(specialization-store:determine-form-type ,var ,lambda-environment))
+                                     collect `(specialization-store:determine-form-value-type ,var ,lambda-environment))
                                   (loop
                                      for (var init-form suppliedp-var) in optional-lambda-list
                                      collect `(if ,suppliedp-var
-                                                  (specialization-store:determine-form-type ,var ,lambda-environment)
+                                                  (specialization-store:determine-form-value-type ,var ,lambda-environment)
                                                   ,var))))
          (positional-lambda-list (append required `(&optional ,@optional-lambda-list)))
          (rest (rest-parameter parameters))
@@ -591,13 +591,13 @@
          (keywords-lambda-list (loop
                                   for (keyword var init-form) in keywords
                                   for suppliedp in keywords-supplied-p
-                                  for init-form-type = (specialization-store:determine-form-type init-form environment)
+                                  for init-form-type = (specialization-store:determine-form-value-type init-form environment)
                                   collect `((,keyword ,var) ',init-form-type ,suppliedp)))
          (keywords-vars (loop
                            for ((keyword var) init-form suppliedp) in keywords-lambda-list
-                           collect `(if ,suppliedp
-                                        (specialization-store:determine-form-type ,var ,lambda-environment)
-                                        ,var)))
+                           append (list keyword `(if ,suppliedp
+                                                     (specialization-store:determine-form-value-type ,var ,lambda-environment)
+                                                     ,var))))
          (allow-other-keys (allow-other-keys-p parameters)))
     (cond
       ((and keywordsp allow-other-keys)
@@ -618,7 +618,7 @@
             (lambda (,lambda-form ,lambda-environment ,@lambda-list)
               (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars
                      (mapcar #'(lambda (form)
-                                 (specialization-store:determine-form-type form ,lambda-environment))
+                                 (specialization-store:determine-form-value-type form ,lambda-environment))
                              ,rest))))))
       (t
        `(lambda (,continuation)

@@ -99,7 +99,7 @@
                                :form-type-completion-function (lambda (continuation)
                                                                 (compiler-macro-lambda (&whole form a &environment env)
                                                                   (funcall continuation form env
-                                                                           (determine-form-type a env))))))
+                                                                           (determine-form-value-type a env))))))
          (specialization (make-instance 'standard-specialization
                                         :lambda-list '((a integer))
                                         :function (lambda (c)
