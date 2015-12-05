@@ -5,7 +5,7 @@
   the function. The dispatching process required at run-time can be
   avoided provided that sufficient information is available at compile
   time."
-  :depends-on ("introspect-environment")
+  :depends-on ("specialization-store-features" "introspect-environment")
   :serial t
   :components ((:module "src"
 			:serial t
