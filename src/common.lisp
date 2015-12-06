@@ -20,14 +20,19 @@
       ((symbolp form)
        (or (introspect-environment:variable-type form env)
 	   '*))
+      #+specialization-store.features:function-declarations
       ((and form (listp form))
        (multiple-value-bind (operator local? declarations) (introspect-environment:function-information (first form) env)
          (declare (ignore local?))         
-         (when (member operator '(:function :special-operator))
-           (let ((ftype (cdr (assoc 'ftype declarations))))
-             (if (and (listp ftype) (eql 'function (first ftype)) (third ftype))
-                 (third ftype)
-                 '*)))))
+         (if (member operator '(:function :special-operator))
+             (let ((ftype (cdr (assoc 'ftype declarations))))
+               (if (and (listp ftype) (eql 'function (first ftype)) (third ftype))
+                   (third ftype)
+                   '*))
+             '*)))
+      #-specialization-store.features:function-declarations
+      ((and form (listp form))
+       '*)
       (t
        (error "Do not know how to process form.")))))
 

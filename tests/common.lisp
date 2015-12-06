@@ -8,9 +8,13 @@
 #+specialization-store.features:function-declarations
 (test determine-form-multiple-value-type    
   (flet ((local-function (a)
-           (concatenate 'string "Hello" a)))
+           (concatenate 'string "Hello" a))
+         (imperative (a)
+           (declare (ignore a))
+           (values)))    
     (declare (ftype (function (string) string) local-function)
-             (ignorable (function local-function)))
+             (ftype (function (integer) (values)) imperative)
+             (ignorable (function local-function) (function imperative)))
     (symbol-macrolet ((my-symbol (local-function 1)))
       ;; Macrolet has to be here in order for the environment to capture
       ;; the flet and symbol macrolet.
@@ -24,12 +28,23 @@
         (let ((result (compute (local-function "Hello"))))
           (is (or (equal 'string result)
                   (equal '(values string) result)
-                  (equal '(values string &rest t) result))))
+                  (equal '(values string &rest t) result)
+                  (equal 'base-string result)
+                  (equal '(values base-string) result)
+                  (equal '(values base-string &rest t) result))))
+        (let ((result (compute (imperative 1))))
+          (is (or (equal '* result)
+                  (equal 't result)
+                  (equal '(values) result)
+                  (equal '(values &rest t) result))))        
         ;; Symbol macrolet
         (let ((result (compute my-symbol)))
           (is (or (equal 'string result)
                   (equal '(values string) result)
-                  (equal '(values string &rest t) result))))
+                  (equal '(values string &rest t) result)
+                  (equal 'base-string result)
+                  (equal '(values base-string) result)
+                  (equal '(values base-string &rest t) result))))
         ;; Non existent function
         (is (equal '* (compute (non-existent-function 1 2 3))))))))
 
@@ -37,6 +52,7 @@
   (flet ((local-function (a)
              (concatenate 'string "Hello" a))
          (imperative (a)
+           (declare (ignore a))
            (values)))
     (declare (ftype (function (string) string) local-function)
              (ftype (function (integer) (values)) imperative)
@@ -64,13 +80,17 @@
         (is (equal (type-of "Blah blah") (compute my-symbol)))
 
         ;; Functions
-        (let ((result (compute (global-function 1))))
-          (is (equal 'integer result)))
+        #+specialization-store.features:function-declarations
+        (progn
+          (let ((result (compute (global-function 1))))
+            (is (equal 'integer result)))
 
-        (let ((result (compute (local-function "Hello"))))
-          (is (equal 'string result)))
+          (let ((result (compute (local-function "Hello"))))
+            (is (or (equal 'string result)
+                    (equal 'base-string result))))
 
-        (let ((result (compute (imperative 1))))
-          (is (equal 't result)))
+          (let ((result (compute (imperative 1))))
+            (is (or (equal 't result)
+                    (equal 'null result))))
 
-        (is (equal 't (compute (non-existent-function 1 2 3))))))))
+          (is (equal 't (compute (non-existent-function 1 2 3)))))))))
