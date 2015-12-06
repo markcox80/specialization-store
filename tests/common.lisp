@@ -6,7 +6,7 @@
   (values (+ a 1) (+ a 2)))
 
 #+specialization-store.features:function-declarations
-(test determine-form-multiple-value-type    
+(test determine-form-multiple-value-type/with-function-declarations-feature  
   (flet ((local-function (a)
            (concatenate 'string "Hello" a))
          (imperative (a)
@@ -47,6 +47,27 @@
                   (equal '(values base-string &rest t) result))))
         ;; Non existent function
         (is (equal '* (compute (non-existent-function 1 2 3))))))))
+
+#-specialization-store.features:function-declarations
+(test determine-form-multiple-value-type/without-function-declarations-feature
+  (flet ((local-function (a)
+           (concatenate 'string "Hello string"))
+         (imperative (a)
+           (values)))
+    (declare (ftype (function (string) string) local-function)
+             (ftype (function (integer) (values)) imperative)
+             (ignorable (function local-function) (function imperative)))
+    (symbol-macrolet ((my-symbol (local-function 1)))
+      (macrolet ((compute (form &environment environment)
+                   `(quote ,(determine-form-multiple-value-type form environment))))
+        (is (equal '* (compute (global-function 1))))
+        ;; Local Functions
+        (is (equal '* (compute (local-function "Hello"))))
+        (is (equal '* (compute (imperative 1))))
+        ;; Symbol macrolet
+        (is (equal '* (compute my-symbol)))
+        ;; Non existent function
+        (is (equal '* (compute (non-existent-function 1 2))))))))
 
 (test determine-form-value-type
   (flet ((local-function (a)
@@ -93,4 +114,11 @@
             (is (or (equal 't result)
                     (equal 'null result))))
 
-          (is (equal 't (compute (non-existent-function 1 2 3)))))))))
+          (is (equal 't (compute (non-existent-function 1 2 3)))))
+
+        #-specialization-store.features:function-declarations
+        (progn
+          (is (equal t (compute (global-function 1))))
+          (is (equal t (compute (local-function "Hello"))))
+          (is (equal t (compute (imperative 1))))
+          (is (equal t (compute (non-existent-function 1 2 3)))))))))
