@@ -6,6 +6,7 @@
   :components ((:module "tests"
 			:serial t
 			:components ((:file "packages")
-				     (:file "asdf")
+                                     (:file "common")
 				     (:file "lambda-lists")
-                                     (:file "standard-store")))))
+                                     (:file "standard-store")
+                                     (:file "asdf")))))
