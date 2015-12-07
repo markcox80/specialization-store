@@ -568,59 +568,77 @@
          (lambda-form (gensym "FORM"))
          (lambda-environment (gensym "ENVIRONMENT"))
          (required (required-parameters parameters))
-         (optional (optional-parameters parameters))
-         (optional-supplied-p (alexandria:make-gensym-list (length optional)))
-         (optional-lambda-list (loop
-                                  for (var init-form) in optional
-                                  for suppliedp in optional-supplied-p
-                                  for init-form-type = (specialization-store:determine-form-value-type init-form environment)
-                                  collect `(,var ',init-form-type ,suppliedp)))
-         (positional-vars (append (loop
-                                     for var in required
-                                     collect `(specialization-store:determine-form-value-type ,var ,lambda-environment))
-                                  (loop
-                                     for (var init-form suppliedp-var) in optional-lambda-list
-                                     collect `(if ,suppliedp-var
-                                                  (specialization-store:determine-form-value-type ,var ,lambda-environment)
-                                                  ,var))))
-         (positional-lambda-list (append required `(&optional ,@optional-lambda-list)))
-         (rest (rest-parameter parameters))
+         (optional (loop
+                      for (var init-form) in (optional-parameters parameters)
+                      collect (list var init-form (gensym "SUPPLIEDP"))))
          (keywordsp (keyword-parameters-p parameters))
-         (keywords (keyword-parameters parameters))
-         (keywords-supplied-p (alexandria:make-gensym-list (length keywords)))
-         (keywords-lambda-list (loop
-                                  for (keyword var init-form) in keywords
-                                  for suppliedp in keywords-supplied-p
-                                  for init-form-type = (specialization-store:determine-form-value-type init-form environment)
-                                  collect `((,keyword ,var) ',init-form-type ,suppliedp)))
-         (keywords-vars (loop
-                           for ((keyword var) init-form suppliedp) in keywords-lambda-list
-                           append (list keyword `(if ,suppliedp
-                                                     (specialization-store:determine-form-value-type ,var ,lambda-environment)
-                                                     ,var))))
-         (allow-other-keys (allow-other-keys-p parameters)))
+         (keywords (loop
+                      for (keyword var init-form) in (keyword-parameters parameters)
+                      collect (list keyword var init-form (gensym "SUPPLIEDP"))))
+         (allow-other-keys (allow-other-keys-p parameters))
+         (required-lambda-list required)
+         (required-let* (loop
+                           for var in required
+                           collect `(,var (determine-form-value-type ,var ,lambda-environment))))
+         (required-vars required)
+         (optional-lambda-list (cons '&optional
+                                     (loop
+                                        for (var nil supplied-p) in optional
+                                        collect (list var nil supplied-p))))
+         (optional-let* (loop
+                           with lexical-vars = (reverse required)
+                           for (var init-form suppliedp) in optional
+                           collect (list var `(if ,suppliedp
+                                                  (determine-form-value-type ,var ,lambda-environment)
+                                                  ,(if (find init-form lexical-vars)
+                                                       init-form
+                                                       `(quote ,(determine-form-value-type init-form environment)))))
+                           do
+                             (push var lexical-vars)))
+         (optional-vars (mapcar #'first optional))
+         (rest (rest-parameter parameters))
+         (keyword-lambda-list (append (list '&key)
+                                      (loop
+                                         for (keyword var init-form suppliedp) in keywords
+                                         collect `((,keyword ,var) nil ,suppliedp))
+                                      (when allow-other-keys
+                                        (list '&allow-other-keys))))
+         (keyword-let* (loop
+                          with lexical-vars = (reverse (append required-vars optional-vars))
+                          for (nil var init-form suppliedp) in keywords
+                          collect (list var `(if ,suppliedp
+                                                 (determine-form-value-type ,var ,lambda-environment)
+                                                 ,(if (find init-form lexical-vars)
+                                                      init-form
+                                                      `(quote ,(determine-form-value-type init-form environment)))))
+                          do
+                            (push var lexical-vars)))
+         (keyword-vars (loop
+                          for (keyword var) in keywords
+                          append (list keyword var)))
+         (keyword-keywords (mapcar #'first keywords))
+         (positional-lambda-list (append required-lambda-list optional-lambda-list))
+         (positional-let* (append required-let* optional-let*))
+         (positional-vars (append required-vars optional-vars)))
     (cond
-      ((and keywordsp allow-other-keys)
-       (let* ((rest (or rest (gensym "REST")))
-              (lambda-list `(,@positional-lambda-list &rest ,rest &key ,@keywords-lambda-list &allow-other-keys)))
-         `(lambda (,continuation)
-            (lambda (,lambda-form ,lambda-environment ,@lambda-list)
-              (alexandria:remove-from-plistf ,rest ,@(mapcar #'first keywords))
-              (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars ,@keywords-vars ,rest)))))
       (keywordsp
-       (let* ((lambda-list `(,@positional-lambda-list &key ,@keywords-lambda-list)))
+       (let ((rest (or rest (gensym "REST"))))
          `(lambda (,continuation)
-            (lambda (,lambda-form ,lambda-environment ,@lambda-list)
-              (funcall ,continuation ,lambda-form ,lambda-environment ,@positional-vars ,@keywords-vars)))))
+            (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list &rest ,rest ,@keyword-lambda-list)
+              (alexandria:delete-from-plistf ,rest ,@keyword-keywords)
+              (let* (,@positional-let* ,@keyword-let*)
+                (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars ,@keyword-vars ,rest))))))
       (rest
-       (let* ((lambda-list `(,@positional-lambda-list &rest ,rest)))
+       (let ((form (gensym "FORM")))
          `(lambda (,continuation)
-            (lambda (,lambda-form ,lambda-environment ,@lambda-list)
-              (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars
-                     (mapcar #'(lambda (form)
-                                 (specialization-store:determine-form-value-type form ,lambda-environment))
-                             ,rest))))))
+            (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list &rest ,rest)
+              (let* ,positional-let*
+                (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars
+                       (loop
+                          for ,form in ,rest
+                          collect (determine-form-value-type ,form ,lambda-environment))))))))
       (t
        `(lambda (,continuation)
           (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list)
-            (funcall ,continuation ,lambda-form ,lambda-environment ,@positional-vars)))))))
+            (let* ,positional-let*
+              (funcall ,continuation ,lambda-form ,lambda-environment ,@positional-vars))))))))

@@ -50,6 +50,8 @@
 
 (defpackage "SPECIALIZATION-STORE.LAMBDA-LISTS"
   (:use "COMMON-LISP")
+  (:import-from "SPECIALIZATION-STORE"
+                "DETERMINE-FORM-VALUE-TYPE")
   
   ;; Parameters Protocol
   (:export "PARAMETERS"
