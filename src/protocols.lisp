@@ -209,7 +209,8 @@
     (declare (ignore inline))
     (alexandria:remove-from-plistf args :name)
     (multiple-value-bind (body declarations doc-string) (alexandria:parse-body body :documentation t)
-      (let* ((store-parameters (specialization-store.lambda-lists:parse-store-lambda-list (store-lambda-list store-name)))
+      (let* ((store (find-store store-name))
+             (store-parameters (specialization-store.lambda-lists:parse-store-lambda-list (store-lambda-list store)))
 	     (specialization-parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
 	`(define-specialization ,store-name ,specialized-lambda-list
 	   (:function (lambda ,(specialization-store.lambda-lists:ordinary-lambda-list store-parameters specialization-parameters)
