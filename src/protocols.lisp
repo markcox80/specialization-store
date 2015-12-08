@@ -12,8 +12,7 @@
 (define-condition no-store-with-name-error (cell-error)
   ()
   (:report (lambda (condition stream)
-	     (with-slots (name) condition
-	       (format stream "No store exists with name ~A" name)))))
+             (format stream "No store exists with name ~W." (cell-error-name condition)))))
 
 (define-condition no-applicable-specialization-error (store-error)
   ((store :initarg :store)
