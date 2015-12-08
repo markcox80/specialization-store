@@ -581,10 +581,11 @@
                            for var in required
                            collect `(,var (determine-form-value-type ,var ,lambda-environment))))
          (required-vars required)
-         (optional-lambda-list (cons '&optional
-                                     (loop
-                                        for (var nil supplied-p) in optional
-                                        collect (list var nil supplied-p))))
+         (optional-lambda-list (when optional
+                                 (cons '&optional
+                                       (loop
+                                          for (var nil supplied-p) in optional
+                                          collect (list var nil supplied-p)))))
          (optional-let* (loop
                            with lexical-vars = (reverse required)
                            for (var init-form suppliedp) in optional
@@ -599,7 +600,7 @@
          (rest (rest-parameter parameters))
          (keyword-lambda-list (append (list '&key)
                                       (loop
-                                         for (keyword var init-form suppliedp) in keywords
+                                         for (keyword var nil suppliedp) in keywords
                                          collect `((,keyword ,var) nil ,suppliedp))
                                       (when allow-other-keys
                                         (list '&allow-other-keys))))
