@@ -302,7 +302,7 @@
 		      (t
 		       function))))
       `(eval-when (:compile-toplevel :load-toplevel :execute)
-	 (ensure-specialization ',store-name ,specialized-lambda-list ,function
+	 (ensure-specialization ',store-name ',specialized-lambda-list ,function
 				:expand-function ,expand-function
 				:name ',name
 				,@(mapcan #'(lambda (item)
