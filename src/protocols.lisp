@@ -139,6 +139,7 @@
          (store (apply #'ensure-store-using-class
                        current-store name store-lambda-list completion-function form-type-completion-function
                        args)))
+    (setf (find-store name) store)
     store))
 
 (defun make-store-unbound (name)
