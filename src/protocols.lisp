@@ -288,9 +288,9 @@
 			      (function-form->inlined-expand-function function))
 			     ((and (null expand-function) name)			      
 			      `(compiler-macro-lambda (&rest args)
-				 (append (list 'funcall (list 'function ',name))
-					 args)))
-			     (expand-function
+                                 (append (list ',name)
+                                         args)))
+			     ((and expand-function (null inline))
 			      expand-function)
 			     ((and (null expand-function) (null inline))
 			      nil)
