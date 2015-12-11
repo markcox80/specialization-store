@@ -385,7 +385,7 @@
 	      keyword specialization-parameters)
       (destructuring-bind (keyword var var-type supplied-p-var) keyword-parameter
 	(declare (ignore keyword var supplied-p-var))
-	(subtypep var-type type)))))
+	(subtypep (or var-type t) type)))))
 
 (defmethod evaluate-rule ((rule conjoined-dispatch-rule) (specialization-parameters specialization-parameters))
   (loop
