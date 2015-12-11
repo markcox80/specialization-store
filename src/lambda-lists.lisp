@@ -480,10 +480,12 @@
           (let* ((new-lambda-list (append required
                                           (when optional
                                             `(&optional ,@optional-data))
+                                          (when rest
+                                            `(&rest ,rest))
                                           (when keywordsp
-                                            `(&key ,@ (loop
-                                                         for (key var init-form) in keyword-data
-                                                         collect `((,key ,var) ,init-form))))
+                                            `(&key ,@(loop
+                                                        for (key var init-form) in keyword-data
+                                                        collect `((,key ,var) ,init-form))))
                                           (when allow-other-keys?
                                             '(&allow-other-keys))))
                  (global-functions (append optional-definitions keyword-definitions))
@@ -505,13 +507,13 @@
 	  (when (rest-parameter specialization-parameters)
 	    `(&rest ,(rest-parameter specialization-parameters)))
 	  (when (keyword-parameters-p specialization-parameters)
-	    `(&key ,(loop
-		       with store-keyword-parameters = (keyword-parameters store-parameters)
-		       for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
-		       for init-form = (if (find keyword store-keyword-parameters :key #'first)
-					   nil
-					   form)
-		       collect `((,keyword ,var) ,init-form ,supplied-p-var))))
+	    `(&key ,@(loop
+                        with store-keyword-parameters = (keyword-parameters store-parameters)
+                        for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
+                        for init-form = (if (find keyword store-keyword-parameters :key #'first)
+                                            nil
+                                            form)
+                        collect `((,keyword ,var) ,init-form ,supplied-p-var))))
 	  (when (allow-other-keys-p specialization-parameters)
 	    `(&allow-other-keys))))
 
