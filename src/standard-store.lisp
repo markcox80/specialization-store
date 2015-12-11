@@ -229,7 +229,7 @@
                (assert match nil "Unable to find keyword argument specification ~W in specialization ~W." keyword specialization)))
       (and (compare #'= #'length #'required-parameters)
            (compare #'= #'length #'optional-parameters)
-           (compare #'eql #'rest-parameter)
+           (compare #'eql #'null #'rest-parameter)
            (compare #'eql #'keyword-parameters-p)
            (loop
               for (nil type-a) in (required-parameters parameters-a)
