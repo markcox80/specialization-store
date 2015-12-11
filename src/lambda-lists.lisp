@@ -535,9 +535,10 @@
 	  (when (allow-other-keys-p specialization-parameters)
 	    `(&allow-other-keys))))
 
-(defmethod type-declarations (store-parameters specialization-parameters)
+(defmethod type-declarations ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (loop
 	     for (var type) in (required-parameters specialization-parameters)
+             unless (eql type t)
 	     collect `(type ,type ,var))
 	  (loop
 	     with store-keyword-parameters = (keyword-parameters store-parameters)

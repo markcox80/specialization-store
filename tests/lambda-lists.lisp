@@ -326,6 +326,20 @@
       (trial (&key a) (&key (a integer a-p)) (&key (a nil a-p)))
       (trial (&key a &allow-other-keys) (&key (a integer) (b t b-p)) (&key a (b t b-p))))))
 
+(test type-declarations
+  (flet ((do-trial (store specialization expected)
+           (let* ((store-parameters (parse-store-lambda-list store))
+                  (specialization-parameters (parse-specialization-lambda-list specialization)))
+             (is (equal expected (type-declarations store-parameters specialization-parameters))))))
+    (macrolet ((trial (store specialization expected)
+                 `(do-trial ',store ',specialization ',expected)))
+      (trial (a) (a) ())
+      (trial (a) ((a integer)) ((type integer a)))
+      (trial (a b) ((a integer) b) ((type integer a)))
+      (trial (&key a &allow-other-keys) (&key a) ())
+      (trial (&key a &allow-other-keys) (&key (a integer)) ((type integer a)))
+      (trial (&key a &allow-other-keys) (&key (a integer a-p) (b t b-p)) ((type integer a) (type (eql T) a-p))))))
+
 (test make-runtime-completion-lambda-form
   (flet ((init-b ()
            1)
