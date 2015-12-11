@@ -79,6 +79,19 @@
       (add '(&key (a t)))
       (is (= 1 (specialization-count store))))))
 
+(test add-specialization/keywords/allow-other-keys
+  (let* ((store (make-instance 'standard-store :lambda-list '(&key a) :completion-function (default-completion-function))))
+    (flet ((add (specialized-lambda-list)
+             (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
+               (add-specialization store s)
+               s))
+           (specialization-count (store)
+             (length (store-specializations store))))
+      (add '(&key a))
+      (is (= 1 (specialization-count store)))
+      (add '(&key (a t) b))
+      (is (= 1 (specialization-count store))))))
+
 (test add-specialization/positional
   (let* ((store (make-instance 'standard-store :lambda-list '(a) :completion-function (default-completion-function))))
     (flet ((add (specialized-lambda-list)
@@ -91,6 +104,21 @@
       (is (= 1 (specialization-count store)))
       (add '((a t)))
       (is (= 1 (specialization-count store))))))
+
+(test add-specialization/rest
+  (let* ((store (make-instance 'standard-store :lambda-list '(a &rest args) :completion-function (default-completion-function))))
+    (flet ((add (specialized-lambda-list)
+             (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
+               (add-specialization store s)
+               s))
+           (specialization-count (store)
+             (length (store-specializations store))))
+      (add '(a &rest args))
+      (is (= 1 (specialization-count store)))
+      (add '(a &rest others))
+      (is (= 1 (specialization-count store)))
+      (add '(a b))
+      (is (= 2 (specialization-count store))))))
 
 (test invoking-store
   (let* ((store (make-instance 'standard-store
