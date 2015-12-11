@@ -527,7 +527,10 @@
 	     with store-keyword-parameters = (keyword-parameters store-parameters)
 	     for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
 	     when (find keyword store-keyword-parameters :key #'first)
-	     append `((type ,form ,var) (type (eql t) ,supplied-p-var)))))
+	     append (append (when form
+                              `((type ,form ,var)))
+                            (when supplied-p-var
+                              `((type (eql t) ,supplied-p-var)))))))
 
 (defmethod make-runtime-completion-lambda-form ((parameters store-parameters))
   (let* ((original-lambda-list (original-lambda-list parameters))
