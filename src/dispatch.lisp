@@ -188,7 +188,9 @@
 				     with sp-keys = (keyword-parameters specialization-parameters)
 				     for (st-keyword nil) in (keyword-parameters store-parameters)
 				     for (keyword nil type nil) = (find st-keyword sp-keys :key #'first)
-                                     unless (or (null type) (eql type t))
+                                     if (or (null type) (eql type t))
+                                     collect parameter-count-rule
+                                     else
 				     collect (conjoin-dispatch-rules parameter-count-rule
                                                                      (make-keyword-parameter-type-rule keyword type))))))
     parameter-rules))
