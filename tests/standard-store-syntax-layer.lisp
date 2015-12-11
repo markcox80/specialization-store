@@ -5,7 +5,7 @@
 
 (syntax-layer-test basic
   (defstore example (a))
-
+  
   (defspecialization example ((a (integer 0)))
     (1+ a))
 
@@ -14,9 +14,27 @@
 
   (test basic
     (is (=  1 (example 0)))
-    (is (= -2 (example -1)))))
+    (is (= -2 (example -1)))
+    (signals no-applicable-specialization-error (example "Hey"))))
 
-(syntax-layer-test lexical-environment
+(syntax-layer-test basic/rest
+  (defstore example (a &rest args))
+
+  (defspecialization example ((a (integer 0)))
+    (1+ a))
+
+  (defspecialization example ((a (integer 0)) (b (integer 0)))
+    (+ a b))
+
+  (test basic/rest
+    (is (= 1 (example 0)))
+    (is (= 4 (example 1 3)))
+    (signals no-applicable-specialization-error (example -1))
+    (signals no-applicable-specialization-error (example 0 -1))
+    (signals no-applicable-specialization-error (example -1 0))
+    (signals no-applicable-specialization-error (example 0 1 2))))
+
+(syntax-layer-test lexical-environment/optional
   (flet ((init-a ()
            5))
     (defstore example (&optional (a (init-a)) (b a))))
@@ -32,6 +50,23 @@
   (test lexical-environment
     (is (eql 'integer-integer (example)))
     (is (eql 't-t (example "Hey")))))
+
+(syntax-layer-test lexical-environment/keywords
+  (flet ((init-a ()
+           5))
+    (defstore example (&key (a (init-a)) (b a))))
+
+  (defspecialization example (&key (a integer) (b integer))
+    (declare (ignore a b))
+    'integer-integer)  
+
+  (defspecialization example (&key a b)
+    (declare (ignore a b))
+    't-t)
+
+  (test lexical-environment
+    (is (eql 'integer-integer (example)))
+    (is (eql 't-t (example :a "Hey")))))
 
 (syntax-layer-test redefinition
   (defstore example (a))
