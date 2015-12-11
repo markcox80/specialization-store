@@ -207,6 +207,7 @@
       (true (a &optional b) (b c))
       (false (a &optional b) (b))
 
+      (true (a &rest args) (a))
       (true (a &rest args) (a b))
       (true (a &rest args) (a &optional b))
 
