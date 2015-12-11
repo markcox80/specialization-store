@@ -182,15 +182,15 @@
                                      if (eql type t)
                                      collect parameter-count-rule
                                      else
-				     collect (conjoin-dispatch-rules (make-positional-parameter-type-rule position type)
-								     parameter-count-rule))                                  
+				     collect (conjoin-dispatch-rules parameter-count-rule
+                                                                     (make-positional-parameter-type-rule position type)))                                  
 				  (loop
 				     with sp-keys = (keyword-parameters specialization-parameters)
 				     for (st-keyword nil) in (keyword-parameters store-parameters)
 				     for (keyword nil type nil) = (find st-keyword sp-keys :key #'first)
                                      unless (or (null type) (eql type t))
-				     collect (conjoin-dispatch-rules (make-keyword-parameter-type-rule keyword type)
-								     parameter-count-rule)))))
+				     collect (conjoin-dispatch-rules parameter-count-rule
+                                                                     (make-keyword-parameter-type-rule keyword type))))))
     parameter-rules))
 
 ;;;; Training
