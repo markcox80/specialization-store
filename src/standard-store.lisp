@@ -440,7 +440,7 @@
         ((zerop maximum-required-count)
          `(lambda ()
             (lambda (,all-arguments)
-              (let* ((,argument-count 0)
+              (let* ((,argument-count (length ,all-arguments))
                      (,keywords-plist ,all-arguments))
                 (declare (ignorable ,argument-count ,keywords-plist))
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
