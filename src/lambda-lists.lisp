@@ -513,7 +513,9 @@
                         for init-form = (if (find keyword store-keyword-parameters :key #'first)
                                             nil
                                             form)
-                        collect `((,keyword ,var) ,init-form ,supplied-p-var))))
+                        collect (if supplied-p-var
+                                    `((,keyword ,var) ,init-form ,supplied-p-var)
+                                    `((,keyword ,var) ,init-form)))))
 	  (when (allow-other-keys-p specialization-parameters)
 	    `(&allow-other-keys))))
 
