@@ -295,6 +295,37 @@
 
 ;;;; Conversions
 
+(test ordinary-lambda-list
+  (flet ((do-trial (store specialization expected)
+           (let* ((store-parameters (parse-store-lambda-list store))
+                  (specialization-parameters (parse-specialization-lambda-list specialization)))
+             (is (equal expected (ordinary-lambda-list store-parameters specialization-parameterS))))))
+    (macrolet ((trial (store specialization expected)
+                 `(do-trial ',store ',specialization ',expected)))
+      ;; Required
+      (trial (a) (a) (a))
+      (trial (a) ((a integer)) (a))
+      (trial (a b) ((a integer) b) (a b))
+      (trial (a b) (a (b integer)) (a b))
+      ;; Optional
+      (trial (a &optional b) (a b) (a b))
+      (trial (a &optional b) ((a integer) b) (a b))
+      (trial (a &optional b) (a (b integer)) (a b))
+      (trial (a &optional (b t)) (a (b integer)) (a b))
+      ;; Rest
+      (trial (&rest args) (a) (a))
+      (trial (&rest args) (a &optional b) (a &optional b))
+      (trial (&rest args) (a &optional (b t b-p)) (a &optional (b t b-p)))
+      (trial (a &rest args) (a b) (a b))
+      (trial (a &optional b &rest args) ((a integer) (b integer) &optional c) (a b &optional c))
+      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t)) (a b &optional (c t)))
+      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t c-p)) (a b &optional (c t c-p)))
+      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t) &rest args) (a b &optional (c t) &rest args))
+      ;; Keywords
+      (trial (&key a &allow-other-keys) (&key (a integer) &allow-other-keys) (&key a &allow-other-keys))
+      (trial (&key a) (&key (a integer a-p)) (&key (a nil a-p)))
+      (trial (&key a &allow-other-keys) (&key (a integer) (b t b-p)) (&key a (b t b-p))))))
+
 (test make-runtime-completion-lambda-form
   (flet ((init-b ()
            1)
