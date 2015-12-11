@@ -206,10 +206,12 @@
 
       (true (a &optional b) (b c))
       (false (a &optional b) (b))
+      (false (a &optional b) (a &optional b))
 
       (true (a &rest args) (a))
       (true (a &rest args) (a b))
       (true (a &rest args) (a &optional b))
+      (false (a &rest args) ())
 
       ;; Keys
       (true (a &optional b &key c) (a b &key c))
