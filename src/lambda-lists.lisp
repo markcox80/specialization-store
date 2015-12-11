@@ -503,7 +503,15 @@
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
-	  (optional-parameters specialization-parameters)
+          (when (optional-parameters specialization-parameters)
+            `(&optional ,@(loop
+                             for (var init-form supplied-p-var) in (optional-parameters specialization-parameters)
+                             collect (cond (supplied-p-var
+                                            `(,var ,init-form ,supplied-p-var))
+                                           (init-form
+                                            `(,var ,init-form))
+                                           (t
+                                            var)))))
 	  (when (rest-parameter specialization-parameters)
 	    `(&rest ,(rest-parameter specialization-parameters)))
 	  (when (keyword-parameters-p specialization-parameters)
@@ -513,9 +521,17 @@
                         for init-form = (if (find keyword store-keyword-parameters :key #'first)
                                             nil
                                             form)
-                        collect (if supplied-p-var
-                                    `((,keyword ,var) ,init-form ,supplied-p-var)
-                                    `((,keyword ,var) ,init-form)))))
+                        for first-form = (if (equal (symbol-name keyword) (symbol-name var))
+                                             var
+                                             `(,keyword ,var))
+                        collect (cond (supplied-p-var
+                                       `(,first-form ,init-form ,supplied-p-var))
+                                      (init-form
+                                       `(,first-form ,init-form))
+                                      ((atom first-form)
+                                       first-form)
+                                      (t
+                                       (list first-form))))))
 	  (when (allow-other-keys-p specialization-parameters)
 	    `(&allow-other-keys))))
 
