@@ -77,6 +77,17 @@
   (list (parameter-count-lower-bound rule)
         (parameter-count-upper-bound rule)))
 
+;;;; Fixed parameter count rule
+(defgeneric parameter-count (dispatch-rule))
+
+(defclass fixed-parameter-count-rule (dispatch-rule)
+  ((count :initarg :count
+          :reader parameter-count)))
+
+(defmethod print-object ((object fixed-parameter-count-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (parameter-count object) :stream stream)))
+
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
 (defgeneric parameter-type (dispatch-rule))
@@ -136,6 +147,9 @@
 ;;;; Constructors
 (defun make-parameter-count-bound-rule (lower-bound upper-bound)
   (make-instance 'parameter-count-bound-rule :lower-bound lower-bound :upper-bound upper-bound))
+
+(defun make-fixed-parameter-count-rule (count)
+  (make-instance 'fixed-parameter-count-rule :count count))
 
 (defun make-positional-parameter-type-rule (position type)
   (make-instance 'positional-parameter-type-rule :position position :type type))
@@ -370,13 +384,22 @@
 	(specialization-parameters-upper-bound specialization-parameters)
 	upper-bound)))
 
+(defmethod evaluate-rule ((rule fixed-parameter-count-rule) (specialization-parameters specialization-parameters))
+  (= (parameter-count rule)
+     (specialization-parameters-lower-bound specialization-parameters)
+     (specialization-parameters-upper-bound specialization-parameters)))
+
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule
     (let ((required-parameter (nth position (required-parameters specialization-parameters))))
-      (when required-parameter
-	(destructuring-bind (var var-type) required-parameter
-	  (declare (ignore var))
-	  (subtypep var-type type))))))
+      (cond ((and (rest-parameter specialization-parameters)
+                  (null (keyword-parameters specialization-parameters))
+                  (null required-parameter))
+             (subtypep t type))
+            (required-parameter
+             (destructuring-bind (var var-type) required-parameter
+               (declare (ignore var))
+               (subtypep var-type type)))))))
 
 (defmethod evaluate-rule ((rule keyword-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (keyword type) rule

@@ -476,11 +476,16 @@
     (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
       `(<= ,lower ,symbol ,upper))))
 
+(defmethod predicate-code-for-object ((rule fixed-parameter-count-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    `(= ,(parameter-count rule) ,argument-count)))
+
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
-  (with-slots (positional-arguments) dispatch-tree-symbols
+  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
-      `(typep (elt ,positional-arguments ,position) ',type))))
+      `(and (< ,position ,argument-count)
+            (typep (elt ,positional-arguments ,position) ',type)))))
 
 (defmethod predicate-code-for-object ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
@@ -508,11 +513,17 @@
     (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
       `(<= ,lower ,symbol ,upper))))
 
+(defmethod predicate-code-for-type ((rule fixed-parameter-count-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    `(= ,(parameter-count rule) ,argument-count)))
+
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
-  (with-slots (positional-arguments) dispatch-tree-symbols
+  (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
-      `(subtypep (elt ,positional-arguments ,position) ',type))))
+      `(and (< ,position ,argument-count)
+            (subtypep (elt ,positional-arguments ,position)
+                      ',type)))))
 
 (defmethod predicate-code-for-type ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
