@@ -117,7 +117,7 @@
       (is (= 1 (specialization-count store)))
       (add '(a &rest others))
       (is (= 1 (specialization-count store)))
-      (add '(a b))
+      (add '(a (b integer)))
       (is (= 2 (specialization-count store))))))
 
 (test invoking-store
