@@ -52,6 +52,9 @@
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
+    (let ((name (store-name object)))
+      (when name
+        (format stream "~W " name)))
     (princ (store-lambda-list object) stream)))
 
 (defgeneric specialization-parameters (standard-specialization))
