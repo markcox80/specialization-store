@@ -189,24 +189,18 @@
 (defun dispatch-rules-for-specialization-parameters (store-parameters specialization-parameters)
   (let* ((lower-bound (specialization-parameters-lower-bound specialization-parameters))
 	 (upper-bound (specialization-parameters-upper-bound specialization-parameters))
-	 (parameter-count-rule (make-parameter-count-bound-rule lower-bound upper-bound))
-	 (parameter-rules (append (loop
-				     for (nil type) in (required-parameters specialization-parameters)
+	 (parameter-rules (append (when (= lower-bound upper-bound)
+                                    (list (make-fixed-parameter-count-rule lower-bound)))
+                                  (loop
+                                     for (nil type) in (required-parameters specialization-parameters)
 				     for position from 0
-                                     if (eql type t)
-                                     collect parameter-count-rule
-                                     else
-				     collect (conjoin-dispatch-rules parameter-count-rule
-                                                                     (make-positional-parameter-type-rule position type)))                                  
+				     collect (make-positional-parameter-type-rule position type))                                  
 				  (loop
 				     with sp-keys = (keyword-parameters specialization-parameters)
 				     for (st-keyword nil) in (keyword-parameters store-parameters)
 				     for (keyword nil type nil) = (find st-keyword sp-keys :key #'first)
-                                     if (or (null type) (eql type t))
-                                     collect parameter-count-rule
-                                     else
-				     collect (conjoin-dispatch-rules parameter-count-rule
-                                                                     (make-keyword-parameter-type-rule keyword type))))))
+                                     unless (or (null type) (eql type t))
+				     collect (make-keyword-parameter-type-rule keyword type)))))
     parameter-rules))
 
 ;;;; Training
@@ -219,7 +213,10 @@
 (defmethod print-object ((object data) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (all-specialization-parameters) object
-      (format stream "~d specialization~:P" (length all-specialization-parameters)))))
+      (let ((length (length all-specialization-parameters)))
+        (format stream "~d specialization~:P" length)
+        (when (= 1 length)
+          (format stream " ~W" (original-lambda-list (first all-specialization-parameters))))))))
 
 (defun make-data (store-parameters all-specialization-parameters weights)
   (make-instance 'data
