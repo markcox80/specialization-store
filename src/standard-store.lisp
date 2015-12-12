@@ -437,12 +437,15 @@
                                            (length (optional-parameters store-parameters)))
                                         maximum-required-count)
                                      0))
-         (symbols (make-instance 'dispatch-tree-symbols)))
+         (symbols (make-instance 'dispatch-tree-symbols))
+         (lambda-name (ecase lambda-form-type
+                        (:types 'compiled-dispatch-tree-for-form-types)
+                        (:objects 'compiled-dispatch-tree-for-objects))))
     (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
       (cond
         ((zerop maximum-required-count)
          `(lambda ()
-            (lambda (,all-arguments)
+            (alexandria:named-lambda ,lambda-name (,all-arguments)
               (let* ((,argument-count (length ,all-arguments))
                      (,keywords-plist ,all-arguments))
                 (declare (ignorable ,argument-count ,keywords-plist))
@@ -451,7 +454,7 @@
          (let ((arg (gensym "ARG"))
                (index (gensym "INDEX")))
            `(lambda ()
-              (lambda (,all-arguments)
+              (alexandria:named-lambda ,lambda-name (,all-arguments)
                 (let* ((,argument-count 0)
                        (,keywords-plist nil)
                        (,positional-arguments (make-array ,maximum-required-count)))
