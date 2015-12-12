@@ -131,3 +131,21 @@
                                      (:function (lambda (a) (1+ a)))
                                      (:expand-function (compiler-macro-lambda (a) `(1- ,a)))
                                     (:inline t))))))
+
+(syntax-layer-test example/rest
+  (defstore example (object &rest args))
+
+  (defspecialization example ((object list) index)
+    (elt object index))
+
+  (defspecialization example ((object simple-vector) index)
+    (1+ (elt object index)))
+  
+  (defspecialization example ((object array) &rest args)
+    (apply #'aref object args))
+
+  (test example/rest
+    (let ((v1 (make-array 6 :initial-element 1d0 :element-type 'double-float))
+          (v2 (make-list 6 :initial-element 1)))
+      (is (= 1d0 (example v1 0)))
+      (is (= 1 (example v2 0))))))
