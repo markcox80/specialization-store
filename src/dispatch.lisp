@@ -382,9 +382,9 @@
 	upper-bound)))
 
 (defmethod evaluate-rule ((rule fixed-parameter-count-rule) (specialization-parameters specialization-parameters))
-  (= (parameter-count rule)
-     (specialization-parameters-lower-bound specialization-parameters)
-     (specialization-parameters-upper-bound specialization-parameters)))
+  (<= (specialization-parameters-lower-bound specialization-parameters)
+      (parameter-count rule)
+      (specialization-parameters-upper-bound specialization-parameters)))
 
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule
