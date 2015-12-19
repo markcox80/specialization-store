@@ -394,7 +394,14 @@
 (defun dispatch-tree-to-lambda-form/build (store-parameters specializations dispatch-tree code-function dispatch-tree-symbols)
   (check-type dispatch-tree node)
   (check-type dispatch-tree-symbols dispatch-tree-symbols)
-  (labels ((process (node knowledge specializations)
+  (labels ((if-code (test-form then-form else-form)
+             (cond ((constantp test-form)
+                    (if (introspect-environment:constant-form-value test-form)
+                        then-form
+                        else-form))
+                   (t
+                    (list 'if test-form then-form else-form))))
+           (process (node knowledge specializations)
              (assert (not (alexandria:emptyp specializations)))
              (cond
                ((leafp node)
@@ -402,10 +409,11 @@
                 (let* ((specialization-parameters (specialization-parameters (first specializations)))
                        (conjoined-rule (make-conjoined-dispatch-rule
                                         (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters)))
-                       (rule (remove-rule-tautologies conjoined-rule knowledge)))
-                  `(if ,(funcall code-function rule dispatch-tree-symbols)
-                       ,(first specializations)
-                       nil)))
+                       (rule (remove-rule-tautologies conjoined-rule knowledge))
+                       (test-form (funcall code-function rule dispatch-tree-symbols))
+                       (then-form (first specializations))
+                       (else-form nil))
+                  (if-code test-form then-form else-form)))
                (t
                 (loop
                    with rule = (node-value node)
@@ -417,10 +425,9 @@
                    else
                    collect specialization into right-specializations
                    finally
-                     (return (list 'if
-                                   (funcall code-function rule dispatch-tree-symbols)
-                                   (process (node-left node) (cons rule knowledge) left-specializations)
-                                   (process (node-right node) knowledge right-specializations))))))))
+                     (return (if-code (funcall code-function rule dispatch-tree-symbols)
+                                      (process (node-left node) (cons rule knowledge) left-specializations)
+                                      (process (node-right node) knowledge right-specializations))))))))
     (process dispatch-tree nil specializations)))
 
 (deftype lambda-parameter-count ()
