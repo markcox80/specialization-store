@@ -57,37 +57,6 @@
 (defclass dispatch-rule (rule)
   ())
 
-;;;; Parameter Count Bound Rule
-(defgeneric parameter-count-upper-bound (dispatch-rule))
-(defgeneric parameter-count-lower-bound (dispatch-rule))
-(defgeneric parameter-count-bound (dispatch-rule))
-
-(defclass parameter-count-bound-rule (dispatch-rule)
-  ((lower-bound :initarg :lower-bound
-                :reader parameter-count-lower-bound)
-   (upper-bound :initarg :upper-bound
-                :reader parameter-count-upper-bound)))
-
-(defmethod print-object ((object parameter-count-bound-rule) stream)
-  (print-unreadable-object (object stream :type t :identity t)
-    (with-slots (lower-bound upper-bound) object
-      (format stream "[~W, ~W]" lower-bound upper-bound))))
-
-(defmethod parameter-count-bound ((rule parameter-count-bound-rule))
-  (list (parameter-count-lower-bound rule)
-        (parameter-count-upper-bound rule)))
-
-;;;; Fixed parameter count rule
-(defgeneric parameter-count (dispatch-rule))
-
-(defclass fixed-parameter-count-rule (dispatch-rule)
-  ((count :initarg :count
-          :reader parameter-count)))
-
-(defmethod print-object ((object fixed-parameter-count-rule) stream)
-  (print-unreadable-object (object stream :type t :identity t)
-    (write (parameter-count object) :stream stream)))
-
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
 (defgeneric parameter-type (dispatch-rule))
@@ -145,12 +114,6 @@
       (write value :stream stream))))
 
 ;;;; Constructors
-(defun make-parameter-count-bound-rule (lower-bound upper-bound)
-  (make-instance 'parameter-count-bound-rule :lower-bound lower-bound :upper-bound upper-bound))
-
-(defun make-fixed-parameter-count-rule (count)
-  (make-instance 'fixed-parameter-count-rule :count count))
-
 (defun make-positional-parameter-type-rule (position type)
   (make-instance 'positional-parameter-type-rule :position position :type type))
 
@@ -189,9 +152,7 @@
 (defun dispatch-rules-for-specialization-parameters (store-parameters specialization-parameters)
   (let* ((lower-bound (specialization-parameters-lower-bound specialization-parameters))
 	 (upper-bound (specialization-parameters-upper-bound specialization-parameters))
-	 (parameter-rules (append (when (= lower-bound upper-bound)
-                                    (list (make-fixed-parameter-count-rule lower-bound)))
-                                  (loop
+	 (parameter-rules (append (loop
                                      for (nil type) in (required-parameters specialization-parameters)
 				     for position from 0
 				     collect (make-positional-parameter-type-rule position type))                                  
@@ -359,10 +320,6 @@
 (defmethod rule-equal ((rule-a t) (rule-b t))
   nil)
 
-(defmethod rule-equal ((rule-a parameter-count-bound-rule) (rule-b parameter-count-bound-rule))
-  (and (compare-slot-values 'lower-bound #'= rule-a rule-b)
-       (compare-slot-values 'upper-bound #'= rule-a rule-b)))
-
 (defmethod rule-equal ((rule-a positional-parameter-type-rule) (rule-b positional-parameter-type-rule))
   (and (compare-slot-values 'position #'= rule-a rule-b)
        (compare-slot-values 'type #'alexandria:type= rule-a rule-b)))
@@ -373,18 +330,6 @@
 
 (defmethod rule-equal ((rule-a conjoined-dispatch-rule) (rule-b conjoined-dispatch-rule))
   (every #'rule-equal (slot-value rule-a 'rules) (slot-value rule-b 'rules)))
-
-(defmethod evaluate-rule ((rule parameter-count-bound-rule) (specialization-parameters specialization-parameters))
-  (with-slots (lower-bound upper-bound) rule
-    (<= lower-bound
-	(specialization-parameters-lower-bound specialization-parameters)       
-	(specialization-parameters-upper-bound specialization-parameters)
-	upper-bound)))
-
-(defmethod evaluate-rule ((rule fixed-parameter-count-rule) (specialization-parameters specialization-parameters))
-  (<= (specialization-parameters-lower-bound specialization-parameters)
-      (parameter-count rule)
-      (specialization-parameters-upper-bound specialization-parameters)))
 
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule

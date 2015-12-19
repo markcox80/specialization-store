@@ -473,15 +473,6 @@
                   ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols))))))))))
 
 ;;;; Predicate code for object implementations
-(defmethod predicate-code-for-object ((rule parameter-count-bound-rule) dispatch-tree-symbols)
-  (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
-      `(<= ,lower ,symbol ,upper))))
-
-(defmethod predicate-code-for-object ((rule fixed-parameter-count-rule) dispatch-tree-symbols)
-  (with-slots (argument-count) dispatch-tree-symbols
-    `(= ,(parameter-count rule) ,argument-count)))
-
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
@@ -510,15 +501,6 @@
   (constantly-rule-value rule))
 
 ;;;; Predicate code for type implementations.
-(defmethod predicate-code-for-type ((rule parameter-count-bound-rule) dispatch-tree-symbols)
-  (destructuring-bind (lower upper) (parameter-count-bound rule)
-    (let ((symbol (slot-value dispatch-tree-symbols 'argument-count)))
-      `(<= ,lower ,symbol ,upper))))
-
-(defmethod predicate-code-for-type ((rule fixed-parameter-count-rule) dispatch-tree-symbols)
-  (with-slots (argument-count) dispatch-tree-symbols
-    `(= ,(parameter-count rule) ,argument-count)))
-
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
