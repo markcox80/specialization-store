@@ -1,1 +1,6 @@
 doc/specialization-store.html
+doc/proof.aux
+doc/proof.fdb_latexmk
+doc/proof.fls
+doc/proof.log
+doc/proof.pdf
