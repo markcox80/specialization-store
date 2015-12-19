@@ -290,7 +290,8 @@
                                         :function function
                                         :expand-function expand-function)))    
     (when name
-      (setf (fdefinition name) function))
+      (setf (fdefinition name) function
+            (compiler-macro-function name) nil))
     (when (and name expand-function)
       (setf (compiler-macro-function name) (lambda (form env)
                                              (let ((rv (funcall expand-function form env)))
