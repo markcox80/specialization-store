@@ -6,6 +6,7 @@
   avoided provided that sufficient information is available at compile
   time."
   :depends-on ("specialization-store-features" "introspect-environment")
+  :license "Simplified BSD License variant"
   :serial t
   :components ((:module "src"
 			:serial t
