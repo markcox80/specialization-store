@@ -17,6 +17,7 @@
     (is (= -2 (example -1)))
     (signals no-applicable-specialization-error (example "Hey"))))
 
+#- (and)
 (syntax-layer-test basic/rest
   (defstore example (a &rest args))
 
@@ -132,6 +133,7 @@
                                      (:expand-function (compiler-macro-lambda (a) `(1- ,a)))
                                     (:inline t))))))
 
+#- (and)
 (syntax-layer-test example/rest
   (defstore example (object &rest args))
 

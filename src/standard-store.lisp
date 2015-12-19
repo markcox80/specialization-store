@@ -441,6 +441,8 @@
          (lambda-name (ecase lambda-form-type
                         (:types 'compiled-dispatch-tree-for-form-types)
                         (:objects 'compiled-dispatch-tree-for-objects))))
+    (when (and (not keywordsp) (rest-parameter store-parameters))
+      (error "Generating a dispatch tree for variable arity store functions has not been implemented yet."))
     (with-slots (all-arguments argument-count positional-arguments keywords-plist) symbols
       (cond
         ((zerop maximum-required-count)
