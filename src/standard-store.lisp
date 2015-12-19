@@ -423,6 +423,12 @@
                                    (process (node-right node) knowledge right-specializations))))))))
     (process dispatch-tree nil specializations)))
 
+(deftype lambda-parameter-count ()
+  `(integer 0 ,lambda-parameters-limit))
+
+(deftype lambda-parameter-index ()
+  `(integer 0 (,lambda-parameters-limit)))
+
 (defun dispatch-tree-to-lambda-form (store specializations dispatch-tree lambda-form-type)
   (check-type lambda-form-type (member :types :objects))
   (let* ((code-function (ecase lambda-form-type
@@ -451,7 +457,9 @@
             (alexandria:named-lambda ,lambda-name (,all-arguments)
               (let* ((,argument-count (length ,all-arguments))
                      (,keywords-plist ,all-arguments))
-                (declare (ignorable ,argument-count ,keywords-plist))
+                (declare (ignorable ,argument-count ,keywords-plist)
+                         (type lambda-parameter-count ,argument-count)
+                         (type list ,keywords-plist))
                 ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
         (t
          (let ((arg (gensym "ARG"))
@@ -461,10 +469,13 @@
                 (let* ((,argument-count 0)
                        (,keywords-plist nil)
                        (,positional-arguments (make-array ,maximum-required-count)))
-                  (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments))
+                  (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments)
+                           (type lambda-parameter-count ,argument-count)
+                           (type list ,keywords-plist)
+                           (type simple-vector ,positional-arguments))
                   (loop
                      for ,arg on ,all-arguments
-                     for ,index from 0 below ,maximum-required-count
+                     for ,index of-type lambda-parameter-index from 0 below ,maximum-required-count
                      do
                        (setf (aref ,positional-arguments ,index) (car ,arg))
                        (incf ,argument-count)
