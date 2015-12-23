@@ -9,6 +9,8 @@
   (right nil))
 
 (defun make-node (&optional value left right)
+  (check-type left (or null node))
+  (check-type right (or null node))
   (%make-node :left left :right right :value value))
 
 (defun leafp (node)
