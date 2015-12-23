@@ -150,19 +150,16 @@
 	(length (optional-parameters specialization-parameters))))))
 
 (defun dispatch-rules-for-specialization-parameters (store-parameters specialization-parameters)
-  (let* ((lower-bound (specialization-parameters-lower-bound specialization-parameters))
-	 (upper-bound (specialization-parameters-upper-bound specialization-parameters))
-	 (parameter-rules (append (loop
-                                     for (nil type) in (required-parameters specialization-parameters)
-				     for position from 0
-				     collect (make-positional-parameter-type-rule position type))                                  
-				  (loop
-				     with sp-keys = (keyword-parameters specialization-parameters)
-				     for (st-keyword nil) in (keyword-parameters store-parameters)
-				     for (keyword nil type nil) = (find st-keyword sp-keys :key #'first)
-                                     unless (or (null type) (eql type t))
-				     collect (make-keyword-parameter-type-rule keyword type)))))
-    parameter-rules))
+  (append (loop
+             for (nil type) in (required-parameters specialization-parameters)
+             for position from 0
+             collect (make-positional-parameter-type-rule position type))                                  
+          (loop
+             with sp-keys = (keyword-parameters specialization-parameters)
+             for (st-keyword nil) in (keyword-parameters store-parameters)
+             for (keyword nil type nil) = (find st-keyword sp-keys :key #'first)
+             unless (or (null type) (eql type t))
+             collect (make-keyword-parameter-type-rule keyword type))))
 
 ;;;; Training
 
