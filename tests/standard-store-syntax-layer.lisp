@@ -17,6 +17,37 @@
     (is (= -2 (example -1)))
     (signals no-applicable-specialization-error (example "Hey"))))
 
+(syntax-layer-test basic/2
+  (defstore example (a b c))
+
+  (defspecialization example (a (b float) (c (integer * (0))))
+    (declare (ignore a b c))
+    1)
+
+  (defspecialization example (a (b float) (c (integer 10)))
+    (declare (ignore a b c))
+    2)
+
+  (defspecialization example (a (b (integer * (0))) (c float))
+    (declare (ignore a b c))
+    3)
+
+  (defspecialization example (a (b (integer 10)) (c float))
+    (declare (ignore a b c))
+    4)  
+
+  (defspecialization example (a b c)
+    (declare (ignore a b c))
+    5)
+
+  (test basic/2
+    (is (= 1 (example 10 2d0 -1)))
+    (is (= 2 (example 10 2d0 10)))
+    (is (= 3 (example 10 -1 2d0)))
+    (is (= 4 (example 10 10 2d0)))
+    (is (= 5 (example 10 2d0 1)))
+    (is (= 5 (example 10 1 2d0)))))
+
 #- (and)
 (syntax-layer-test basic/rest
   (defstore example (a &rest args))
