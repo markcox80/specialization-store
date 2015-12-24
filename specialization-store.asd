@@ -14,6 +14,7 @@
 				     (:file "common")
 				     (:file "lambda-lists")
 				     (:file "dispatch")
+                                     (:file "dispatch-fixed-arity")
 				     (:file "protocols")
 				     (:file "standard-store"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))

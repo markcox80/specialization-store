@@ -391,7 +391,7 @@
 (defgeneric predicate-code-for-type (dispatch-rule dispatch-tree-symbols))
 (defgeneric predicate-code-for-object (dispatch-rule dispatch-tree-symbols))
 
-(defun dispatch-tree-to-lambda-form/build (store-parameters specializations dispatch-tree code-function dispatch-tree-symbols)
+(defun dispatch-tree-to-lambda-form/build (specializations dispatch-tree code-function dispatch-tree-symbols)
   (check-type dispatch-tree node)
   (check-type dispatch-tree-symbols dispatch-tree-symbols)
   (labels ((if-code (test-form then-form else-form)
@@ -402,18 +402,14 @@
                    (t
                     (list 'if test-form then-form else-form))))
            (process (node knowledge specializations)
-             (assert (not (alexandria:emptyp specializations)))
              (cond
+               ((null node)
+                nil)
+               ((alexandria:emptyp specializations)
+                nil)
                ((leafp node)
                 (assert (= 1 (length specializations)))
-                (let* ((specialization-parameters (specialization-parameters (first specializations)))
-                       (conjoined-rule (make-conjoined-dispatch-rule
-                                        (dispatch-rules-for-specialization-parameters store-parameters specialization-parameters)))
-                       (rule (remove-rule-tautologies conjoined-rule knowledge))
-                       (test-form (funcall code-function rule dispatch-tree-symbols))
-                       (then-form (first specializations))
-                       (else-form nil))
-                  (if-code test-form then-form else-form)))
+                (first specializations))
                (t
                 (loop
                    with rule = (node-value node)
@@ -467,7 +463,7 @@
                 (declare (ignorable ,argument-count ,keywords-plist)
                          (type lambda-parameter-count ,argument-count)
                          (type list ,keywords-plist))
-                ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols)))))
+                ,(dispatch-tree-to-lambda-form/build specializations dispatch-tree code-function symbols)))))
         (t
          (let ((arg (gensym "ARG"))
                (index (gensym "INDEX")))
