@@ -73,6 +73,16 @@
   (print-unreadable-object (object stream :type t :identity t)
     (format stream "~d" (argument-count object))))
 
+;;;; Consumes count arguments rule
+(defclass accepts-argument-count-rule ()
+  ((count :initarg :count
+          :reader argument-count))
+  (:documentation "Accepts count or more arguments?"))
+
+(defmethod print-object ((object accepts-argument-count-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "~d" (argument-count object))))
+
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
 (defgeneric parameter-type (dispatch-rule))
@@ -133,6 +143,10 @@
 (defun make-fixed-argument-count-rule (count)
   (check-type count lambda-parameter-count)
   (make-instance 'fixed-argument-count-rule :count count))
+
+(defun make-accepts-argument-count-rule (count)
+  (check-type count lambda-parameter-count)
+  (make-instance 'accepts-argument-count-rule :count count))
 
 (defun make-positional-parameter-type-rule (position type)
   (make-instance 'positional-parameter-type-rule :position position :type type))
@@ -257,6 +271,10 @@
   (= (argument-count rule)
      (specialization-parameters-lower-bound specialization-parameters)
      (specialization-parameters-upper-bound specialization-parameters)))
+
+(defmethod evaluate-rule ((rule accepts-argument-count-rule) (specialization-parameters specialization-parameters))
+  (<= (argument-count rule)
+      (specialization-parameters-upper-bound specialization-parameters)))
 
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule

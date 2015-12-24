@@ -494,6 +494,11 @@
     (let* ((rule-count (argument-count rule)))
       `(= ,argument-count ,rule-count))))
 
+(defmethod predicate-code-for-object ((rule accepts-argument-count-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    (let* ((rule-count (argument-count rule)))
+      `(<= ,rule-count ,argument-count))))
+
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
@@ -525,6 +530,11 @@
   (with-slots (argument-count) dispatch-tree-symbols
     (let* ((rule-count (argument-count rule)))
       `(= ,argument-count ,rule-count))))
+
+(defmethod predicate-code-for-type ((rule accepts-argument-count-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    (let* ((rule-count (argument-count rule)))
+      `(<= ,rule-count ,argument-count))))
 
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
