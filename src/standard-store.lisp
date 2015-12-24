@@ -489,15 +489,22 @@
                      finally
                        (setf ,keywords-plist (nthcdr ,keywords-position-diff ,arg)))
                   (incf ,argument-count (length ,keywords-plist))
-                  ,(dispatch-tree-to-lambda-form/build store-parameters specializations dispatch-tree code-function symbols))))))))))
+                  ,(dispatch-tree-to-lambda-form/build specializations dispatch-tree code-function symbols))))))))))
 
 ;;;; Predicate code for object implementations
+(defmethod predicate-code-for-object ((rule argument-count-bound-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    (let* ((lower-bound (argument-count-lower-bound rule))
+           (upper-bound (argument-count-upper-bound rule)))
+      (if (= lower-bound upper-bound)
+          `(= ,argument-count ,lower-bound)
+          `(<= ,lower-bound ,argument-count ,upper-bound)))))
+
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
-      `(and (< ,position ,argument-count)
-            (typep (elt ,positional-arguments ,position) ',type)))))
+      `(typep (elt ,positional-arguments ,position) ',type))))
 
 (defmethod predicate-code-for-object ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))
@@ -520,13 +527,20 @@
   (constantly-rule-value rule))
 
 ;;;; Predicate code for type implementations.
+(defmethod predicate-code-for-type ((rule argument-count-bound-rule) dispatch-tree-symbols)
+  (with-slots (argument-count) dispatch-tree-symbols
+    (let* ((lower-bound (argument-count-lower-bound rule))
+           (upper-bound (argument-count-upper-bound rule)))
+      (if (= lower-bound upper-bound)
+          `(= ,argument-count ,lower-bound)
+          `(<= ,lower-bound ,argument-count ,upper-bound)))))
+
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
     (let* ((position (parameter-position rule))
            (type (parameter-type rule)))
-      `(and (< ,position ,argument-count)
-            (subtypep (elt ,positional-arguments ,position)
-                      ',type)))))
+      `(subtypep (elt ,positional-arguments ,position)
+                 ',type))))
 
 (defmethod predicate-code-for-type ((rule keyword-parameter-type-rule) dispatch-tree-symbols)
   (let* ((keywords-plist (slot-value dispatch-tree-symbols 'keywords-plist))

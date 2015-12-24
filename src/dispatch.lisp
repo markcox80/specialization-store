@@ -59,6 +59,26 @@
 (defclass dispatch-rule (rule)
   ())
 
+;;;; Argument count bound rule
+(deftype lambda-parameter-count ()
+  `(integer 0 ,lambda-parameters-limit))
+
+(defgeneric argument-count-lower-bound (dispatch-rule))
+(defgeneric argument-count-upper-bound (dispatch-rule))
+
+(defclass argument-count-bound-rule (dispatch-rule)
+  ((lower-bound :initarg :lower-bound
+                :reader argument-count-lower-bound)
+   (upper-bound :initarg :upper-bound
+                :reader argument-count-upper-bound))
+  (:documentation "Ensure the argument count x is within the bounds l <= x <= u."))
+
+(defmethod print-object ((object argument-count-bound-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "~d ~d"
+            (argument-count-lower-bound object)
+            (argument-count-upper-bound object))))
+
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
 (defgeneric parameter-type (dispatch-rule))
@@ -116,6 +136,12 @@
       (write value :stream stream))))
 
 ;;;; Constructors
+(defun make-argument-count-bound-rule (lower-bound upper-bound)
+  (check-type lower-bound lambda-parameter-count)
+  (check-type upper-bound lambda-parameter-count)
+  (assert (<= lower-bound upper-bound))
+  (make-instance 'argument-count-bound-rule :lower-bound lower-bound :upper-bound upper-bound))
+
 (defun make-positional-parameter-type-rule (position type)
   (make-instance 'positional-parameter-type-rule :position position :type type))
 
@@ -329,6 +355,12 @@
 
 (defmethod rule-equal ((rule-a conjoined-dispatch-rule) (rule-b conjoined-dispatch-rule))
   (every #'rule-equal (slot-value rule-a 'rules) (slot-value rule-b 'rules)))
+
+(defmethod evaluate-rule ((rule argument-count-bound-rule) (specialization-parameters specialization-parameters))
+  (<= (specialization-parameters-lower-bound specialization-parameters)
+      (argument-count-lower-bound rule)
+      (specialization-parameters-upper-bound specialization-parameters)
+      (argument-count-upper-bound rule)))
 
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule
