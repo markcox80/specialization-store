@@ -473,6 +473,7 @@
                        (,keywords-plist nil)
                        (,positional-arguments (make-array ,maximum-required-count)))
                   (declare (ignorable ,argument-count ,keywords-plist ,positional-arguments)
+                           (dynamic-extent ,positional-arguments)
                            (type lambda-parameter-count ,argument-count)
                            (type list ,keywords-plist)
                            (type simple-vector ,positional-arguments))
