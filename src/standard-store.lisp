@@ -489,13 +489,10 @@
                   ,(dispatch-tree-to-lambda-form/build specializations dispatch-tree code-function symbols))))))))))
 
 ;;;; Predicate code for object implementations
-(defmethod predicate-code-for-object ((rule argument-count-bound-rule) dispatch-tree-symbols)
+(defmethod predicate-code-for-object ((rule fixed-argument-count-rule) dispatch-tree-symbols)
   (with-slots (argument-count) dispatch-tree-symbols
-    (let* ((lower-bound (argument-count-lower-bound rule))
-           (upper-bound (argument-count-upper-bound rule)))
-      (if (= lower-bound upper-bound)
-          `(= ,argument-count ,lower-bound)
-          `(<= ,lower-bound ,argument-count ,upper-bound)))))
+    (let* ((rule-count (argument-count rule)))
+      `(= ,argument-count ,rule-count))))
 
 (defmethod predicate-code-for-object ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols
@@ -524,13 +521,10 @@
   (constantly-rule-value rule))
 
 ;;;; Predicate code for type implementations.
-(defmethod predicate-code-for-type ((rule argument-count-bound-rule) dispatch-tree-symbols)
+(defmethod predicate-code-for-type ((rule fixed-argument-count-rule) dispatch-tree-symbols)
   (with-slots (argument-count) dispatch-tree-symbols
-    (let* ((lower-bound (argument-count-lower-bound rule))
-           (upper-bound (argument-count-upper-bound rule)))
-      (if (= lower-bound upper-bound)
-          `(= ,argument-count ,lower-bound)
-          `(<= ,lower-bound ,argument-count ,upper-bound)))))
+    (let* ((rule-count (argument-count rule)))
+      `(= ,argument-count ,rule-count))))
 
 (defmethod predicate-code-for-type ((rule positional-parameter-type-rule) dispatch-tree-symbols)
   (with-slots (positional-arguments argument-count) dispatch-tree-symbols

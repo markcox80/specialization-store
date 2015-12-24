@@ -58,25 +58,20 @@
 (defclass dispatch-rule (rule)
   ())
 
-;;;; Argument count bound rule
+;;;; Fixed argument count bound rule
 (deftype lambda-parameter-count ()
   `(integer 0 ,lambda-parameters-limit))
 
-(defgeneric argument-count-lower-bound (dispatch-rule))
-(defgeneric argument-count-upper-bound (dispatch-rule))
+(defgeneric argument-count (dispatch-rule))
 
-(defclass argument-count-bound-rule (dispatch-rule)
-  ((lower-bound :initarg :lower-bound
-                :reader argument-count-lower-bound)
-   (upper-bound :initarg :upper-bound
-                :reader argument-count-upper-bound))
-  (:documentation "Ensure the argument count x is within the bounds l <= x <= u."))
+(defclass fixed-argument-count-rule (dispatch-rule)
+  ((count :initarg :count
+          :reader argument-count))
+  (:documentation "Ensure the argument count x is equal to count."))
 
-(defmethod print-object ((object argument-count-bound-rule) stream)
+(defmethod print-object ((object fixed-argument-count-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
-    (format stream "~d ~d"
-            (argument-count-lower-bound object)
-            (argument-count-upper-bound object))))
+    (format stream "~d" (argument-count object))))
 
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
@@ -135,11 +130,9 @@
       (write value :stream stream))))
 
 ;;;; Constructors
-(defun make-argument-count-bound-rule (lower-bound upper-bound)
-  (check-type lower-bound lambda-parameter-count)
-  (check-type upper-bound lambda-parameter-count)
-  (assert (<= lower-bound upper-bound))
-  (make-instance 'argument-count-bound-rule :lower-bound lower-bound :upper-bound upper-bound))
+(defun make-fixed-argument-count-rule (count)
+  (check-type count lambda-parameter-count)
+  (make-instance 'fixed-argument-count-rule :count count))
 
 (defun make-positional-parameter-type-rule (position type)
   (make-instance 'positional-parameter-type-rule :position position :type type))
@@ -260,11 +253,10 @@
 (defmethod rule-equal ((rule-a conjoined-dispatch-rule) (rule-b conjoined-dispatch-rule))
   (every #'rule-equal (slot-value rule-a 'rules) (slot-value rule-b 'rules)))
 
-(defmethod evaluate-rule ((rule argument-count-bound-rule) (specialization-parameters specialization-parameters))
-  (<= (specialization-parameters-lower-bound specialization-parameters)
-      (argument-count-lower-bound rule)
-      (specialization-parameters-upper-bound specialization-parameters)
-      (argument-count-upper-bound rule)))
+(defmethod evaluate-rule ((rule fixed-argument-count-rule) (specialization-parameters specialization-parameters))
+  (= (argument-count rule)
+     (specialization-parameters-lower-bound specialization-parameters)
+     (specialization-parameters-upper-bound specialization-parameters)))
 
 (defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
   (with-slots (position type) rule
@@ -328,9 +320,9 @@
 (defmethod remove-rule-tautologies ((rule t) (known-rule conjoined-dispatch-rule))
   (remove-rule-tautologies rule (slot-value known-rule 'rules)))
 
-(defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule argument-count-bound-rule))
-  (let* ((upper-bound (argument-count-upper-bound known-rule))
-         (applicable? (<= (parameter-position rule) upper-bound)))
+(defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule fixed-argument-count-rule))
+  (let* ((count (argument-count known-rule))
+         (applicable? (< (parameter-position rule) count)))
     (cond ((and applicable? (alexandria:type= (parameter-type rule) t))
            (make-constantly-rule t))
           ((not applicable?)

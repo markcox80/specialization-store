@@ -137,7 +137,7 @@
                                   (t
                                    (make-constantly-rule nil)))))
            (tree (if (< arity lambda-parameters-limit)
-                     (make-node (make-argument-count-bound-rule arity arity)
+                     (make-node (make-fixed-argument-count-rule arity)
                                 node
                                 (make-node))
                      node)))
