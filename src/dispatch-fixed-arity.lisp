@@ -11,6 +11,12 @@
     :initarg :weight
     :reader set-specialization-weight)))
 
+(defmethod print-object ((object set-specialization) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "~W :weight ~W"
+            (set-specialization-parameters object)
+            (set-specialization-weight object))))
+
 (defun make-set-specialization (specialization-parameters weight)
   (make-instance 'set-specialization
                  :parameters specialization-parameters
@@ -29,6 +35,10 @@
    (set-specializations
     :initarg :set-specializations
     :reader set-specializations)))
+
+(defmethod print-object ((object set) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "~d specialization~:P" (length (set-specializations object)))))
 
 (defun make-set (store-parameters set-specializations)
   (make-instance 'set
