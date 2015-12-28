@@ -400,30 +400,24 @@
                         else-form))
                    (t
                     (list 'if test-form then-form else-form))))
-           (process (node knowledge specializations)
+           (process (node)
              (cond
                ((null node)
                 nil)
-               ((alexandria:emptyp specializations)
-                nil)
                ((leafp node)
-                (assert (= 1 (length specializations)))
-                (first specializations))
+                (when (node-value node)
+                  (let* ((specialization-parameters (node-value node))
+                         (specialization (find specialization-parameters specializations :key #'specialization-parameters)))
+                    (assert specialization nil "Unable to find specialization with specialization parameters ~W in ~W." specialization-parameters specializations)
+                    (check-type specialization-parameters specialization-parameters)
+                    specialization)))
                (t
-                (loop
-                   with rule = (node-value node)
-                   for specialization in specializations
-                   for specialization-parameters = (specialization-parameters specialization)
-                   for result = (evaluate-rule rule specialization-parameters)
-                   if result
-                   collect specialization into left-specializations
-                   else
-                   collect specialization into right-specializations
-                   finally
-                     (return (if-code (funcall code-function rule dispatch-tree-symbols)
-                                      (process (node-left node) (cons rule knowledge) left-specializations)
-                                      (process (node-right node) knowledge right-specializations))))))))
-    (process dispatch-tree nil specializations)))
+                (let ((rule (node-value node)))
+                  (check-type rule specialization-store.dispatch::rule)
+                  (if-code (funcall code-function rule dispatch-tree-symbols)
+                           (process (node-left node))
+                           (process (node-right node))))))))
+    (process dispatch-tree)))
 
 (deftype lambda-parameter-count ()
   `(integer 0 ,lambda-parameters-limit))
