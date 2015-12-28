@@ -90,8 +90,7 @@
   (let* ((store-parameters (parse-store-lambda-list (store-lambda-list store)))
          (all-specialization-parameters (loop
                                            for specialization in specializations
-                                           collect (parse-specialization-lambda-list
-                                                    (specialization-lambda-list specialization))))
+                                           collect (specialization-parameters specialization)))
          (weights (mapcar #'specialization-weight specializations))
          (dispatch-tree (make-dispatch-tree store-parameters all-specialization-parameters weights)))
     (list (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :objects)))
