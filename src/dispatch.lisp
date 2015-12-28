@@ -247,6 +247,20 @@
    (remove-dispatch-tree-tautologies
     (make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights))))
 
+(defun pretty-print-dispatch-tree (tree &optional (stream *standard-output*))
+  (cond ((null tree)
+         (princ nil stream))
+        ((leafp tree)
+         (princ (node-value tree) stream))
+        (t
+         (pprint-logical-block (stream nil :prefix "(if " :suffix ")")
+           (princ (node-value tree) stream)
+           (terpri stream)
+           (pprint-logical-block (stream nil :per-line-prefix "   ")
+             (pretty-print-dispatch-tree (node-left tree) stream)
+             (terpri stream)
+             (pretty-print-dispatch-tree (node-right tree) stream))))))
+
 ;;;; Rule Implementation
 (defun compare-slot-values (slot-name test-fn &rest objects)
   (apply test-fn (mapcar #'(lambda (object)
