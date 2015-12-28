@@ -361,3 +361,18 @@
            (make-constantly-rule nil))
           (t
            rule))))
+
+(defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule accepts-argument-count-rule))
+  (let* ((count (argument-count known-rule))
+         (applicable? (< (parameter-position rule) count)))
+    (cond ((and applicable? (alexandria:type= (parameter-type rule) t))
+           (make-constantly-rule t))
+          ((not applicable?)
+           (make-constantly-rule nil))
+          (t
+           rule))))
+
+(defmethod remove-rule-tautologies ((rule keyword-parameter-type-rule) known-rule)
+  (if (alexandria:type= t (parameter-type rule))
+      (make-constantly-rule t)
+      rule))
