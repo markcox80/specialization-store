@@ -193,10 +193,11 @@
        (not (keyword-parameters-p store-parameters))))
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters all-weights)
+  (declare (ignore all-weights))
   (cond ((null all-specialization-parameters)
          (make-constantly-rule nil))        
         ((fixed-arity-store-parameters-p store-parameters)
-         (specialization-store.dispatch.fixed-arity:make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights))
+         (specialization-store.dispatch.fixed-arity:make-initial-dispatch-tree store-parameters all-specialization-parameters))
         (t
          (error "Not implemented yet."))))
 
