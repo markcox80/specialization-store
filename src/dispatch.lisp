@@ -74,7 +74,7 @@
     (format stream "~d" (argument-count object))))
 
 ;;;; Consumes count arguments rule
-(defclass accepts-argument-count-rule ()
+(defclass accepts-argument-count-rule (dispatch-rule)
   ((count :initarg :count
           :reader argument-count))
   (:documentation "Accepts count or more arguments?"))
