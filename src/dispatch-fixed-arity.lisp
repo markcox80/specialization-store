@@ -133,7 +133,7 @@
                         always
                           (subtypep a-type b-type)))))))
 
-(defun build-tree (Z &optional (knowledge (make-knowledge (set-count Z))))
+(defun build-tree (Z &optional (knowledge (make-knowledge (set-arity Z))))
   (flet ((best-split (rules)
            (loop
               with maximum = most-negative-fixnum
