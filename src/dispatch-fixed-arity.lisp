@@ -133,7 +133,7 @@
                         always
                           (subtypep a-type b-type)))))))
 
-(defun build-tree (Z knowledge)
+(defun build-tree (Z &optional (knowledge (make-knowledge (set-count Z))))
   (flet ((best-split (rules)
            (loop
               with maximum = most-negative-fixnum
@@ -224,7 +224,7 @@
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
   (let* ((fixed-arity-specializations (map-to-problem store-parameters all-specialization-parameters))
          (set (make-set fixed-arity-specializations))
-         (fixed-arity-tree (build-tree set (make-knowledge (set-arity set))))
+         (fixed-arity-tree (build-tree set))
          (tree (map-from-problem store-parameters all-specialization-parameters fixed-arity-tree)))
     (cond ((keyword-parameters-p store-parameters)
            (make-node (make-accepts-argument-count-rule (+ (length (required-parameters store-parameters))
