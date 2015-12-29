@@ -204,15 +204,22 @@
          (error "Should not get here."))))
 
 (defmethod remove-rule-tautologies ((rule t) (known-rules list))
-  (reduce #'(lambda (current-rule known-rule)
-	      (remove-rule-tautologies current-rule known-rule))
-	  known-rules
-	  :initial-value rule))
+  (labels ((process (current-rule changed? known-rules)
+             (cond (known-rules
+                    (multiple-value-bind (new-rule current-rule-changed?)
+                        (remove-rule-tautologies current-rule (first known-rules))
+                      (process new-rule (or changed? current-rule-changed?)
+                               (rest known-rules))))
+                   (t
+                    (values current-rule changed?)))))
+    (process rule nil known-rules)))
 
 (defmethod remove-rule-tautologies ((rule t) (known-rule t))
   (if (rule-equal rule known-rule)
-      (make-constantly-rule t)      
-      rule))
+      (values (make-constantly-rule t)
+              t)
+      (values rule
+              nil)))
 
 (defun remove-dispatch-tree-tautologies (tree)
   (labels ((process (node knowledge)
@@ -221,12 +228,13 @@
                    ((leafp node)
                     node)
                    (t
-                    (let* ((rule (node-value node))
-                           (new-rule (remove-rule-tautologies rule knowledge))
-                           (new-knowledge (cons new-rule knowledge)))
-                      (make-node new-rule
-                                 (process (node-left node) new-knowledge)
-                                 (process (node-right node) knowledge)))))))
+                    (let* ((rule (node-value node)))
+                      (multiple-value-bind (new-rule changed?) (remove-rule-tautologies rule knowledge)
+                        (let ((new-knowledge (cons new-rule knowledge)))
+                          (multiple-value-bind (new-left left-changed?) (process (node-left node) new-knowledge)
+                            (multiple-value-bind (new-right right-changed?) (process (node-right node) knowledge)
+                              (values (make-node new-rule new-left new-right)
+                                      (or changed? left-changed? right-changed?)))))))))))
     (process tree nil)))
 
 (defun remove-dispatch-tree-constant-rules (tree)
@@ -330,7 +338,8 @@
 		    (and (typep x 'constantly-rule)
 			 (null (constantly-rule-value x))))
 		rules)
-       (make-constantly-rule nil))
+       (values (make-constantly-rule nil)
+               t))
       (t
        (let* ((known-rules (list known-rule))
               (new-rules (loop
@@ -359,21 +368,25 @@
   (let* ((count (argument-count known-rule))
          (applicable? (< (parameter-position rule) count)))
     (cond ((and applicable? (alexandria:type= (parameter-type rule) t))
-           (make-constantly-rule t))
+           (values (make-constantly-rule t)
+                   t))
           ((not applicable?)
-           (make-constantly-rule nil))
+           (values (make-constantly-rule nil)
+                   t))
           (t
-           rule))))
+           (values rule
+                   nil)))))
 
 (defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule accepts-argument-count-rule))
   (let* ((count (argument-count known-rule))
          (guaranteed? (< (parameter-position rule) count)))
     (cond ((and guaranteed? (alexandria:type= (parameter-type rule) t))
-           (make-constantly-rule t))
+           (values (make-constantly-rule t)
+                   t))
           (t
-           rule))))
+           (values rule nil)))))
 
 (defmethod remove-rule-tautologies ((rule keyword-parameter-type-rule) known-rule)
   (if (alexandria:type= t (parameter-type rule))
-      (make-constantly-rule t)
-      rule))
+      (values (make-constantly-rule t) t)
+      (values rule nil)))
