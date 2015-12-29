@@ -114,19 +114,6 @@
     (with-slots (keyword type) object
       (format stream "~W ~W" keyword type))))
 
-;;;; Conjoined Dispatch Rule
-
-(defgeneric rules (dispatch-rule))
-
-(defclass conjoined-dispatch-rule (dispatch-rule)
-  ((rules :initarg :rules
-          :reader rules)))
-
-(defmethod print-object ((object conjoined-dispatch-rule) stream)
-  (print-unreadable-object (object stream :type t :identity t)
-    (with-slots (rules) object
-      (write rules :stream stream))))
-
 ;;;; Consantly rule
 (defgeneric constantly-rule-value (dispatch-rule))
 
@@ -153,12 +140,6 @@
 
 (defun make-keyword-parameter-type-rule (keyword type)
   (make-instance 'keyword-parameter-type-rule :keyword keyword :type type))
-
-(defun conjoin-dispatch-rules (&rest rules)
-  (make-conjoined-dispatch-rule rules))
-
-(defun make-conjoined-dispatch-rule (rules)
-  (make-instance 'conjoined-dispatch-rule :rules rules))
 
 (defun make-constantly-rule (value)
   (make-instance 'constantly-rule :value value))
@@ -289,9 +270,6 @@
   (and (compare-slot-values 'keyword #'eql rule-a rule-b)
        (compare-slot-values 'type #'alexandria:type= rule-a rule-b)))
 
-(defmethod rule-equal ((rule-a conjoined-dispatch-rule) (rule-b conjoined-dispatch-rule))
-  (every #'rule-equal (slot-value rule-a 'rules) (slot-value rule-b 'rules)))
-
 (defmethod evaluate-rule ((rule fixed-argument-count-rule) (specialization-parameters specialization-parameters))
   (= (argument-count rule)
      (specialization-parameters-lower-bound specialization-parameters)
@@ -322,47 +300,9 @@
 	(declare (ignore keyword var supplied-p-var))
 	(subtypep (or var-type t) type)))))
 
-(defmethod evaluate-rule ((rule conjoined-dispatch-rule) (specialization-parameters specialization-parameters))
-  (loop
-     for r in (slot-value rule 'rules)
-     always (evaluate-rule r specialization-parameters)))
-
 (defmethod evaluate-rule ((rule constantly-rule) specialization-parameters)
   (declare (ignore specialization-parameters))
   (constantly-rule-value rule))
-
-(defmethod remove-rule-tautologies ((rule conjoined-dispatch-rule) known-rule)
-  (with-slots (rules) rule
-    (cond
-      ((find-if #'(lambda (x)
-		    (and (typep x 'constantly-rule)
-			 (null (constantly-rule-value x))))
-		rules)
-       (values (make-constantly-rule nil)
-               t))
-      (t
-       (let* ((known-rules (list known-rule))
-              (new-rules (loop
-                            for rule in rules
-                            for new-rule = (remove-rule-tautologies rule known-rules)
-                            when (and (typep new-rule 'constantly-rule)
-                                      (null (constantly-rule-value new-rule)))
-                            return (list new-rule)
-                            unless (and (typep new-rule 'constantly-rule)
-                                        (constantly-rule-value new-rule))
-                            do
-                              (push new-rule known-rules)
-                            and collect new-rule)))
-	 (cond
-	   ((null new-rules)
-	    (make-constantly-rule t))
-	   ((null (rest new-rules))
-	    (first new-rules))
-	   (t
-	    (make-instance 'conjoined-dispatch-rule :rules new-rules))))))))
-
-(defmethod remove-rule-tautologies ((rule t) (known-rule conjoined-dispatch-rule))
-  (remove-rule-tautologies rule (slot-value known-rule 'rules)))
 
 (defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule fixed-argument-count-rule))
   (let* ((count (argument-count known-rule))
