@@ -365,11 +365,9 @@
 
 (defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule accepts-argument-count-rule))
   (let* ((count (argument-count known-rule))
-         (applicable? (< (parameter-position rule) count)))
-    (cond ((and applicable? (alexandria:type= (parameter-type rule) t))
+         (guaranteed? (< (parameter-position rule) count)))
+    (cond ((and guaranteed? (alexandria:type= (parameter-type rule) t))
            (make-constantly-rule t))
-          ((not applicable?)
-           (make-constantly-rule nil))
           (t
            rule))))
 
