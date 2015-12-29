@@ -198,8 +198,10 @@
          (make-constantly-rule nil))        
         ((fixed-arity-store-parameters-p store-parameters)
          (specialization-store.dispatch.fixed-arity:make-initial-dispatch-tree store-parameters all-specialization-parameters))
+        ((variable-arity-store-parameters-p store-parameters)
+         (specialization-store.dispatch.variable-arity:make-initial-dispatch-tree store-parameters all-specialization-parameters))
         (t
-         (error "Not implemented yet."))))
+         (error "Should not get here."))))
 
 (defmethod remove-rule-tautologies ((rule t) (known-rules list))
   (reduce #'(lambda (current-rule known-rule)
