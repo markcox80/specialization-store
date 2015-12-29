@@ -161,7 +161,21 @@
         "SPECIALIZATION-STORE.DISPATCH")
   (:shadow "SET")
   (:export "MAKE-INITIAL-DISPATCH-TREE"
-           "BUILD-TREE"))
+           "BUILD-TREE")
+  (:export "SET"
+           "SET-SPECIALIZATIONS"
+           "SET-COUNT"
+           "MAKE-SET")
+  (:export "FIXED-ARITY-RULE"
+           "FIXED-ARITY-RULE-INDEX"
+           "FIXED-ARITY-RULE-TYPE"))
+
+(defpackage "SPECIALIZATION-STORE.DISPATCH.VARIABLE-ARITY"
+  (:use "COMMON-LISP"
+        "SPECIALIZATION-STORE.LAMBDA-LISTS"
+        "SPECIALIZATION-STORE.DISPATCH")
+  (:shadow "SET")
+  (:export "MAKE-INITIAL-DISPATCH-TREE"))
 
 (defpackage "SPECIALIZATION-STORE.STANDARD-STORE"
   (:use "COMMON-LISP"
