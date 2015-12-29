@@ -408,7 +408,9 @@
                 (when (node-value node)
                   (let* ((specialization-parameters (node-value node))
                          (specialization (find specialization-parameters specializations :key #'specialization-parameters)))
-                    (assert specialization nil "Unable to find specialization with specialization parameters ~W in ~W." specialization-parameters specializations)
+                    (assert specialization nil
+                            "Unable to find specialization with specialization parameters ~W in ~W."
+                            specialization-parameters specializations)
                     (check-type specialization-parameters specialization-parameters)
                     specialization)))
                (t
