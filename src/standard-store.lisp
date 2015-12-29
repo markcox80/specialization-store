@@ -509,11 +509,6 @@
          (error "No keyword argument present for ~W." ,keyword))
        (typep ,value ',type))))
 
-(defmethod predicate-code-for-object ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
-  `(and ,@(loop
-             for subrule in (rules rule)
-             collect (predicate-code-for-object subrule dispatch-tree-symbols))))
-
 (defmethod predicate-code-for-object ((rule constantly-rule) dispatch-tree-symbol)
   (declare (ignore dispatch-tree-symbol))
   (constantly-rule-value rule))
@@ -546,11 +541,6 @@
        (unless ,found?
          (error "No keyword argument present for ~W." ,keyword))
        (subtypep ,value ',type))))
-
-(defmethod predicate-code-for-type ((rule conjoined-dispatch-rule) dispatch-tree-symbols)
-  `(and ,@(loop
-             for subrule in (rules rule)
-             collect (predicate-code-for-type subrule dispatch-tree-symbols))))
 
 (defmethod predicate-code-for-type ((rule constantly-rule) dispatch-tree-symbol)
   (declare (ignore dispatch-tree-symbol))
