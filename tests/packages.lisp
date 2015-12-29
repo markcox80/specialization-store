@@ -2,7 +2,8 @@
   (:use "COMMON-LISP"
 	"SPECIALIZATION-STORE"
 	"5AM")
-  (:export "ALL-TESTS"))
+  (:export "ALL-TESTS"
+           "PROCESS-SYNTAX-LAYER-TESTS"))
 
 (defpackage "SPECIALIZATION-STORE.LAMBDA-LISTS.TESTS"
   (:use "COMMON-LISP"
