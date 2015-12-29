@@ -48,7 +48,6 @@
     (is (= 5 (example 10 2d0 1)))
     (is (= 5 (example 10 1 2d0)))))
 
-#- (and)
 (syntax-layer-test basic/rest
   (defstore example (a &rest args))
 
@@ -164,7 +163,6 @@
                                      (:expand-function (compiler-macro-lambda (a) `(1- ,a)))
                                     (:inline t))))))
 
-#- (and)
 (syntax-layer-test example/rest
   (defstore example (object &rest args))
 
