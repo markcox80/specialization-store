@@ -216,7 +216,10 @@
                             (multiple-value-bind (new-right right-changed?) (process (node-right node) knowledge)
                               (values (make-node new-rule new-left new-right)
                                       (or changed? left-changed? right-changed?)))))))))))
-    (process tree nil)))
+    (multiple-value-bind (new-tree changed?) (process tree nil)
+      (if changed?
+          (remove-dispatch-tree-tautologies new-tree)
+          new-tree))))
 
 (defun remove-dispatch-tree-constant-rules (tree)
   (labels ((process (node)
