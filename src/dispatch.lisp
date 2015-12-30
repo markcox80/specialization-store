@@ -222,10 +222,15 @@
                    ((leafp node)
                     node)
                    (t
-                    (cond ((node-equal (node-left node) (node-right node))
-                           (values (node-left node) t))
-                          (t
-                           (let* ((rule (node-value node)))
+                    (let ((rule (node-value node)))
+                      (cond ((node-equal (node-left node) (node-right node))
+                             (values (node-left node) t))
+                            ((typep rule 'constantly-rule)
+                             (values (if (constantly-rule-value rule)
+                                         (node-left node)
+                                         (node-right node))
+                                     t))
+                            (t
                              (multiple-value-bind (new-rule changed?) (remove-rule-tautologies rule knowledge)
                                (let ((new-knowledge (cons new-rule knowledge)))
                                  (multiple-value-bind (new-left left-changed?) (process (node-left node) new-knowledge)
@@ -237,26 +242,9 @@
           (remove-dispatch-tree-tautologies new-tree)
           new-tree))))
 
-(defun remove-dispatch-tree-constant-rules (tree)
-  (labels ((process (node)
-             (when node
-               (let ((value (node-value node)))
-                 (cond ((leafp node)
-                        node)
-                       ((typep value 'constantly-rule)
-                        (if (constantly-rule-value value)
-                            (process (node-left node))
-                            (process (node-right node))))
-                       (t
-                        (make-node value
-                                   (process (node-left node))
-                                   (process (node-right node)))))))))
-    (process tree)))
-
 (defun make-dispatch-tree (store-parameters all-specialization-parameters all-weights)
-  (remove-dispatch-tree-constant-rules
-   (remove-dispatch-tree-tautologies
-    (make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights))))
+  (remove-dispatch-tree-tautologies
+   (make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights)))
 
 (defun pretty-print-dispatch-tree (tree &optional (stream *standard-output*))
   (cond ((null tree)
