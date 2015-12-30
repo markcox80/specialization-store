@@ -170,7 +170,7 @@
     (let ((form '(test 1)))
       (is (eq form (expand-store store form))))))
 
-(test store-reinitialisation
+(test store-reinitialization
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(&optional a)
                                :completion-function (lambda (continuation)
