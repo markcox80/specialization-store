@@ -170,6 +170,25 @@
     (let ((form '(test 1)))
       (is (eq form (expand-store store form))))))
 
+(test store-reinitialisation
+  (let* ((store (make-instance 'standard-store
+                               :lambda-list '(&optional a)
+                               :completion-function (lambda (continuation)
+                                                      (lambda (&optional (a 1))
+                                                        (funcall continuation a))))))
+    (add-specialization store (make-instance 'standard-specialization
+                                             :lambda-list '((a (integer 0)))
+                                             :function (lambda (a)
+                                                         (1+ a))))
+    (is (= 2 (funcall-store store)))
+    (finishes (reinitialize-instance store :lambda-list '(&optional b)))
+    (signals store-error (reinitialize-instance store :lambda-list '(b)))
+
+    (reinitialize-instance store :completion-function (lambda (continuation)
+                                                        (lambda (&optional (b 2))
+                                                          (funcall continuation b))))
+    (is (= 3 (funcall-store store)))))
+
 (test dispatch-function/basic
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(a &optional b &key c)
@@ -261,22 +280,3 @@
                                                          'null)))
     (is (= 2 (funcall-store store :c 1)))
     (is (eql 'null (funcall-store store)))))
-
-(test store-reinitialisation
-  (let* ((store (make-instance 'standard-store
-                               :lambda-list '(&optional a)
-                               :completion-function (lambda (continuation)
-                                                      (lambda (&optional (a 1))
-                                                        (funcall continuation a))))))
-    (add-specialization store (make-instance 'standard-specialization
-                                             :lambda-list '((a (integer 0)))
-                                             :function (lambda (a)
-                                                         (1+ a))))
-    (is (= 2 (funcall-store store)))
-    (finishes (reinitialize-instance store :lambda-list '(&optional b)))
-    (signals store-error (reinitialize-instance store :lambda-list '(b)))
-
-    (reinitialize-instance store :completion-function (lambda (continuation)
-                                                        (lambda (&optional (b 2))
-                                                          (funcall continuation b))))
-    (is (= 3 (funcall-store store)))))
