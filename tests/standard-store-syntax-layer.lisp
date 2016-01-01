@@ -65,6 +65,41 @@
     (signals no-applicable-specialization-error (example -1 0))
     (signals no-applicable-specialization-error (example 0 1 2))))
 
+(syntax-layer-test basic/rest/2
+  (defstore example (a &rest args))
+
+  (defspecialization example (a b c d &rest args)
+    (declare (ignore a b c d args))
+    1)
+
+  (defspecialization example (a b &optional c)
+    (declare (ignore a b c))
+    2)
+
+  (defspecialization example ((a integer) b)
+    (declare (ignore a b))
+    3)
+
+  (defspecialization example (a (b integer))
+    (declare (ignore a b))
+    4)
+
+  (defspecialization example ((a float) (b integer))
+    (declare (ignore a b))
+    5)
+
+  (test basic/rest/2
+    (is (= 1 (example 1 2 3 4)))
+    (is (= 1 (example 1 2 3 4 5)))
+    (is (= 2 (example 1d0 1d0)))
+    (is (= 2 (example 1d0 1d0 1d0)))
+    (is (= 3 (example 1 "hey")))
+    (is (= 4 (example "hey" 1)))
+    (is (= 5 (example 5d0 2)))
+    (is (= 2 (example 5d0 "hey")))
+    (is (= 2 (example 5d0 1 "hey")))
+    (signals no-applicable-specialization-error (example 1))))
+
 (syntax-layer-test lexical-environment/optional
   (flet ((init-a ()
            5))
