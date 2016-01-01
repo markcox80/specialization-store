@@ -91,8 +91,7 @@
          (all-specialization-parameters (loop
                                            for specialization in specializations
                                            collect (specialization-parameters specialization)))
-         (weights (mapcar #'specialization-weight specializations))
-         (dispatch-tree (make-dispatch-tree store-parameters all-specialization-parameters weights)))
+         (dispatch-tree (make-dispatch-tree store-parameters all-specialization-parameters)))
     (list (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :objects)))
           (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :types))))))
 

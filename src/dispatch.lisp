@@ -173,8 +173,7 @@
   (and (rest-parameter store-parameters)
        (not (keyword-parameters-p store-parameters))))
 
-(defun make-initial-dispatch-tree (store-parameters all-specialization-parameters all-weights)
-  (declare (ignore all-weights))
+(defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
   (cond ((null all-specialization-parameters)
          (make-constantly-rule nil))        
         ((fixed-arity-store-parameters-p store-parameters)
@@ -242,9 +241,9 @@
           (remove-dispatch-tree-tautologies new-tree)
           new-tree))))
 
-(defun make-dispatch-tree (store-parameters all-specialization-parameters all-weights)
+(defun make-dispatch-tree (store-parameters all-specialization-parameters)
   (remove-dispatch-tree-tautologies
-   (make-initial-dispatch-tree store-parameters all-specialization-parameters all-weights)))
+   (make-initial-dispatch-tree store-parameters all-specialization-parameters)))
 
 (defun pretty-print-dispatch-tree (tree &optional (stream *standard-output*))
   (cond ((null tree)
