@@ -96,6 +96,11 @@
     (list (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :objects)))
           (funcall (compile nil (dispatch-tree-to-lambda-form store specializations dispatch-tree :types))))))
 
+(defun clear-discriminating-functions (store)
+  (with-slots (runtime-discriminating-function compile-time-discriminating-function) store
+    (setf runtime-discriminating-function nil
+          compile-time-discriminating-function nil)))
+
 (defun update-discriminating-functions (store)
   (check-type store standard-store)
   (with-slots (runtime-discriminating-function compile-time-discriminating-function) store
@@ -109,6 +114,16 @@
                                                      (compute-discriminating-functions store specializations))
         (setf runtime-discriminating-function runtime
               compile-time-discriminating-function compile-time)))))
+
+(defmethod runtime-discriminating-function :before ((store standard-store))
+  (with-slots (runtime-discriminating-function) store
+    (unless runtime-discriminating-function
+      (update-discriminating-functions store))))
+
+(defmethod compile-time-discriminating-function :before ((store standard-store))
+  (with-slots (compile-time-discriminating-function) store
+    (unless compile-time-discriminating-function
+      (update-discriminating-functions store))))
 
 (defmethod shared-initialize :after ((instance standard-store) slot-names
                                      &key
@@ -182,7 +197,7 @@
                    :store instance))))
 
       (when (or initialisingp specializationsp)
-        (update-discriminating-functions instance)))))
+        (clear-discriminating-functions instance)))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
   (with-slots (runtime-function) store
@@ -209,14 +224,14 @@
                    nil)
      finally
        (alexandria:appendf (store-specializations store) (list specialization)))
-  (update-discriminating-functions store)
+  (clear-discriminating-functions store)
   store)
 
 (defmethod remove-specialization ((store standard-store) (specialization standard-specialization))
   (alexandria:deletef (store-specializations store) specialization
                       :test #'(lambda (a b)
                                 (specialization-equal store a b)))
-  (update-discriminating-functions store)
+  (clear-discriminating-functions store)
   store)
 
 (defmethod specialization-equal ((store standard-store) (a standard-specialization) (b standard-specialization))
