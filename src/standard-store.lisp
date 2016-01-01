@@ -71,14 +71,11 @@
    (function :initarg :function
              :reader specialization-function)
    (expand-function :initarg :expand-function
-                    :reader specialization-expand-function)
-   (weight :initarg :weight
-           :reader specialization-weight))
+                    :reader specialization-expand-function))
   (:default-initargs
    :name nil
    :expand-function nil
-   :documentation nil
-   :weight 1))
+   :documentation nil))
 
 (defmethod print-object ((object standard-specialization) stream)
   (print-unreadable-object (object stream :type t :identity t)
