@@ -348,3 +348,70 @@
                                expected-specialization)))
                         (t
                          (signals no-applicable-specialization-error (apply-store store function-inputs)))))))))))))
+
+(test dispatch-function/fixed-arity/keywords
+  (labels ((collate (list offsets)
+             (let ((length (length list)))
+               (loop
+                  for index from 0 below length
+                  collect
+                    (loop
+                       for offset in offsets
+                       collect (elt list (mod (+ index offset) length))))))
+           (specialization< (a b)
+             (cond ((and (null a) (null b))
+                    t)
+                   ((and a b)
+                    (let ((a-type (first a))
+                          (b-type (first b)))
+                      (cond ((alexandria:type= a-type b-type)
+                             (specialization< (rest a) (rest b)))
+                            ((subtypep a-type b-type)
+                             t)))))))
+    (let* ((types '((integer * (0)) (integer 0)
+                    double-float single-float
+                    string null))
+           (values '(-1 -10 10 5 5d0 2.0 1.0 -10.0 -15d0 "hello" "there" nil))
+           (type-count (length types)))
+      (dotimes (a-offset type-count)
+        (dotimes (b-offset type-count)
+          (dotimes (c-offset type-count)            
+            (let* ((argument-types (collate types (list a-offset b-offset c-offset)))
+                   (argument-values (collate values (list a-offset b-offset c-offset)))
+                   (store (make-instance 'standard-store
+                                         :lambda-list '(a &key b c)
+                                         :completion-function (lambda (continuation)
+                                                                (lambda (a &key b c)
+                                                                  (funcall continuation a :b b :c c)))))
+                   (table (loop
+                             for specialization-index from 0 below type-count
+                             for (a-type b-type c-type) in argument-types
+                             for lambda-list = `((a ,a-type) &key (b ,b-type) (c ,c-type))
+                             for specialization = (make-instance 'standard-specialization :lambda-list lambda-list)
+                             do
+                               (reinitialize-instance specialization :function (let ((specialization specialization))
+                                                                                 (lambda (a &key b c)
+                                                                                   (declare (ignore a b c))
+                                                                                   specialization)))
+                               (add-specialization store specialization)
+                             collect (list (list a-type b-type c-type) specialization))))
+              (dolist (function-inputs argument-values)
+                (let ((precedence (sort (remove-if-not #'(lambda (specialization-types)
+                                                           (every #'typep function-inputs specialization-types))
+                                                       table
+                                                       :key #'car)
+                                        #'specialization<
+                                        :key #'car)))
+                  (destructuring-bind (a b c) function-inputs
+                    (cond (precedence
+                           (let* ((expected-specialization (second (first precedence)))
+                                  (actual-specialization (funcall-store store a :b b :c c)))
+                             (is (eql expected-specialization actual-specialization)
+                                 "Incorrect specialization ~W selected from specializations ~W for input arguments ~W. Expected ~W."
+                                 actual-specialization
+                                 (mapcar #'second table)
+                                 function-inputs
+                                 expected-specialization)))
+                          (t
+                           (signals no-applicable-specialization-error
+                             (funcall-store store a :b b :c c))))))))))))))
