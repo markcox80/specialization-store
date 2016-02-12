@@ -9,7 +9,7 @@
   (:report (lambda (condition stream)
 	     (write-string (slot-value condition 'message) stream))))
 
-(define-condition no-store-with-name-error (cell-error)
+(define-condition no-store-with-name-error (store-error cell-error)
   ()
   (:report (lambda (condition stream)
              (format stream "No store exists with name ~W." (cell-error-name condition)))))
