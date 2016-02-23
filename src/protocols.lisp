@@ -4,63 +4,25 @@
 
 ;;;; The store object protocol.
 
-(defgeneric funcall-store (store &rest args)
-  (:documentation "Call the most applictable function in the store for the given arguments."))
-
-(defgeneric apply-store (store &rest args)
-  (:documentation "The apply equivalent of FUNCALL-STORE. i.e. APPLY-STORE is to FUNCALL-STORE as APPLY is to FUNCALL."))
-
-(defgeneric expand-store (store form &optional environment)
-  (:documentation "Return code that performs the equivalent of FUNCALL-STORE on the specified args."))
-
-(defgeneric add-specialization (store specialization)
-  (:documentation "Add a SPECIALIZATION to the set of specializations
-  in STORE."))
-
-(defgeneric remove-specialization (store specialization)
-  (:documentation "Remove SPECIALIZATION from the set of specializations in STORE."))
-
-(defgeneric specialization-equal (store specialization-a specializabion-b)
-  (:documentation "Return non-NIL if SPECIALIZATION-A is equal to SPECIALIZATION-B."))
-
-(defgeneric store-specializations (store)
-  (:documentation "Return a sequence of specializations used by the STORE."))
-
-(defgeneric (setf store-specializations) (value store)
-  (:documentation "Assign a sequence of functions that are to be used
-  by the STORE. Should not be called in user code."))
-
-(defgeneric store-name (store)
-  (:documentation "The name of the store."))
-
-(defgeneric store-lambda-list (store)
-  (:documentation "Return the lambda list for STORE."))
-
-(defgeneric store-documentation (store)
-  (:documentation "Return the documentation associated with the store."))
+(defgeneric funcall-store (store &rest args))
+(defgeneric apply-store (store &rest args))
+(defgeneric expand-store (store form &optional environment))
+(defgeneric add-specialization (store specialization))
+(defgeneric remove-specialization (store specialization))
+(defgeneric specialization-equal (store specialization-a specializabion-b))
+(defgeneric store-specializations (store))
+(defgeneric (setf store-specializations) (value store))
+(defgeneric store-name (store))
+(defgeneric store-lambda-list (store))
+(defgeneric store-documentation (store))
 
 ;; The specialization object protocol
-(defgeneric specialization-name (specialization)
-  (:documentation "A name designating the specialization."))
-
-(defgeneric specialization-function (specialization)
-  (:documentation "Return the function object rperesenting the
-  behavior of the specialization."))
-
-(defgeneric specialization-expand-function (specialization)
-  (:documentation "Return a function which accepts two arguments, FORM
-  and ENVIRONMENT, performs a specialization macro expansion on FORM
-  using the given ENVIRONMENT. If no expansion is possible, the
-  function should return FORM."))
-
-(defgeneric specialization-lambda-list (specialization)
-  (:documentation "Return the lambda list for the store function."))
-
-(defgeneric specialization-documentation (specialization)
-  (:documentation "Return the documentation for the specialization."))
-
-(defgeneric (setf specialization-documentation) (value specialization)
-  (:documentation "Change the documentation for the specialization."))
+(defgeneric specialization-name (specialization))
+(defgeneric specialization-function (specialization))
+(defgeneric specialization-expand-function (specialization))
+(defgeneric specialization-lambda-list (specialization))
+(defgeneric specialization-documentation (specialization))
+(defgeneric (setf specialization-documentation) (value specialization))
 
 ;;;; Conditions
 ;; store-error
@@ -122,7 +84,6 @@
 ;;;; Glue Layer
 
 (defun %find-store-helper (name)
-  "Return the name and property indicator for the STORE name."
   (flet ((valid-symbol-p (symbol)
 	   (and (symbolp symbol)
 		symbol)))
@@ -149,8 +110,7 @@
     (setf (get name indicator) value)))
 
 (defgeneric ensure-store-using-class (class store-name lambda-list completion-function form-type-completion-function
-                                      &key store-class specialization-class documentation &allow-other-keys)
-  (:documentation "Create a new store object and install it as STORE-NAME."))
+                                      &key store-class specialization-class documentation &allow-other-keys))
 
 (defmethod ensure-store-using-class ((class null) store-name lambda-list
                                      completion-function form-type-completion-function
@@ -196,9 +156,7 @@
            args)))
 
 ;; Store Object Requirements for the Glue Layer
-(defgeneric store-specialization-class (store)
-  (:documentation "Return the class of the store functions used by this store."))
-
+(defgeneric store-specialization-class (store))
 
 ;;;; Syntax Layer
 
