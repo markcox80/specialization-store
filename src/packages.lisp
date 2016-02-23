@@ -2,11 +2,7 @@
   (:use "COMMON-LISP")
 
   ;; Runtime Protocol (Stores)
-  (:export "STORE-ERROR"
-	   "NO-STORE-WITH-NAME-ERROR"
-           "NO-APPLICABLE-SPECIALIZATION-ERROR"
-           "SIGNAL-NO-APPLICABLE-SPECIALIZATION-ERROR"
-	   "FUNCALL-STORE"
+  (:export "FUNCALL-STORE"
 	   "APPLY-STORE"
 	   "EXPAND-STORE"
 	   "ADD-SPECIALIZATION"
@@ -14,7 +10,23 @@
 	   "STORE-SPECIALIZATIONS"
 	   "STORE-NAME"
 	   "STORE-LAMBDA-LIST"
-	   "STORE-DOCUMENTATION")
+	   "STORE-DOCUMENTATION"
+
+           ;; Conditions
+           "STORE-ERROR"
+           "STORE-ERROR-STORE"
+
+           "SIMPLE-STORE-ERROR"
+           "SIMPLE-STORE-ERROR-MESSAGE"
+          
+	   "INVALID-STORE-NAME-ERROR"
+           "INVALID-STORE-NAME"
+           
+           "INAPPLICABLE-ARGUMENTS-ERROR"
+           "INAPPLICABLE-ARGUMENTS"
+
+           "INCONGRUENT-SPECIALIZATION-ERROR"
+           "INCONGRUENT-SPECIALIZATION")
 
   ;; Runtime Protocol (Specializations)
   (:export "SPECIALIZATION-NAME"

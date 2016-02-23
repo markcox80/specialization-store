@@ -14,7 +14,7 @@
          (do-bad (store-lambda-list specialization-lambda-list)
            (let* ((store (make-instance 'standard-store :lambda-list store-lambda-list :completion-function (default-completion-function)))
                   (specialization (make-instance 'standard-specialization :lambda-list specialization-lambda-list)))
-             (signals store-error (add-specialization store specialization)))))
+             (signals incongruent-specialization-error (add-specialization store specialization)))))
     (macrolet ((good (store-lambda-list specialization-lambda-list)
                  `(do-good ',store-lambda-list ',specialization-lambda-list))
                (bad (store-lambda-list specialization-lambda-list)
@@ -146,8 +146,8 @@
     (signals error (apply-store store (list 1 2)))
     (signals error (expand-store store '(test 1 2)))
     
-    (signals no-applicable-specialization-error (funcall-store store 1))
-    (signals no-applicable-specialization-error (apply-store store (list 1)))
+    (signals inapplicable-arguments-error (funcall-store store 1))
+    (signals inapplicable-arguments-error (apply-store store (list 1)))
     (let ((form '(test 1)))
       (is (eq form (expand-store store form))))
     
@@ -157,8 +157,8 @@
     (is (= 3 (apply-store store (list 2))))
     (is (equal `(1+ 2) (expand-store store '(test 2))))
     
-    (signals no-applicable-specialization-error (funcall-store store 1d0))
-    (signals no-applicable-specialization-error (apply-store store (list 1d0)))
+    (signals inapplicable-arguments-error (funcall-store store 1d0))
+    (signals inapplicable-arguments-error (apply-store store (list 1d0)))
     (let ((form '(test 1d0)))
       (is (eq form (expand-store store form))))
 
@@ -225,7 +225,7 @@
       (is (= 4 (funcall-store store 10)))
       (is (= 4 (funcall-store store 10 "here")))
       (is (= 4 (funcall-store store 10 "here" :c "there")))
-      (signals no-applicable-specialization-error (funcall-store store "blah" 3.0 :c 4.0)))))
+      (signals inapplicable-arguments-error (funcall-store store "blah" 3.0 :c 4.0)))))
 
 (test dispatch-function/rest
   (let* ((store (make-instance 'standard-store
@@ -263,8 +263,8 @@
       (is (= 5 (funcall-store store 1 "here" :c "there")))
       (is (= 5 (funcall-store store "blah" 3.0 :c 4)))
       (is (= 5 (funcall-store store "blah" 5.0 :c -1)))
-      (signals no-applicable-specialization-error (funcall-store store 1 "here"))
-      (signals no-applicable-specialization-error (funcall-store store "blah")))))
+      (signals inapplicable-arguments-error (funcall-store store 1 "here"))
+      (signals inapplicable-arguments-error (funcall-store store "blah")))))
 
 (test dispatch-function/key-with-null-type
   (let* ((store (make-instance 'standard-store
@@ -347,7 +347,7 @@
                                function-inputs
                                expected-specialization)))
                         (t
-                         (signals no-applicable-specialization-error (apply-store store function-inputs)))))))))))))
+                         (signals inapplicable-arguments-error (apply-store store function-inputs)))))))))))))
 
 (test dispatch-function/fixed-arity/keywords
   (labels ((collate (list offsets)
@@ -413,5 +413,5 @@
                                  function-inputs
                                  expected-specialization)))
                           (t
-                           (signals no-applicable-specialization-error
+                           (signals inapplicable-arguments-error
                              (funcall-store store a :b b :c c))))))))))))))

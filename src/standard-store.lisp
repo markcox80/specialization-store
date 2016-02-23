@@ -103,7 +103,9 @@
     (let* ((specializations (store-specializations store)))
       (destructuring-bind (runtime compile-time) (if (alexandria:emptyp specializations)
                                                      (list (lambda (&rest args)
-                                                             (signal-no-applicable-specialization-error store args))
+                                                             (error 'inapplicable-arguments-error
+                                                                    :store store
+                                                                    :arguments args))
                                                            (lambda (&rest args)
                                                              (declare (ignore args))
                                                              nil))
@@ -136,7 +138,9 @@
                                                         (specialization (funcall fn args)))
                                                    (if specialization
                                                        (apply (specialization-function specialization) args)
-                                                       (signal-no-applicable-specialization-error instance args))))))))
+                                                       (error 'inapplicable-arguments-error
+                                                              :store instance
+                                                              :arguments args))))))))
            (initialise/compile-time-function ()
              (with-slots (compile-time-function) instance
                (setf compile-time-function (if form-type-completion-function                                      
@@ -159,7 +163,7 @@
            (reinitialisingp (null slot-names)))
       (when initialisingp
         (unless (and lambda-list-p completion-function-p)
-          (error 'store-error
+          (error 'simple-store-error
                  :message (format nil "Store functions must be initialised with a lambda list and a completion function.")
                  :store instance)))
       
@@ -171,7 +175,7 @@
         (with-slots (parameters) instance
           (let ((new-parameters (parse-store-lambda-list lambda-list)))
             (unless (congruent-parameters-p parameters new-parameters)
-              (error 'store-error
+              (error 'simple-store-error
                      :message (format nil "New lambda list ~W is not congruent with the old lambda list ~W."
                                       lambda-list
                                       (store-lambda-list instance))
@@ -187,7 +191,7 @@
       (when specializationsp
         (dolist (specialization specializations)
           (unless (congruent-parameters-p (store-parameters instance) (specialization-parameters specialization))
-            (error 'store-error
+            (error 'simple-store-error
                    :message (format nil "Specialization ~W is not congruent with store ~W."
                                     specialization instance)
                    :store instance))))
@@ -209,9 +213,7 @@
 
 (defmethod add-specialization ((store standard-store) (specialization standard-specialization))
   (unless (congruent-parameters-p (store-parameters store) (specialization-parameters specialization))
-    (error 'store-error :store store :message (format nil "Specialization ~W is not congruent with store ~W."
-                                                      specialization store)))
-
+    (error 'incongruent-specialization-error :store store :specialization specialization))
   (loop
      for sublist on (store-specializations store)
      for existing-specialization = (car sublist)

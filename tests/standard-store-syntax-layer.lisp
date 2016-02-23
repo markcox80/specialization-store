@@ -15,7 +15,7 @@
   (test basic
     (is (=  1 (example 0)))
     (is (= -2 (example -1)))
-    (signals no-applicable-specialization-error (example "Hey"))))
+    (signals inapplicable-arguments-error (example "Hey"))))
 
 (syntax-layer-test basic/2
   (defstore example (a b c))
@@ -60,10 +60,10 @@
   (test basic/rest
     (is (= 1 (example 0)))
     (is (= 4 (example 1 3)))
-    (signals no-applicable-specialization-error (example -1))
-    (signals no-applicable-specialization-error (example 0 -1))
-    (signals no-applicable-specialization-error (example -1 0))
-    (signals no-applicable-specialization-error (example 0 1 2))))
+    (signals inapplicable-arguments-error (example -1))
+    (signals inapplicable-arguments-error (example 0 -1))
+    (signals inapplicable-arguments-error (example -1 0))
+    (signals inapplicable-arguments-error (example 0 1 2))))
 
 (syntax-layer-test basic/rest/2
   (defstore example (a &rest args))
@@ -98,7 +98,7 @@
     (is (= 5 (example 5d0 2)))
     (is (= 2 (example 5d0 "hey")))
     (is (= 2 (example 5d0 1 "hey")))
-    (signals no-applicable-specialization-error (example 1))))
+    (signals inapplicable-arguments-error (example 1))))
 
 (syntax-layer-test lexical-environment/optional
   (flet ((init-a ()

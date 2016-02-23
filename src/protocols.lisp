@@ -1,29 +1,8 @@
 (in-package "SPECIALIZATION-STORE")
 
 ;;;; Object Layer
-;; The STORE protocol.
 
-(define-condition store-error (error)
-  ((store :initarg :store)
-   (message :initarg :message))
-  (:report (lambda (condition stream)
-	     (write-string (slot-value condition 'message) stream))))
-
-(define-condition no-store-with-name-error (store-error cell-error)
-  ()
-  (:report (lambda (condition stream)
-             (format stream "No store exists with name ~W." (cell-error-name condition)))))
-
-(define-condition no-applicable-specialization-error (store-error)
-  ((store :initarg :store)
-   (arguments :initarg :arguments))
-  (:report (lambda (condition stream)
-             (with-slots (store arguments) condition
-               (format stream "No applicable specialization exists in store ~W for the arguments: ~W."
-                       store arguments)))))
-
-(defun signal-no-applicable-specialization-error (store arguments)
-  (error 'no-applicable-specialization-error :store store :arguments arguments))
+;;;; The store object protocol.
 
 (defgeneric funcall-store (store &rest args)
   (:documentation "Call the most applictable function in the store for the given arguments."))
@@ -60,7 +39,7 @@
 (defgeneric store-documentation (store)
   (:documentation "Return the documentation associated with the store."))
 
-;; The SPECIALIZATION protocol
+;; The specialization object protocol
 (defgeneric specialization-name (specialization)
   (:documentation "A name designating the specialization."))
 
@@ -82,6 +61,63 @@
 
 (defgeneric (setf specialization-documentation) (value specialization)
   (:documentation "Change the documentation for the specialization."))
+
+;;;; Conditions
+;; store-error
+(defgeneric store-error-store (store-error))
+
+(define-condition store-error (error)
+  ((store :initarg :store
+          :reader store-error-store          
+          :initform (error "A value for the slot :store must be specified.")))
+  (:report (lambda (condition stream)
+	     (write-string (slot-value condition 'message) stream))))
+
+;; simple-store-error
+(defgeneric simple-store-error-message (store-error))
+
+(define-condition simple-store-error (store-error)
+  ((message :initarg :message
+            :reader simple-store-error-message
+            :initform (error "A value for the slot :message must be specified.")))
+  (:report (lambda (condition stream)
+	     (write-string (slot-value condition 'message) stream))))
+
+;; invalid-store-name-error
+(defgeneric invalid-store-name (invalid-store-name-error))
+
+(define-condition invalid-store-name-error (store-error)
+  ((name :initarg :name
+         :reader invalid-store-name
+         :initform (error "A value for the slot :name must be specified.")))
+  (:report (lambda (condition stream)
+             (with-slots (name) condition
+               (format stream "No store exists with name ~W." name)))))
+
+;; inapplicable-arguments-error
+(defgeneric inapplicable-arguments (store-error))
+
+(define-condition inapplicable-arguments-error (store-error)
+  ((arguments :initarg :arguments
+              :reader inapplicable-arguments
+              :initform (error "A value for the slot :arguments must be specified.")))
+  (:report (lambda (condition stream)
+             (with-slots (store arguments) condition
+               (format stream "None of the specializations in store object ~W are applicable to the arguments: ~W."
+                       store arguments)))))
+
+;; incongruent-specialization-error
+(defgeneric incongruent-specialization (store-error))
+
+(define-condition incongruent-specialization-error (store-error)
+  ((specialization :initarg :specialization
+                   :reader incongruent-specialization
+                   :initform (error "A value for the slot :specialization must be specified.")))
+  (:report (lambda (condition stream)
+             (with-slots (store specialization) condition
+               (format stream "The specialized lambda list ~W is not congruent with the store lambda list ~W."
+                       (specialization-lambda-list specialization)
+                       (store-lambda-list store))))))
 
 ;;;; Glue Layer
 
@@ -99,14 +135,14 @@
 	    (and (valid-symbol-p (second name))))
        (values (second name) 'setf-store))
       (t
-       (error "Invalid store name ~A." name)))))
+       (error 'invalid-store-name-error :name name)))))
 
 (defun find-store (name)
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (let ((store (get name indicator)))
       (if store
 	  store
-	  (error 'no-store-with-name-error :name name)))))
+	  (error 'invalid-store-name-error :name name)))))
 
 (defun (setf find-store) (value name)
   (multiple-value-bind (name indicator) (%find-store-helper name)
