@@ -33,7 +33,7 @@
    (documentation :initarg :documentation
                   :accessor store-documentation)
    (specializations :initarg :specializations
-                    :accessor store-specializations)
+                    :reader store-specializations)
    (specialization-class :initarg :specialization-class
                          :reader store-specialization-class)
    (completion-function :initarg :completion-function)
@@ -221,12 +221,12 @@
      return (progn (setf (car sublist) specialization)
                    nil)
      finally
-       (alexandria:appendf (store-specializations store) (list specialization)))
+       (alexandria:appendf (slot-value store 'specializations) (list specialization)))
   (clear-discriminating-functions store)
   store)
 
 (defmethod remove-specialization ((store standard-store) (specialization standard-specialization))
-  (alexandria:deletef (store-specializations store) specialization
+  (alexandria:deletef (slot-value store 'specializations) specialization
                       :test #'(lambda (a b)
                                 (specialization-equal store a b)))
   (clear-discriminating-functions store)
