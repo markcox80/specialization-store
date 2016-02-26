@@ -3,7 +3,6 @@
 ;;;; Object Layer
 
 ;;;; The store object protocol.
-
 (defgeneric funcall-store (store &rest args))
 (defgeneric apply-store (store &rest args))
 (defgeneric expand-store (store form &optional environment))
@@ -107,7 +106,9 @@
 
 (defun (setf find-store) (value name)
   (multiple-value-bind (name indicator) (%find-store-helper name)
-    (setf (get name indicator) value)))
+    (if value
+        (setf (get name indicator) value)
+        (make-store-unbound name))))
 
 (defgeneric ensure-store-using-class (class store-name lambda-list completion-function form-type-completion-function
                                       &key store-class specialization-class documentation &allow-other-keys))
