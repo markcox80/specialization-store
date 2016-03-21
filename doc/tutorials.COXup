@@ -1,0 +1,87 @@
+{tutorial tutorial/definition "Defining Store Functions"}
+A store function is defined using the
+{ref :macro specialization-store:defstore} macro.
+
+An example of the ~defstore~ macro which defines a new store function
+with the name ~example~ and accepts one required argument.
+{begin-example :package "SPECIALIZATION-STORE"}
+(defstore example (a))
+{end-example}
+
+From the example it can be seen that the ~store-lambda-list~ specifies
+the parameters accepted by the store function.
+
+The syntax of a store-lambda-list is the same as an {clhs-link "3.4.1"
+:text "ordinary lambda list"} but without auxiliary variables.
+
+Associated with a store function is a set of specializations. Each
+specialization has a body of code and a parameter signature which
+specifies the types of the input arguments for which the
+specialization's body of code can be executed with. When a store
+function is invoked, it selects the specialization with the highest
+precedence and evaluates its body of code.
+
+The macro ~define-specialization~ is expected to be used for more
+advanced uses cases. It will not be discussed further in the tutorial.
+
+In the example below, two specializations are added to the ~example~ store function.
+{begin-example :package "SPECIALIZATION-STORE"}
+(defspecialization example ((a integer))
+  (1+ a))
+  
+(defspecialization example ((a float))
+  (format nil "Float: ~W" a))
+{end-example}
+
+{tutorial tutorial/store-function/old "Store Functions (Old)"}
+A store function is defined using the
+{ref :macro specialization-store:defstore} macro.
+
+{begin-example :package "SPECIALIZATION-STORE"}
+(defstore example (a b c))
+{end-example}
+
+The ~store-lambda-list~ specifies the parameters accepted by the store
+function. The example above defines a store function with the name
+~example~ which accepts three required arguments ~a~, ~b~ and ~c~.
+
+The syntax of a store-lambda-list is the same as an {clhs-link "3.4.1"
+:text "ordinary lambda list"} but without auxiliary variables.
+
+A store function belongs to one of the following categories depending
+on the store-lambda-list.
+{begin-list}
+{item}{ref :section tutorial/store-function/fixed-arity}
+{item}{ref :section tutorial/store-function/variable-arity}
+{end-list}
+
+{section tutorial/store-function/fixed-arity "Fixed Arity Store Functions"}
+
+A fixed arity store function has a store lambda list which specifies
+required, optional and/or keyword arguments. 
+
+Examples of fixed arity store functions are:
+{begin-example :package "SPECIALIZATION-STORE"}
+(defstore example (a))
+(defstore example (a &optional b))
+(defstore example (a &key b))
+(defstore example (a &optional b &key c))
+(defstore example (a &optional b &rest args &key c &allow-other-keys))
+{end-example}
+
+When no argument is provided for an optional or keyword parameter, the
+init form for that parameter is evaluated prior to dispatch. i.e. The
+init forms are associated with the store function.
+
+{section tutorial/store-function/variable-arity "Variable Arity Store Functions"}
+A variable arity store function has a lambda list which specifies a
+rest parameter with no keyword section.
+
+Examples of variable arity store functions are:
+{begin-example :package "SPECIALIZATION-STORE"}
+(defstore example (a &rest args))
+(defstore example (a &optional b &rest args))
+{end-example}
+
+Like fixed arity store functions, init forms for optional arguments
+are part of the store function.

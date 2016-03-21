@@ -1,0 +1,124 @@
+{in-package "SPECIALIZATION-STORE"}
+
+{section section/introduction "Introduction"}
+The ~specialization-store~ system provides a new type of function,
+called a store function, whose behavior is conditioned on the types of
+objects given as arguments to the function. The behavior for a
+specific set of object types is referred to as a specialization of the
+store function.
+
+For readers familiar with the Common Lisp Object System (CLOS), the
+~specialization-store~ system provides an alternative generic
+function. The key differences between CLOS' generic function and a
+store function are:
+{begin-list}
+{item}Optional, rest and/or keyword arguments are considered when
+selecting the most applicable specialization.
+{item}There is a mechanism for performing compile time optimizations.
+{end-list}
+
+The interface provided in the ~specialization-store~ system uses the
+same design used by {ref :citation amop} to propose the Common Lisp Object
+System. The design of the ~specialization-store~ system consists of
+the following layers:
+{begin-list}
+{item}{ref :section section/object-layer :text "The Object Layer"}
+{item}{ref :section section/syntax-layer :text "The Syntax Layer"}
+{item}{ref :section section/glue-layer :text "The Glue Layer"}
+{end-list}
+
+The object layer encapsulates the objects and operations used by the
+~specialization-store~ system.
+
+The syntax layer provides a convenient syntax for defining new store
+functions and specializations in the global environment.
+
+The glue layer connects the syntax and object layers and is
+responsible for modifying the global environment.
+
+A dependency of all layers is the specification of the arguments
+accepted by store functions and specializations. This detail is
+captured by new lambda lists defined in section {ref :section
+section/lambda-lists}.
+
+A default store function is provided by the ~specialization-store~
+system. Its functionality is described in the {ref :section
+section/standard-classes} section.
+
+Lastly, all of the symbols specified in this document are found in the
+~SPECIALIZATION-STORE~ package.
+
+{section section/object-layer "Object Layer"}
+The object layer encapsulates the objects and operations used by the
+~specialization-store~ system.
+
+All store functions created by the ~specialization-store~ are
+associated with a {ref :glossary store-object}. This object
+encapsulates all of the information needed by the store function. The
+store object protocol provides a functions for interacting with this
+object as well as invoking the most applicable specialization at
+run-time or compile-time.
+
+Specializations are represented using {ref :glossary
+specialization-object}.
+
+{subsection section/object-layer/objects "Store Objects"}
+A {ref :glossary store-object} is used to encapsulate information
+needed by a store function. This section outlines the generic
+functions a store object class must have methods for.
+
+The ~specialization-store~ system provides functions for selecting
+specializations at run-time and compile time.
+
+The functions for invoking the most applicable specialization at
+run-time are {dictionary :function funcall-store} and
+{dictionary :function apply-store}.
+
+The functions for invoking the most applicable specialization at
+compile-time are {dictionary :function expand-store}. Details on how
+type information can be communicated to the ~expand-store~ function
+can be found in {ref :section section/communicating-types}.
+
+{subsection section/object-layer/specializations "Specialization Objects"}
+
+{subsection section/object-layer/dictionary "Dictionary"}
+{dictionary-section :function funcall-store}
+{dictionary-section :function apply-store}
+{dictionary-section :function expand-store}
+
+{section section/syntax-layer "Syntax Layer"}
+In this section we outline a convenient syntax for creating store
+functions and adding specializations to them.
+
+{subsection section/syntax-layer/dictionary "Dictionary"}
+{dictionary-section :macro defstore}
+{dictionary-section :macro defspecialization}
+{dictionary-section :macro define-specialization}
+
+{section section/glue-layer "Glue Layer"}
+{subsection section/glue-layer/dictionary "Dictionary"}
+
+{section section/lambda-lists "Lambda Lists"}
+
+{section section/standard-classes "Standard Classes"}
+
+A specialization should be regarded as an efficient implementation of
+behaviour for the specified argument types. In other words, if two or
+more specializations belonging to a store function are applicable,
+then these specializations should perform the same operation.
+
+{section section/communicating-types "Communicating Type Information"}
+
+{glossary-term store-function "store function"}
+A function whose behaviour is determined by a {ref :glossary store-object}.
+
+{glossary-term store-object "store object"}
+Blah blah.
+
+{define-citation amop :book
+  :authors ("Gregor Kiczales" "Jim Des Rivieres")
+  :title "The Art of the Metaobject Protocol"
+  :year 1991
+  :isbn "0262111586"
+  :publisher "MIT Press"
+  :address "Cambridge, MA, USA"}
