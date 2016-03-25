@@ -1,11 +1,11 @@
 {in-package "SPECIALIZATION-STORE"}
-
-{section section/introduction "Introduction"}
+
 The ~specialization-store~ system provides a new type of function,
 called a store function, whose behavior is conditioned on the types of
-objects given as arguments to the function. The behavior for a
-specific set of object types is referred to as a specialization of the
-store function.
+objects given as arguments to the function.
+
+The behavior for a specific set of object types is referred to as a
+specialization of the store function.
 
 For readers familiar with the Common Lisp Object System (CLOS), the
 ~specialization-store~ system provides an alternative generic
@@ -17,33 +17,29 @@ selecting the most applicable specialization.
 {item}There is a mechanism for performing compile time optimizations.
 {end-list}
 
-The interface provided in the ~specialization-store~ system uses the
-same design used by {ref :citation amop} to propose the Common Lisp Object
-System. The design of the ~specialization-store~ system consists of
+The design of the ~specialization-store~ system consists of
 the following layers:
 {begin-list}
-{item}{ref :section section/object-layer :text "The Object Layer"}
-{item}{ref :section section/syntax-layer :text "The Syntax Layer"}
-{item}{ref :section section/glue-layer :text "The Glue Layer"}
-{end-list}
-
-The object layer encapsulates the objects and operations used by the
+{item}{item-label/ref :section section/object-layer}
+The object layer encapsulates the objects and operators used by the
 ~specialization-store~ system.
 
+{item}{item-label/ref :section section/syntax-layer}
 The syntax layer provides a convenient syntax for defining new store
 functions and specializations in the global environment.
 
+{item}{item-label/ref :section section/glue-layer}
 The glue layer connects the syntax and object layers and is
 responsible for modifying the global environment.
 
+{item}{item-label/ref :section section/lambda-lists}
 A dependency of all layers is the specification of the arguments
 accepted by store functions and specializations. This detail is
-captured by new lambda lists defined in section {ref :section
-section/lambda-lists}.
+captured in special lambda lists.
+{end-list}
 
-A default store function is provided by the ~specialization-store~
-system. Its functionality is described in the {ref :section
-section/standard-classes} section.
+The default store function used by the ~specialization-store~ system
+is described in the {ref :section section/standard-classes} section.
 
 Lastly, all of the symbols specified in this document are found in the
 ~SPECIALIZATION-STORE~ package.
