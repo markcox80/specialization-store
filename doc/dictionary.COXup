@@ -438,22 +438,29 @@ global environment.
 {description}
 
 
-{macro defstore :arguments (store-name store-lambda-list &body body)}
+{macro defstore :arguments (store-name store-lambda-list &body body)
+                :values new-store}
 {definition store-name}
 {definition store-lambda-list}
 {definition body}
+{definition new-store}
 {description}
 
-{macro defspecialization :arguments (store-name specialized-lambda-list &body body)}
+{macro defspecialization :arguments (store-name specialized-lambda-list &body body)
+                         :values new-specialization}
 {definition store-name}
 {definition specialized-lambda-list}
 {definition body}
+{definition new-specialization}
 {description}
 
-{macro define-specialization :arguments (store-name specialized-lambda-list &body body)}
+{macro define-specialization :arguments (store-name specialized-lambda-list &body body)
+                             :values new-specialization}
 {definition store-name}
 {definition specialized-lambda-list}
 {definition body}
+{definition new-specialization}
+{description}
 
 ||| Local Variables:
 ||| mode: flyspell
