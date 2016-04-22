@@ -3,10 +3,22 @@
 {condition-type store-error :parent-classes (error)}
 {description}
 All errors signalled by functions in the specialization store system
-are subtypes of the condition type {ref :condition-type store-error}.
+are subtypes of the condition type {ref :type store-error}.
 
 The function {ref :function store-error-store} can be used to obtain
 the store object involved in the error.
+
+
+{function store-error-store :arguments (store-error) :values store}
+{definition store-error}
+The store error.
+
+{definition store}
+The store object which is an error.
+
+{description}
+Obtain the store object which signalled an error of type {ref :type
+store-error}.
 
 {condition-type simple-store-error :parent-classes (store-error)}
 {description}
@@ -39,11 +51,15 @@ specialization.
 The function {ref :function
 no-applicable-specialization-error-arguments} to retrieve the
 arguments for which there is no applicable specialization for.
+
+
+{condition-type incongruent-specialization-error :parent-classes (store-error)}
+{description}
 
 {function inapplicable-arguments}
 {description}
 Return the arguments used to initialize an instance of the condition
-type {ref :condition-type inapplicable-arguments-error}.
+type {ref :type inapplicable-arguments-error}.
 
 {generic-function funcall-store
                   :arguments (store &rest arguments)
@@ -62,11 +78,11 @@ Invoke the function associated with the most applicable specialization
 to the object types given in ~arguments~.
 
 {exceptional-situations}
-A condition of type {ref :condition-type error} is signalled if the
+A condition of type {ref :type error} is signalled if the
 number of arguments given is not congruent with the store lambda list
 defined for ~store~.
 
-A condition of type {ref :condition-type inapplicable-arguments-error}
+A condition of type {ref :type inapplicable-arguments-error}
 is signalled if no specialization is applicable to ~arguments~.
 
 {generic-function apply-store
@@ -87,7 +103,7 @@ The function {ref :function apply-store} is to {ref :function
 funcall-store} as {ref :function apply} is to {ref :function funcall}.
 
 {exceptional-situations}
-A condition of type {ref :condition-type error} is signalled if the
+A condition of type {ref :type error} is signalled if the
 last argument given is not of type list.
 
 The list of exceptional situations for the function ~apply-store~ are
@@ -103,7 +119,7 @@ The store object used to select specializations from.
 The form that is to be optimized.
 
 {definition environment}
-An environment object. The default value is {ref :constant nil}.
+An environment object. The default value is {ref :variable nil}.
 
 {definition expansion}
 A new form which when evaluated performs the same task as ~form~ or ~form~.
@@ -111,8 +127,7 @@ A new form which when evaluated performs the same task as ~form~ or ~form~.
 {description}
 The function ~expand-store~ tries to find the most applicable
 specialization for the form ~form~ and invoke its expander
-function. If no specialization can be found, then the value of ~form~
-is returned.
+function. If no specialization can be found, then ~form~ is returned.
 
 
 {generic-function add-specialization
@@ -132,7 +147,7 @@ The function ~add-specialization~ is used to add specialization
 objects to store objects.
 
 {exceptional-situations}
-An error of type {ref :condition-type
+An error of type {ref :type
 incongruent-specialization-error} is signalled if the specialized
 lambda list for ~specialization~ is not congruent with the store
 lambda list for ~store~.
@@ -199,11 +214,11 @@ A store object.
 Change the set of specialization objects associated with the store object ~store~.
 
 {exceptional-situations}
-An error of type {ref :condition-type incongruent-specialization-error} is
+An error of type {ref :type incongruent-specialization-error} is
 signalled if one of the specializations in ~specializations~ is not
 congruent with the store object ~store~.
 
-An error of type {ref :condition-type duplicate-specialization-error}
+An error of type {ref :type duplicate-specialization-error}
 is signalled if there exists two or more specializations that are
 equal according to {ref :function specialization-equal}.
 
@@ -326,7 +341,7 @@ Return the store object associated with the symbol ~name~ in the
 global environment.
 
 {exceptional-situations}
-This function signals and error of type {ref :condition-type
+This function signals and error of type {ref :type
 invalid-store-name-error} if no store object is associated with the
 given name.
 
