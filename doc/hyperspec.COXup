@@ -78,49 +78,50 @@ can be found in {ref :section section/communicating-types}.
 {subsection section/object-layer/specializations "Specialization Objects"}
 
 {subsection section/object-layer/dictionary "Dictionary"}
-{dictionary-section :generic-function funcall-store}
-{dictionary-section :generic-function apply-store}
-{dictionary-section :generic-function expand-store}
-{dictionary-section :condition-type store-error}
-{dictionary-section :condition-type simple-store-error}
-{dictionary-section :condition-type invalid-store-name-error}
-{dictionary-section :condition-type inapplicable-arguments-error}
+{dictionary-section :function funcall-store}
+{dictionary-section :function apply-store}
+{dictionary-section :function expand-store}
+{dictionary-section :type store-error}
+{dictionary-section :function store-error-store}
+{dictionary-section :type simple-store-error}
+{dictionary-section :type invalid-store-name-error}
+{dictionary-section :type inapplicable-arguments-error}
 {dictionary-section :function inapplicable-arguments}
-{dictionary-section :generic-function add-specialization}
-{dictionary-section :generic-function remove-specialization}
-{dictionary-section :generic-function specialization-equal}
-{dictionary-section :generic-function store-specializations}
-{dictionary-section :generic-function (setf store-specializations)}
-{dictionary-section :generic-function store-name}
-{dictionary-section :generic-function store-lambda-list}
-{dictionary-section :generic-function store-documentation}
-{dictionary-section :generic-function (setf store-documentation)}
-{dictionary-section :generic-function specialization-name}
-{dictionary-section :generic-function specialization-function}
-{dictionary-section :generic-function specialization-expand-function}
-{dictionary-section :generic-function specialization-lambda-list}
-{dictionary-section :generic-function specialization-documentation}
-{dictionary-section :generic-function (setf specialization-documentation)}
+{dictionary-section :function add-specialization}
+{dictionary-section :function remove-specialization}
+{dictionary-section :function specialization-equal}
+{dictionary-section :function store-specializations}
+{dictionary-section :function (setf store-specializations)}
+{dictionary-section :function store-name}
+{dictionary-section :function store-lambda-list}
+{dictionary-section :function store-documentation}
+{dictionary-section :function (setf store-documentation)}
+{dictionary-section :function specialization-name}
+{dictionary-section :function specialization-function}
+{dictionary-section :function specialization-expand-function}
+{dictionary-section :function specialization-lambda-list}
+{dictionary-section :function specialization-documentation}
+{dictionary-section :function (setf specialization-documentation)}
 
 {section section/syntax-layer "Syntax Layer"}
 In this section we outline a convenient syntax for creating store
 functions and adding specializations to them.
 
 {subsection section/syntax-layer/dictionary "Dictionary"}
-{dictionary-section :macro defstore}
-{dictionary-section :macro defspecialization}
-{dictionary-section :macro define-specialization}
+{dictionary-section :function defstore}
+{dictionary-section :function defspecialization}
+{dictionary-section :function define-specialization}
 
 {section section/glue-layer "Glue Layer"}
 {subsection section/glue-layer/dictionary "Dictionary"}
 {dictionary-section :function find-store}
 {dictionary-section :function (setf find-store)}
-{dictionary-section :generic-function ensure-store-using-class}
+{dictionary-section :function ensure-store-using-class}
 {dictionary-section :function ensure-store}
-{dictionary-section :generic-function make-store-unbound}
-{dictionary-section :generic-function ensure-specialization-using-class}
+{dictionary-section :function make-store-unbound}
+{dictionary-section :function ensure-specialization-using-class}
 {dictionary-section :function ensure-specialization}
-{dictionary-section :generic-function store-specialization-class}
+{dictionary-section :function store-specialization-class}
 
 {section section/lambda-lists "Lambda Lists"}
 
