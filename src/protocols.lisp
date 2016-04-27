@@ -79,6 +79,10 @@
                (format stream "The specialized lambda list ~W is not congruent with the store lambda list ~W."
                        (specialization-lambda-list specialization)
                        (store-lambda-list store))))))
+
+;; Duplicate specialization error
+(define-condition duplicate-specialization-error (store-error)
+  ())
 
 ;;;; Glue Layer
 
