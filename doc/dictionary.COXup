@@ -28,6 +28,18 @@ error is too generic to require its own condition type.
 Simple store error conditions contain an error message which can be
 retrieved using the function {ref :function
 simple-store-error-message}.
+
+
+{function simple-store-error-message :arguments (store-error) :values string}
+{definition store-error}
+A condition of type {ref :type simple-store-error}.
+
+{definition string}
+The message passed to the simple store error.
+
+{description}
+Obtain the string used to initialize the simple-store-error condition
+object.
 
 {condition-type invalid-store-name-error :parent-classes (store-error)}
 {description}
@@ -37,6 +49,10 @@ associated with the given symbol.
 
 The function {ref :function invalid-store-name} can be used to obtain
 the invalid name.
+
+
+{function invalid-store-name :arguments (invalid-store-name-error) :values name}
+{description}
 
 {condition-type inapplicable-arguments-error :parent-classes (store-error)}
 {description}
@@ -49,9 +65,8 @@ can be used to retrieve the store object which has no applicable
 specialization.
 
 The function {ref :function
-no-applicable-specialization-error-arguments} to retrieve the
+inapplicable-arguments} to retrieve the
 arguments for which there is no applicable specialization for.
-
 
 {condition-type incongruent-specialization-error :parent-classes (store-error)}
 {description}
@@ -60,10 +75,14 @@ arguments for which there is no applicable specialization for.
 {description}
 Return the arguments used to initialize an instance of the condition
 type {ref :type inapplicable-arguments-error}.
+
+
+{condition-type duplicate-specialization-error :parent-classes (store-error)}
+{description}
 
 {generic-function funcall-store
                   :arguments (store &rest arguments)
-                  :values (values &rest results)}
+                  :values (&rest results)}
 {definition store}
 The store object in which to select specializations from.
 
@@ -87,7 +106,7 @@ is signalled if no specialization is applicable to ~arguments~.
 
 {generic-function apply-store
                   :arguments (store &rest args)
-                  :values (values &rest results)}
+                  :values (&rest results)}
 {definition store}
 The store object used to select specializations from.
 
@@ -146,6 +165,10 @@ The value of ~store~.
 The function ~add-specialization~ is used to add specialization
 objects to store objects.
 
+An existing specialization managed by ~store~ that is equivalent to
+~specialization~ is replaced with ~specialization~. Equivalence is
+determined by the function {ref :function specialization-equal}.
+
 {exceptional-situations}
 An error of type {ref :type
 incongruent-specialization-error} is signalled if the specialized
@@ -172,7 +195,7 @@ specializations associated with ~store~.
 
 {generic-function specialization-equal
                   :arguments (store specialization-a specialization-b)
-                  :values generalized-boolean}
+                  :values result}
 {definition store}
 A store object.
 
@@ -182,10 +205,18 @@ A specialization object.
 {definition specialization-b}
 A specialization object.
 
-{definition generalized-boolean}
-This method returns a generalized boolean indicating if the two
-specialization objects are equivalent.
+{definition result}
+A generalized boolean.
 
+{description}
+This function returns non ~nil~ if ~specialization-a~ is equivalent to
+~specialization-b~. Otherwise ~nil~.
+
+{exceptional-situations}
+An error of type {ref :type incongruent-specialization-error} is
+signalled if the specialized lambda list for ~specialization-a~ or
+~specialization-b~ is not congruent with the store lambda list for
+~store~.
 
 {generic-function store-specializations
                   :arguments (store)
@@ -245,6 +276,18 @@ A list representing a {ref :glossary store-lambda-list}.
 
 {description}
 Return the store lambda list defining the signature of the store object ~store~ accepts.
+
+
+{generic-function store-value-type :arguments (store) :values store-value-type}
+{definition store}
+A store object.
+
+{definition store-value-type}
+A type representing the values returned by the store function.
+
+{description}
+Return the type representing the set of objects which the store
+function represented by the ~store~ returns.
 
 {generic-function store-documentation :arguments (store) :values string}
 {definition store}
@@ -255,6 +298,20 @@ A string.
 
 {description}
 Return a string which documents the store object.
+
+
+{generic-function (setf store-documentation) :arguments (value store) :values string}
+{definition value}
+The new documentation.
+
+{definition store}
+A store object.
+
+{definition string}
+A string.
+
+{description}
+Change the documentation for the store object.
 
 {generic-function specialization-name :arguments (specialization) :values symbol}
 {definition specialization}
@@ -406,7 +463,7 @@ A store object.
 
 {description}
 
-{generic-function make-store-unbound :arguments (name) :values (values)}
+{generic-function make-store-unbound :arguments (name) :values ()}
 {definition name}
 A symbol.
 

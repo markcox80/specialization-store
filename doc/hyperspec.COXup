@@ -1,92 +1,150 @@
 {in-package "SPECIALIZATION-STORE"}
 
-The ~specialization-store~ system provides a new type of function,
-called a store function, whose behavior is conditioned on the types of
-objects given as arguments to the function.
+This document defines a new type of function, called a store function,
+whose behaviour is conditioned on the types of objects given as
+arguments to the function.
 
-The behavior for a specific set of object types is referred to as a
+The behaviour for a specific set of object types is referred to as a
 specialization of the store function.
 
-For readers familiar with the Common Lisp Object System (CLOS), the
-~specialization-store~ system provides an alternative generic
-function. The key differences between CLOS' generic function and a
-store function are:
+The key differences between the common lisp object system's generic
+function and a store function are:
 {begin-list}
-{item}Optional, rest and/or keyword arguments are considered when
-selecting the most applicable specialization.
-{item}There is a mechanism for performing compile time optimizations.
+{item}
+Optional, rest and/or keyword arguments are considered when selecting
+the most applicable specialization.
+{item}
+Compile time expansions are possible.
 {end-list}
 
-The design of the ~specialization-store~ system consists of
-the following layers:
+The design of the store function specification consists of the
+following layers:
 {begin-list}
-{item}{item-label/ref :section section/object-layer}
-The object layer encapsulates the objects and operators used by the
-~specialization-store~ system.
-
-{item}{item-label/ref :section section/syntax-layer}
-The syntax layer provides a convenient syntax for defining new store
-functions and specializations in the global environment.
-
-{item}{item-label/ref :section section/glue-layer}
-The glue layer connects the syntax and object layers and is
-responsible for modifying the global environment.
-
-{item}{item-label/ref :section section/lambda-lists}
-A dependency of all layers is the specification of the arguments
-accepted by store functions and specializations. This detail is
-captured in special lambda lists.
+{item/label-ref :section section/object-layer}
+{item/label-ref :section section/syntax-layer}
+{item/label-ref :section section/glue-layer}
+{item/label-ref :section section/lambda-lists}
+{item/label-ref :section section/standard-classes}
 {end-list}
 
-The default store function used by the ~specialization-store~ system
-is described in the {ref :section section/standard-classes} section.
+The {ref :section section/object-layer :text "object layer"}
+encapsulates the objects and operators used by a store function.
 
-Lastly, all of the symbols specified in this document are found in the
-~SPECIALIZATION-STORE~ package.
+The {ref :section section/syntax-layer :text "syntax layer"} provides
+a convenient syntax for defining new store functions and
+specializations in the global environment.
+
+The {ref :section section/glue-layer :text "glue layer"} connects the
+syntax and object layers and is responsible for modifying the global
+environment.
+
+The {ref :section section/lambda-lists :text "lambda lists"} section
+outlines how arguments are specified to store functions and what types
+of objects are applicable to specializations.
+
+The default store function is described in the {ref :section
+section/standard-classes} section.
+
+Lastly, all of the symbols specified in this document are exported
+from a single package. The name of this package is implementation
+specific.
 
 {section section/object-layer "Object Layer"}
-The object layer encapsulates the objects and operations used by the
-~specialization-store~ system.
+The object layer encapsulates the objects and operators used to
+model store functions.
 
-All store functions created by the ~specialization-store~ are
-associated with a {ref :glossary store-object}. This object
-encapsulates all of the information needed by the store function. The
-store object protocol provides a functions for interacting with this
-object as well as invoking the most applicable specialization at
-run-time or compile-time.
+The object layer contains the following sublayers:
+{begin-list}
+{item/label-ref :section section/object-layer/store}
+{item/label-ref :section section/object-layer/specialization}
+{end-list}
 
-Specializations are represented using {ref :glossary
-specialization-object}.
+All of the definitions associated with the object layer can be found
+in the {ref :section section/object-layer/dictionary :text "object
+layer dictionary"}.
 
-{subsection section/object-layer/objects "Store Objects"}
-A {ref :glossary store-object} is used to encapsulate information
-needed by a store function. This section outlines the generic
-functions a store object class must have methods for.
+
+{subsection section/object-layer/store "Store Object"}
+A store function is represented by a {ref :glossary store-object}
+which encapsulates all of the data needed by a store function.
 
-The ~specialization-store~ system provides functions for selecting
-specializations at run-time and compile time.
+All operations performed by the store function are defined by
+operators that are applied to the store object.
 
-The functions for invoking the most applicable specialization at
-run-time are {dictionary :function funcall-store} and
-{dictionary :function apply-store}.
+A store object must be an instance of {dictionary :mop :type
+funcallable-standard-object}.
 
-The functions for invoking the most applicable specialization at
-compile-time are {dictionary :function expand-store}. Details on how
-type information can be communicated to the ~expand-store~ function
-can be found in {ref :section section/communicating-types}.
+A store object manages a set of specialization objects. Each {ref
+:section section/object-layer/specialization :text "specialization
+object"}, or specialization, encapsulates behaviour which a store
+function may invoke during an invocation.
 
-{subsection section/object-layer/specializations "Specialization Objects"}
+The arguments accepted by the store function are represented using a
+{ref :glossary store-lambda-list}. The store lambda list specifies the
+required, optional, rest and keyword arguments that are used to
+determine the behaviour for a given set of arguments.
 
-{subsection section/object-layer/dictionary "Dictionary"}
-{dictionary-section :function funcall-store}
-{dictionary-section :function apply-store}
-{dictionary-section :function expand-store}
+The set of specializations managed by a store object must be {ref
+:section section/lambda-lists/congruence :text "congruent"} with the
+store lambda list.
+
+Invocations of a store function are represented by the following
+operators on {ref :glossary store-object :text "store objects"}:
+{begin-list}
+{item}{dictionary :ss :function funcall-store}
+{item}{dictionary :ss :function apply-store}
+{item}{dictionary :ss :function expand-store}
+{end-list}
+
+The functions {dictionary :ss :function funcall-store} and {dictionary
+:ss :function apply-store} model run-time applications of a store
+function.
+
+The function {dictionary :ss :function expand-store} allow for compile
+time optimizations to be performed.
+
+Which specialization (or specializations) the above functions select
+during an invocation is defined by the implementation of the store
+object.
+
+Adding specializations to a store object is performed using the
+function {dictionary :ss :function add-specialization}.
+
+Removing specializations from the store object is performed using the
+function {dictionary :ss :function remove-specialization}.
+
+{subsection section/object-layer/specialization "Specialization Object"}
+
+The specialization object encapsulates the behaviour of a store
+function for arguments satisfying particular types. 
+
+The types the input arguments must satisfy is captured using a {ref
+:section section/lambda-lists/specialized-lambda-list :text
+"specialized lambda list"}. This data can be retrieved from a
+specialization object using the function {dictionary :ss :function
+specialization-lambda-list}.
+
+A store function invokes the run-time behaviour of the specialization
+by invoking the function returned by {dictionary :ss :function
+specialization-function}.
+
+A store function invokes any compile time optimizations available for
+a specialization by invoking the function returned by {dictionary :ss
+:function specialization-expand-function}.
+
+{subsection section/object-layer/dictionary "Object Layer Dictionary"}
+Conditions
 {dictionary-section :type store-error}
 {dictionary-section :function store-error-store}
 {dictionary-section :type simple-store-error}
+{dictionary-section :function simple-store-error-message}
 {dictionary-section :type invalid-store-name-error}
-{dictionary-section :type inapplicable-arguments-error}
-{dictionary-section :function inapplicable-arguments}
+{dictionary-section :function invalid-store-name}
+
+Store Objects
+{dictionary-section :function funcall-store}
+{dictionary-section :function apply-store}
+{dictionary-section :function expand-store}
 {dictionary-section :function add-specialization}
 {dictionary-section :function remove-specialization}
 {dictionary-section :function specialization-equal}
@@ -94,8 +152,15 @@ can be found in {ref :section section/communicating-types}.
 {dictionary-section :function (setf store-specializations)}
 {dictionary-section :function store-name}
 {dictionary-section :function store-lambda-list}
+{dictionary-section :function store-value-type}
 {dictionary-section :function store-documentation}
 {dictionary-section :function (setf store-documentation)}
+{dictionary-section :type inapplicable-arguments-error}
+{dictionary-section :function inapplicable-arguments}
+{dictionary-section :type incongruent-specialization-error}
+{dictionary-section :type duplicate-specialization-error}
+
+Specializations
 {dictionary-section :function specialization-name}
 {dictionary-section :function specialization-function}
 {dictionary-section :function specialization-expand-function}
@@ -107,6 +172,7 @@ can be found in {ref :section section/communicating-types}.
 In this section we outline a convenient syntax for creating store
 functions and adding specializations to them.
 
+
 {subsection section/syntax-layer/dictionary "Dictionary"}
 {dictionary-section :function defstore}
 {dictionary-section :function defspecialization}
@@ -124,6 +190,12 @@ functions and adding specializations to them.
 {dictionary-section :function store-specialization-class}
 
 {section section/lambda-lists "Lambda Lists"}
+
+{subsection section/lambda-lists/store-lambda-list "Store Lambda List"}
+
+{subsection section/lambda-lists/specialized-lambda-list "Specialized Lambda List"}
+
+{subsection section/lambda-lists/congruence "Congruence"}
 
 {section section/standard-classes "Standard Classes"}
 
@@ -139,6 +211,12 @@ A function whose behaviour is determined by a {ref :glossary store-object}.
 
 {glossary-term store-object "store object"}
 Blah blah.
+
+{glossary-term specialization-object "specialization object"}
+Blah.
+
+{glossary-term store-lambda-list "store lambda list"}
+Blah.
 
 {define-citation amop :book
   :authors ("Gregor Kiczales" "Jim Des Rivieres")
@@ -147,3 +225,7 @@ Blah blah.
   :isbn "0262111586"
   :publisher "MIT Press"
   :address "Cambridge, MA, USA"}
+
+||| Local Variables:
+||| mode: flyspell
+||| End:
