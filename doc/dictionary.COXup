@@ -234,7 +234,7 @@ store object ~store~.
 
 {generic-function (setf store-specializations)
                   :arguments (specializations store)
-                  :values result}
+                  :values specializations}
 {definition specializations}
 A list of specialization objects.
 
@@ -358,6 +358,17 @@ A specialization lambda list.
 {description}
 Return the specialized lambda list associated with the specialization.
 
+
+{generic-function specialization-value-type :arguments (specialization) :values type-specifier}
+{definition specialization}
+A specialization object.
+
+{definition type-specifier}
+A type specifier.
+
+{description}
+Return the type specifier denoting the type of values returned by the
+specialization.
 
 {generic-function specialization-documentation :arguments (specialization) :values string}
 {definition specialization}
