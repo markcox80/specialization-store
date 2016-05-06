@@ -64,6 +64,8 @@
          :reader specialization-name)
    (lambda-list :initarg :lambda-list
                 :reader specialization-lambda-list)
+   (value-type :initarg :value-type
+               :reader specialization-value-type)
    (parameters :initarg :parameters
                :reader specialization-parameters)
    (documentation :initarg :documentation

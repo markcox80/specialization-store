@@ -20,6 +20,7 @@
 (defgeneric specialization-function (specialization))
 (defgeneric specialization-expand-function (specialization))
 (defgeneric specialization-lambda-list (specialization))
+(defgeneric specialization-value-type (specialization))
 (defgeneric specialization-documentation (specialization))
 (defgeneric (setf specialization-documentation) (value specialization))
 
