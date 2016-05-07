@@ -44,6 +44,7 @@
                                          :reader compile-time-discriminating-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
+  (:metaclass specialization-store.mop:funcallable-standard-class)
   (:default-initargs
    :name nil
    :documentation nil    
@@ -74,6 +75,7 @@
              :reader specialization-function)
    (expand-function :initarg :expand-function
                     :reader specialization-expand-function))
+  (:metaclass specialization-store.mop:funcallable-standard-class)
   (:default-initargs
    :name nil
    :expand-function nil
@@ -185,7 +187,9 @@
             (setf parameters new-parameters))))
       
       (when (or initialisingp completion-function-p)        
-        (initialise/runtime-function))
+        (initialise/runtime-function)
+        (with-slots (runtime-function) instance
+          (specialization-store.mop:set-funcallable-instance-function instance runtime-function)))
 
       (when (or initialisingp form-type-completion-function-p)
         (initialise/compile-time-function))
@@ -269,8 +273,16 @@
 
 ;;;; Standard Specialization Implementation (Object Layer)
 
-(defmethod initialize-instance :after ((instance standard-specialization) &key)
-  (setf (slot-value instance 'parameters) (parse-specialization-lambda-list (specialization-lambda-list instance))))
+(defmethod shared-initialize :after ((instance standard-specialization) slot-names &key)
+  (let* ((initialisingp (eql slot-names t))
+         (reinitialisingp (eql slot-names nil)))
+    (declare (ignore reinitialisingp))
+    (when initialisingp
+      (setf (slot-value instance 'parameters) (parse-specialization-lambda-list (specialization-lambda-list instance))))
+
+    (when (slot-boundp instance 'function)
+      (with-slots (function) instance
+        (specialization-store.mop:set-funcallable-instance-function instance function)))))
 
 ;;;; Standard Store Implementation (Glue Layer)
 
@@ -285,11 +297,10 @@
          :specialization-class specialization-class
          args)
 
-  (with-slots (runtime-function compile-time-function) instance    
-    (setf (fdefinition store-name) runtime-function
+  (with-slots (compile-time-function) instance
+    (setf (fdefinition store-name) instance
           (compiler-macro-function store-name) (compiler-macro-lambda (&whole form &rest args &environment env)
-                                                 (apply compile-time-function form env args))
-          (documentation store-name 'function) documentation))  
+                                                 (apply compile-time-function form env args))))
     
   instance)
 
@@ -302,9 +313,9 @@
                                         :lambda-list lambda-list
                                         :documentation documentation
                                         :function function
-                                        :expand-function expand-function)))    
+                                        :expand-function expand-function)))
     (when name
-      (setf (fdefinition name) function
+      (setf (fdefinition name) specialization
             (compiler-macro-function name) nil))
     (when (and name expand-function)
       (setf (compiler-macro-function name) (lambda (form env)
