@@ -71,9 +71,6 @@ which encapsulates all of the data needed by a store function.
 All operations performed by the store function are defined by
 operators that are applied to the store object.
 
-A store object must be an instance of {dictionary :mop :type
-funcallable-standard-object}.
-
 A store object manages a set of specialization objects. Each {ref
 :section section/object-layer/specialization :text "specialization
 object"}, or specialization, encapsulates behaviour which a store
@@ -107,6 +104,12 @@ Which specialization (or specializations) the above functions select
 during an invocation is defined by the implementation of the store
 object.
 
+A store object is an instance of {dictionary :mop :type
+funcallable-standard-object}. The function {dictionary :mop :function
+set-funcallable-instance-function :text "assigned"} to the instance
+performs the same operation as {dictionary :ss :function
+funcall-store}.
+
 Adding specializations to a store object is performed using the
 function {dictionary :ss :function add-specialization}.
 
@@ -139,6 +142,12 @@ specialization-function}.
 Any compile time optimizations available for a specialization are
 performed using the function returned by {dictionary :ss :function
 specialization-expand-function}.
+
+A specialization object is an instance of {dictionary :mop :type
+funcallable-standard-object}. The function {dictionary :mop :function
+set-funcallable-instance-function :text "assigned"} to the instance
+applies its arguments to the function returned by {dictionary :ss
+:function specialization-function}.
 
 {subsection section/object-layer/dictionary "Object Layer Dictionary"}
 {heading "Conditions"}
