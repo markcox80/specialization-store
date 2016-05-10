@@ -6,10 +6,10 @@
 (syntax-layer-test basic
   (defstore example (a))
   
-  (defspecialization example ((a (integer 0)))
+  (defspecialization example ((a (integer 0))) (integer 1)
     (1+ a))
 
-  (defspecialization example ((a (integer * (0))))
+  (defspecialization example ((a (integer * (0)))) (integer * (1))
     (1- a))
 
   (test basic
@@ -20,23 +20,23 @@
 (syntax-layer-test basic/2
   (defstore example (a b c))
 
-  (defspecialization example (a (b float) (c (integer * (0))))
+  (defspecialization example (a (b float) (c (integer * (0)))) (eql 1)
     (declare (ignore a b c))
     1)
 
-  (defspecialization example (a (b float) (c (integer 10)))
+  (defspecialization example (a (b float) (c (integer 10))) (eql 2)
     (declare (ignore a b c))
     2)
 
-  (defspecialization example (a (b (integer * (0))) (c float))
+  (defspecialization example (a (b (integer * (0))) (c float)) (eql 3)
     (declare (ignore a b c))
     3)
 
-  (defspecialization example (a (b (integer 10)) (c float))
+  (defspecialization example (a (b (integer 10)) (c float)) (eql 4)
     (declare (ignore a b c))
     4)  
 
-  (defspecialization example (a b c)
+  (defspecialization example (a b c) (eql 5)
     (declare (ignore a b c))
     5)
 
@@ -51,10 +51,10 @@
 (syntax-layer-test basic/rest
   (defstore example (a &rest args))
 
-  (defspecialization example ((a (integer 0)))
+  (defspecialization example ((a (integer 0))) (integer 1)
     (1+ a))
 
-  (defspecialization example ((a (integer 0)) (b (integer 0)))
+  (defspecialization example ((a (integer 0)) (b (integer 0))) (integer 0)
     (+ a b))
 
   (test basic/rest
@@ -68,23 +68,23 @@
 (syntax-layer-test basic/rest/2
   (defstore example (a &rest args))
 
-  (defspecialization example (a b c d &rest args)
+  (defspecialization example (a b c d &rest args) (eql 1)
     (declare (ignore a b c d args))
     1)
 
-  (defspecialization example (a b &optional c)
+  (defspecialization example (a b &optional c) (eql 2)
     (declare (ignore a b c))
     2)
 
-  (defspecialization example ((a integer) b)
+  (defspecialization example ((a integer) b) (eql 3)
     (declare (ignore a b))
     3)
 
-  (defspecialization example (a (b integer))
+  (defspecialization example (a (b integer)) (eql 4)
     (declare (ignore a b))
     4)
 
-  (defspecialization example ((a float) (b integer))
+  (defspecialization example ((a float) (b integer)) (eql 5)
     (declare (ignore a b))
     5)
 
@@ -105,11 +105,11 @@
            5))
     (defstore example (&optional (a (init-a)) (b a))))
 
-  (defspecialization example ((a integer) (b integer))
+  (defspecialization example ((a integer) (b integer)) t
     (declare (ignore a b))
     'integer-integer)  
 
-  (defspecialization example (a b)
+  (defspecialization example (a b) t
     (declare (ignore a b))
     't-t)
 
@@ -122,11 +122,11 @@
            5))
     (defstore example (&key (a (init-a)) (b a))))
 
-  (defspecialization example (&key (a integer) (b integer))
+  (defspecialization example (&key (a integer) (b integer)) t
     (declare (ignore a b))
     'integer-integer)  
 
-  (defspecialization example (&key a b)
+  (defspecialization example (&key a b) t
     (declare (ignore a b))
     't-t)
 
@@ -137,7 +137,7 @@
 (syntax-layer-test redefinition
   (defstore example (a))
   
-  (defspecialization example ((a (integer 0)))
+  (defspecialization example ((a (integer 0))) (integer 1)
     (1+ a))
 
   (defstore example (a))
@@ -148,7 +148,7 @@
 (syntax-layer-test inlining
   (defstore example (a))
 
-  (defspecialization (example :inline t) ((a (integer 0)))
+  (defspecialization (example :inline t) ((a (integer 0))) (integer 1)
     (1+ a))
 
   (defun foo (x)
@@ -156,7 +156,7 @@
 
   (compile 'foo)
 
-  (defspecialization (example :inline t) ((a (integer 0)))
+  (defspecialization (example :inline t) ((a (integer 0))) (integer * (0))
     (1- a))
 
   (test inlining
@@ -166,7 +166,7 @@
 (syntax-layer-test named-specializations
   (defstore example (a))
 
-  (defspecialization (example :name example/integer) ((a integer))
+  (defspecialization (example :name example/integer) ((a integer)) integer
     (1+ a))
 
   (test named-specializations
@@ -201,13 +201,13 @@
 (syntax-layer-test example/rest
   (defstore example (object &rest args))
 
-  (defspecialization example ((object list) index)
+  (defspecialization example ((object list) index) t
     (elt object index))
 
-  (defspecialization example ((object simple-vector) index)
+  (defspecialization example ((object simple-vector) index) number
     (1+ (elt object index)))
   
-  (defspecialization example ((object array) &rest args)
+  (defspecialization example ((object array) &rest args) t
     (apply #'aref object args))
 
   (test example/rest

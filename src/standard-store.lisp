@@ -307,10 +307,11 @@
 
 ;;;; Standard Specialization Implementation (Glue Layer)
 
-(defmethod ensure-specialization-using-class ((store standard-store) lambda-list function &key expand-function name documentation &allow-other-keys)
+(defmethod ensure-specialization-using-class ((store standard-store) lambda-list value-type function &key expand-function name documentation &allow-other-keys)
   (let* ((specialization (make-instance 'standard-specialization
                                         :name name
                                         :lambda-list lambda-list
+                                        :value-type value-type
                                         :documentation documentation
                                         :function function
                                         :expand-function expand-function)))

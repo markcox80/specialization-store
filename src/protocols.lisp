@@ -150,15 +150,15 @@
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (remprop name indicator)))
 
-(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list function &rest args
+(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list value-type function &rest args
 					       &key expand-function name documentation &allow-other-keys))
 
-(defun ensure-specialization (store-name specialized-lambda-list function
+(defun ensure-specialization (store-name specialized-lambda-list value-type function
 			      &rest args &key expand-function documentation name &allow-other-keys)
   (declare (ignore expand-function documentation name))
   (let* ((store (find-store store-name)))
     (apply #'ensure-specialization-using-class
-           store specialized-lambda-list function
+           store specialized-lambda-list value-type function
            args)))
 
 ;; Store Object Requirements for the Glue Layer
@@ -203,7 +203,7 @@
     (t
      store-name)))
 
-(defmacro defspecialization (store-name specialized-lambda-list &body body)
+(defmacro defspecialization (store-name specialized-lambda-list value-type &body body)
   (destructuring-bind (store-name &rest args &key inline name &allow-other-keys)
       (canonicalize-store-name store-name)
     (declare (ignore inline))
@@ -217,6 +217,7 @@
 			(declare ,@(specialization-store.lambda-lists:type-declarations store-parameters specialization-parameters))
 			,@declarations
 			,@body))
+           (:value-type ,value-type)
 	   (:documentation ,doc-string)
 	   ,@(when name
 		   `((:name ,name)))
@@ -267,6 +268,7 @@
 	(expand-function nil)
 	(inline nil)
 	(name nil)
+        (value-type '(values &rest t))
         (others nil))
     (dolist (item body)
       (alexandria:destructuring-case item
@@ -279,6 +281,8 @@
 	 (setf inline value))
 	((:name value)
 	 (setf name value))
+        ((:value-type type-specifier)
+         (setf value-type type-specifier))
         ((t &rest args)
          (declare (ignore args))
          (push item others))))
@@ -303,7 +307,7 @@
 		      (t
 		       function))))
       `(eval-when (:compile-toplevel :load-toplevel :execute)
-	 (ensure-specialization ',store-name ',specialized-lambda-list ,function
+	 (ensure-specialization ',store-name ',specialized-lambda-list ',value-type ,function
 				:expand-function ,expand-function
 				:name ',name
 				,@(mapcan #'(lambda (item)
