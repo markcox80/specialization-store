@@ -288,7 +288,7 @@
 
 (defmethod ensure-store-using-class ((instance standard-store) store-name lambda-list completion-function form-type-completion-function
                                      &rest args &key store-class specialization-class documentation &allow-other-keys)
-  (declare (ignore store-class))
+  (declare (ignore store-class documentation))
   (apply #'reinitialize-instance instance
          :name store-name
          :lambda-list lambda-list
