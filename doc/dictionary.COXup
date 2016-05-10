@@ -540,10 +540,11 @@ global environment.
 {definition new-specialization}
 {description}
 
-{macro define-specialization :arguments (store-name specialized-lambda-list &body body)
+{macro define-specialization :arguments (store-name specialized-lambda-list value-type &body body)
                              :values new-specialization}
 {definition store-name}
 {definition specialized-lambda-list}
+{definition value-type}
 {definition body}
 {definition new-specialization}
 {description}

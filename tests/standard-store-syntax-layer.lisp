@@ -177,7 +177,7 @@
 (syntax-layer-test define-specialization
   (defstore example (a))
 
-  (define-specialization example ((a integer))
+  (define-specialization example ((a integer)) integer
     (:function (lambda (a)
                  (1+ a)))
     (:expand-function (compiler-macro-lambda (a)
@@ -193,7 +193,7 @@
   (defstore example (a))
 
   (test invalid-options
-    (signals warning (macroexpand '(define-specialization example ((a integer))
+    (signals warning (macroexpand '(define-specialization example ((a integer)) integer
                                      (:function (lambda (a) (1+ a)))
                                      (:expand-function (compiler-macro-lambda (a) `(1- ,a)))
                                     (:inline t))))))

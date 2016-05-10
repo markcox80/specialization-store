@@ -212,12 +212,11 @@
       (let* ((store (find-store store-name))
              (store-parameters (specialization-store.lambda-lists:parse-store-lambda-list (store-lambda-list store)))
 	     (specialization-parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
-	`(define-specialization ,store-name ,specialized-lambda-list
+	`(define-specialization ,store-name ,specialized-lambda-list ,value-type
 	   (:function (lambda ,(specialization-store.lambda-lists:ordinary-lambda-list store-parameters specialization-parameters)
 			(declare ,@(specialization-store.lambda-lists:type-declarations store-parameters specialization-parameters))
 			,@declarations
 			,@body))
-           (:value-type ,value-type)
 	   (:documentation ,doc-string)
 	   ,@(when name
 		   `((:name ,name)))
@@ -274,12 +273,11 @@
     (t
      (error "Invalid function form."))))
 
-(defmacro define-specialization (store-name specialized-lambda-list &body body)
+(defmacro define-specialization (store-name specialized-lambda-list value-type &body body)
   (let ((function nil)
 	(expand-function nil)
 	(inline nil)
 	(name nil)
-        (value-type '(values &rest t))
         (others nil))
     (dolist (item body)
       (alexandria:destructuring-case item
@@ -292,8 +290,6 @@
 	 (setf inline value))
 	((:name value)
 	 (setf name value))
-        ((:value-type type-specifier)
-         (setf value-type type-specifier))
         ((t &rest args)
          (declare (ignore args))
          (push item others))))
