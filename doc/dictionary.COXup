@@ -483,13 +483,14 @@ Remove the association between a store object and a name from the
 global environment.
 
 {generic-function ensure-specialization-using-class
-                  :arguments (store-class specialized-lambda-list function
+                  :arguments (store-class specialized-lambda-list value-type function
                               &key
                                 expand-function name documentation
                               &allow-other-keys)
                   :values specialization}
 {definition store-class}
 {definition specialized-lambda-list}
+{definition value-type}
 {definition function}
 {definition expand-function}
 {definition name}
@@ -499,13 +500,14 @@ global environment.
 
 
 {function ensure-specialization
-          :arguments (store-name specialized-lambda-list function
+          :arguments (store-name specialized-lambda-list value-type function
                       &key
                         expand-function documentation name
                       &allow-other-keys)
           :values specialization}
 {definition store-name}
 {definition specialized-lamda-list}
+{definition value-type}
 {definition function}
 {definition expand-function}
 {definition documentation}
@@ -529,10 +531,11 @@ global environment.
 {definition new-store}
 {description}
 
-{macro defspecialization :arguments (store-name specialized-lambda-list &body body)
+{macro defspecialization :arguments (store-name specialized-lambda-list value-type &body body)
                          :values new-specialization}
 {definition store-name}
 {definition specialized-lambda-list}
+{definition value-type}
 {definition body}
 {definition new-specialization}
 {description}
