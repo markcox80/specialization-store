@@ -237,29 +237,40 @@
        (eql 'function (first form))
        (= 2 (length form))))
 
-(defun function-form->inlined-expand-function (function-form)
+(defun function-form->inlined-expand-function (function-form value-type)
   (cond
     ((lambda-form-p function-form)
      (destructuring-bind (lambda-list &rest body) (rest function-form)
-       `(compiler-macro-lambda (&rest args)
-	  (cons (quote (lambda ,lambda-list
-			 ,@body))
-		args))))
+       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
+         `(compiler-macro-lambda (&rest args)
+            (cons (quote (lambda ,lambda-list
+                           ,@declarations
+                           ,doc-string
+                           (the ,value-type
+                                (progn ,@remaining-forms))))
+                  args)))))
     ((function-form-p function-form)
-     (function-form->inlined-expand-function (second function-form)))
+     (function-form->inlined-expand-function (second function-form) value-type))
     ((symbolp function-form)
      `(compiler-macro-lambda (&rest args)
 	(append (list 'funcall (list 'function ',function-form))
 		args)))))
 
-(defun function-form->no-lexical-environment-lambda-form (function-form)
+(defun function-form->no-lexical-environment-lambda-form (function-form value-type)
   (cond
     ((lambda-form-p function-form)
-     `(compile nil ',function-form))
+     (destructuring-bind (lambda-list &rest body) (rest function-form)
+       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
+         `(compile nil (quote (lambda ,lambda-list
+                                ,@declarations
+                                ,doc-string
+                                (the ,value-type
+                                     (progn ,@remaining-forms))))))))
     ((function-form-p function-form)
-     (function-form->no-lexical-environment-lambda-form (second function-form)))
+     (function-form->no-lexical-environment-lambda-form (second function-form) value-type))
     ((symbolp function-form)
-     `(function ,function-form))
+     `(lambda (&rest args)
+        (the ,value-type (apply (function ,function-form) args))))
     (t
      (error "Invalid function form."))))
 
@@ -289,7 +300,7 @@
 
     (let ((expand-function (cond
 			     ((and (null expand-function) inline)
-			      (function-form->inlined-expand-function function))
+			      (function-form->inlined-expand-function function value-type))
 			     ((and (null expand-function) name)			      
 			      `(compiler-macro-lambda (&rest args)
                                  (append (list ',name)
@@ -303,7 +314,7 @@
 			      expand-function)))
 	  (function (cond
 		      (inline
-		       (function-form->no-lexical-environment-lambda-form function))
+		       (function-form->no-lexical-environment-lambda-form function value-type))
 		      (t
 		       function))))
       `(eval-when (:compile-toplevel :load-toplevel :execute)
