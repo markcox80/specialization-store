@@ -304,6 +304,17 @@
     
   instance)
 
+(defmethod make-store-unbound ((store standard-store))
+  (let ((store-name (store-name store)))
+    (fmakunbound store-name)
+    (setf (compiler-macro-function store-name) nil)
+    (map nil #'(lambda (specialization)
+                 (let ((specialization-name (specialization-name specialization)))
+                   (when specialization-name
+                     (fmakunbound specialization-name)
+                     (setf (compiler-macro-function specialization-name) nil))))
+         (store-specializations store)))
+  (values))
 
 ;;;; Standard Specialization Implementation (Glue Layer)
 

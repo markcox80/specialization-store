@@ -144,11 +144,23 @@
     (setf (find-store name) store)
     store))
 
-(defun make-store-unbound (name)
-  (fmakunbound name)
-  (setf (compiler-macro-function name) nil)
-  (multiple-value-bind (name indicator) (%find-store-helper name)
-    (remprop name indicator)))
+(defgeneric make-store-unbound (store))
+
+(defmethod make-store-unbound ((store symbol))
+  (when store
+    (multiple-value-bind (name indicator) (%find-store-helper store)
+      (let ((store-object (get name indicator)))
+        (when store-object
+          (make-store-unbound store-object))))))
+
+(defmethod make-store-unbound :after (store)
+  (flet ((perform (name)
+           (multiple-value-bind (name indicator) (%find-store-helper name)
+             (remprop name indicator))))
+    (typecase store
+      (null nil)
+      (symbol (perform store))
+      (t (perform (store-name store))))))
 
 (defgeneric ensure-specialization-using-class (store-class specialized-lambda-list value-type function &rest args
 					       &key expand-function name documentation &allow-other-keys))

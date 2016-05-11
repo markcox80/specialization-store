@@ -428,6 +428,9 @@ Replace the store object associated with the symbol ~name~ in the
 global environment.
 
 This function returns ~value~.
+
+If ~value~ is ~nil~ then {dictionary :ss :function make-store-unbound}
+is called on the bound store object.
 
 {generic-function ensure-store-using-class
                   :arguments (class store-name lambda-list
@@ -480,6 +483,9 @@ A symbol.
 
 {description}
 Remove the association between a store object and a name from the
+global environment.
+
+This function is responsible for removing all modifications to the
 global environment.
 
 {generic-function ensure-specialization-using-class

@@ -215,3 +215,24 @@
           (v2 (make-list 6 :initial-element 1)))
       (is (= 1d0 (example v1 0)))
       (is (= 1 (example v2 0))))))
+
+(syntax-layer-test make-store-unbound
+  (defstore example (object))
+
+  (defspecialization (example :name example/integer :inline t) ((object integer)) integer
+    (1+ object))
+
+  (test make-store-unbound
+    (is-true (find-store 'example))
+    (is-true (fboundp 'example))
+    (is-true (compiler-macro-function 'example))
+    (is-true (fboundp 'example/integer))
+    (is-true (compiler-macro-function 'example/integer))
+
+    (make-store-unbound 'example)
+
+    (signals invalid-store-name-error (find-store 'example))
+    (is-false (fboundp 'example))
+    (is-false (compiler-macro-function 'example))
+    (is-false (fboundp 'example/integer))
+    (is-false (compiler-macro-function 'example/integer))))
