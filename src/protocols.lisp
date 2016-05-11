@@ -48,7 +48,7 @@
 ;; invalid-store-name-error
 (defgeneric invalid-store-name (invalid-store-name-error))
 
-(define-condition invalid-store-name-error (store-error)
+(define-condition invalid-store-name-error (error)
   ((name :initarg :name
          :reader invalid-store-name
          :initform (error "A value for the slot :name must be specified.")))
