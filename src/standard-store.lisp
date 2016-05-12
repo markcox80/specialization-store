@@ -147,18 +147,24 @@
                                                               :arguments args))))))))
            (initialise/compile-time-function ()
              (with-slots (compile-time-function) instance
-               (setf compile-time-function (if form-type-completion-function                                      
-                                               (funcall form-type-completion-function
-                                                        (lambda (form env &rest arg-types)
-                                                          (let* ((fn (compile-time-discriminating-function instance))
-                                                                 (specialization (funcall fn arg-types)))
-                                                            (cond (specialization
-                                                                   (let* ((fn (specialization-expand-function specialization)))
-                                                                     (if fn
-                                                                         (funcall fn form env)
-                                                                         form)))
-                                                                  (t
-                                                                   form)))))
+               (setf compile-time-function (if form-type-completion-function
+                                               (lambda (form env &rest args)
+                                                 (apply (funcall form-type-completion-function
+                                                                 (lambda (form env &rest arg-types)
+                                                                   (let* ((fn (compile-time-discriminating-function instance))
+                                                                          (specialization (funcall fn arg-types)))
+                                                                     (cond (specialization
+                                                                            (let* ((fn (specialization-expand-function specialization))
+                                                                                   (name (specialization-name specialization)))
+                                                                              (cond (fn
+                                                                                     (funcall fn form env))
+                                                                                    (name
+                                                                                     `(,name ,@args))
+                                                                                    (t
+                                                                                     form))))
+                                                                           (t
+                                                                            form)))))
+                                                          form env args))
                                                (lambda (form env &rest args)
                                                  (declare (ignore env args))
                                                  form))))))
