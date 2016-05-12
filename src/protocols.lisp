@@ -33,7 +33,8 @@
           :reader store-error-store          
           :initform (error "A value for the slot :store must be specified.")))
   (:report (lambda (condition stream)
-	     (write-string (slot-value condition 'message) stream))))
+	     (format stream "The store function ~W is in error."
+                     (store-error-store condition)))))
 
 ;; simple-store-error
 (defgeneric simple-store-error-message (store-error))
@@ -43,7 +44,8 @@
             :reader simple-store-error-message
             :initform (error "A value for the slot :message must be specified.")))
   (:report (lambda (condition stream)
-	     (write-string (slot-value condition 'message) stream))))
+	     (write-string (simple-store-error-message condition)
+                           stream))))
 
 ;; invalid-store-name-error
 (defgeneric invalid-store-name (invalid-store-name-error))
@@ -53,8 +55,8 @@
          :reader invalid-store-name
          :initform (error "A value for the slot :name must be specified.")))
   (:report (lambda (condition stream)
-             (with-slots (name) condition
-               (format stream "No store exists with name ~W." name)))))
+             (format stream "No store exists with name ~W."
+                     (invalid-store-name condition)))))
 
 ;; inapplicable-arguments-error
 (defgeneric inapplicable-arguments (store-error))
@@ -64,9 +66,9 @@
               :reader inapplicable-arguments
               :initform (error "A value for the slot :arguments must be specified.")))
   (:report (lambda (condition stream)
-             (with-slots (store arguments) condition
-               (format stream "None of the specializations in store object ~W are applicable to the arguments: ~W."
-                       store arguments)))))
+             (format stream "None of the specializations in store object ~W are applicable to the arguments: ~W."
+                     (store-error-store condition)
+                     (inapplicable-arguments condition)))))
 
 ;; incongruent-specialization-error
 (defgeneric incongruent-specialization (store-error))
@@ -76,10 +78,9 @@
                    :reader incongruent-specialization
                    :initform (error "A value for the slot :specialization must be specified.")))
   (:report (lambda (condition stream)
-             (with-slots (store specialization) condition
-               (format stream "The specialized lambda list ~W is not congruent with the store lambda list ~W."
-                       (specialization-lambda-list specialization)
-                       (store-lambda-list store))))))
+             (format stream "The specialized lambda list ~W is not congruent with the store lambda list ~W."
+                     (specialization-lambda-list (incongruent-specialization condition))
+                     (store-lambda-list (store-error-store condition))))))
 
 ;; Duplicate specialization error
 (define-condition duplicate-specialization-error (store-error)
