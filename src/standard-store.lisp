@@ -334,10 +334,13 @@
                                         :expand-function expand-function)))
     (when name
       (setf (fdefinition name) specialization
-            (compiler-macro-function name) nil))
+            (compiler-macro-function name) expand-function))
+    #- (and)
     (when (and name expand-function)
-      (setf (compiler-macro-function name) (lambda (form env)
-                                             (let ((rv (funcall expand-function form env)))
+      (setf (compiler-macro-function name) expand-function(lambda (form env)
+                                             (funcall expand-function form env)
+                                             #- (and)
+                                             (let ((rv ))
                                                ;; Need to check this
                                                ;; to get a termination
                                                ;; in situations where
