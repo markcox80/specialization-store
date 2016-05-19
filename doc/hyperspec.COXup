@@ -98,7 +98,7 @@ The functions {dictionary :ss :function funcall-store} and {dictionary
 function.
 
 The function {dictionary :ss :function expand-store} provides
-opportunities for users to perform any compile time optimizations.
+opportunities to perform compile time optimizations.
 
 Which specialization (or specializations) the above functions select
 during an invocation is defined by the implementation of the store
@@ -116,8 +116,8 @@ function {dictionary :ss :function add-specialization}.
 Removing specializations from the store object is performed using the
 function {dictionary :ss :function remove-specialization}.
 
-The sequence of specialization objects managed by a store object can
-be obtained using the function {dictionary :ss :function
+The set of specialization objects managed by a store object can be
+obtained using the function {dictionary :ss :function
 store-specializations}.
 
 {subsection section/object-layer/specialization "Specialization Object"}
@@ -153,16 +153,17 @@ applies its arguments to the function returned by {dictionary :ss
 {heading "Conditions"}
 {dictionary-section :type store-error}
 {dictionary-section :function store-error-store}
+
 {dictionary-section :type simple-store-error}
 {dictionary-section :function simple-store-error-message}
+
 {dictionary-section :type invalid-store-name-error}
 {dictionary-section :function invalid-store-name}
 
-{heading "Store Objects"}
+{heading "Store Object Protocol"}
 {dictionary-section :function funcall-store}
 {dictionary-section :function apply-store}
 {dictionary-section :function expand-store}
-
 
 {dictionary-section :function add-specialization}
 {dictionary-section :function remove-specialization}
@@ -174,23 +175,19 @@ applies its arguments to the function returned by {dictionary :ss
 {dictionary-section :function store-lambda-list}
 {dictionary-section :function store-value-type}
 
-
 {dictionary-section :function store-documentation}
 {dictionary-section :function (setf store-documentation)}
-
 
 {dictionary-section :type inapplicable-arguments-error}
 {dictionary-section :function inapplicable-arguments}
 {dictionary-section :type incongruent-specialization-error}
 
-{heading "Specializations"}
+{heading "Specialization Protocol"}
 {dictionary-section :function specialization-function}
 {dictionary-section :function specialization-expand-function}
 
-
 {dictionary-section :function specialization-lambda-list}
 {dictionary-section :function specialization-value-type}
-
 
 {dictionary-section :function specialization-documentation}
 {dictionary-section :function (setf specialization-documentation)}
