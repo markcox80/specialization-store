@@ -429,7 +429,7 @@ global environment.
 
 This function returns ~value~.
 
-If ~value~ is ~nil~ then {dictionary :ss :function make-store-unbound}
+If ~value~ is ~nil~ then {ref :function make-store-unbound}
 is called on the bound store object.
 
 {generic-function ensure-store-using-class
