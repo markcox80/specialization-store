@@ -85,6 +85,16 @@ The set of specializations managed by a store object must be {ref
 :section section/lambda-lists/congruence :text "congruent"} with the
 store lambda list.
 
+The term store object function is used to represent the run-time
+behavior of a store object. The behaviour of the store object function
+is determined by the store object's state and the arguments given to
+the store object function.
+
+The term store object expander is used to represent the compile-time
+behavior of a store object. The behaviour of the store object expander
+is determined by the store object's state, the forms and current
+environment given as arguments to the store object expander.
+
 Invocations of a store function are represented by the following
 operators on {ref :glossary store-object :text "store objects"}:
 {begin-list}
@@ -94,11 +104,12 @@ operators on {ref :glossary store-object :text "store objects"}:
 {end-list}
 
 The functions {dictionary :ss :function funcall-store} and {dictionary
-:ss :function apply-store} model run-time applications of a store
-function.
+:ss :function apply-store} encapsulate run-time applications of a
+store function. These functions invoke the {ref :glossary
+store-object-function} of the store object.
 
 The function {dictionary :ss :function expand-store} provides
-opportunities to perform compile time optimizations.
+opportunities to perform compile time optimizations. 
 
 Which specialization (or specializations) the above functions select
 during an invocation is defined by the implementation of the store
@@ -157,9 +168,6 @@ applies its arguments to the function returned by {dictionary :ss
 {dictionary-section :type simple-store-error}
 {dictionary-section :function simple-store-error-message}
 
-{dictionary-section :type invalid-store-name-error}
-{dictionary-section :function invalid-store-name}
-
 {heading "Store Object Protocol"}
 {dictionary-section :function funcall-store}
 {dictionary-section :function apply-store}
@@ -196,6 +204,17 @@ applies its arguments to the function returned by {dictionary :ss
 In this section we outline a convenient syntax for creating store
 functions and adding specializations to them.
 
+The {dictionary :ss :function defstore} macro is used to define new
+store functions in the global environment.
+
+The {dictionary :ss :function defspecialization} macro provides a
+simple method of defining specializations.
+
+The {dictionary :ss :function define-specialization} provides an
+advanced method of defining specializations.
+
+The {ref :section section/syntax-layer/dictionary :text "syntax layer
+dictionary"} contains all of the requirements for the syntax layer.
 
 {subsection section/syntax-layer/dictionary "Dictionary"}
 {dictionary-section :function defstore}
@@ -203,16 +222,27 @@ functions and adding specializations to them.
 {dictionary-section :function define-specialization}
 
 {section section/glue-layer "Glue Layer"}
+The {ref :section section/glue-layer/dictionary :text "glue layer
+dictionary"} contains all of the requirements for the glue layer.
+
 {subsection section/glue-layer/dictionary "Dictionary"}
-{dictionary-section :function store-name}
-{dictionary-section :function specialization-name}
+{heading "Store Namespace"}
+{dictionary-section :type invalid-store-name-error}
+{dictionary-section :function invalid-store-name}
+
 {dictionary-section :function find-store}
 {dictionary-section :function (setf find-store)}
-{dictionary-section :function ensure-store-using-class}
-{dictionary-section :function ensure-store}
 {dictionary-section :function make-store-unbound}
-{dictionary-section :function ensure-specialization-using-class}
+
+{heading "Glue Layer Functions"}
+{dictionary-section :function ensure-store}
 {dictionary-section :function ensure-specialization}
+
+{heading "Glue Layer Protocol"}
+{dictionary-section :function specialization-name}
+{dictionary-section :function store-name}
+{dictionary-section :function ensure-store-using-class}
+{dictionary-section :function ensure-specialization-using-class}
 {dictionary-section :function store-specialization-class}
 
 {section section/lambda-lists "Lambda Lists"}
@@ -238,6 +268,12 @@ A function whose behaviour is determined by a {ref :glossary store-object}.
 {glossary-term store-object "store object"}
 Blah blah.
 
+{glossary-term store-object-function "store object function"}
+The run-time behavior of a store object.
+
+{glossary-term store-object-expander "store object function"}
+The compile-time behaviour of a store object.
+
 {glossary-term specialization-object "specialization object"}
 Blah.
 
@@ -254,4 +290,5 @@ Blah.
 
 ||| Local Variables:
 ||| mode: flyspell
+||| ispell-local-dictionary: "american"
 ||| End:

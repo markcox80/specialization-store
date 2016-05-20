@@ -2,44 +2,43 @@
 
 {condition-type store-error :parent-classes (error)}
 {description}
-All errors signalled by functions in the specialization store system
-are subtypes of the condition type {ref :type store-error}.
+All errors signalled by operators in the specialization store
+specification are subtypes of the condition type {ref :type
+store-error}.
 
 The function {ref :function store-error-store} can be used to obtain
 the store object involved in the error.
-
 
 {function store-error-store :arguments (store-error) :values store}
 {definition store-error}
-The store error.
+A {ref :type store-error} instance.
 
 {definition store}
-The store object which is an error.
+A store object.
 
 {description}
-Obtain the store object which signalled an error of type {ref :type
-store-error}.
+Obtain the store object which the condition type {ref :type
+store-error} was initialized with.
 
 {condition-type simple-store-error :parent-classes (store-error)}
 {description}
-The simple store error condition type is used in scenarios where the
-error is too generic to require its own condition type.
+The simple store error condition type is provided for cases where the
+error does not require its own condition type.
 
 Simple store error conditions contain an error message which can be
 retrieved using the function {ref :function
 simple-store-error-message}.
-
 
 {function simple-store-error-message :arguments (store-error) :values string}
 {definition store-error}
 A condition of type {ref :type simple-store-error}.
 
 {definition string}
-The message passed to the simple store error.
+A string.
 
 {description}
-Obtain the string used to initialize the simple-store-error condition
-object.
+Obtain the error message used to initialize the simple-store-error
+condition object.
 
 {condition-type invalid-store-name-error :parent-classes (store-error)}
 {description}
@@ -49,10 +48,18 @@ associated with the given symbol.
 
 The function {ref :function invalid-store-name} can be used to obtain
 the invalid name.
-
 
 {function invalid-store-name :arguments (invalid-store-name-error) :values name}
+{definition invalid-store-name-error}
+A condition of type {ref :type invalid-store-name-error}.
+
+{definition name}
+A store object name.
+
 {description}
+This function returns the name argument given to the function {ref
+:function find-store} for which no store object has been associated
+with.
 
 {condition-type inapplicable-arguments-error :parent-classes (store-error)}
 {description}
@@ -82,24 +89,24 @@ type {ref :type inapplicable-arguments-error}.
 
 {generic-function funcall-store
                   :arguments (store &rest arguments)
-                  :values (&rest results)}
+                  :values (&rest values)}
 {definition store}
-The store object in which to select specializations from.
+A store object.
 
 {definition arguments}
-The objects used to select the most applicable specialization.
+Arguments to the store object function.
 
-{definition results}
-Values computed by the function associated with the most applicable specialization.
+{definition values}
+Values computed by the store object function.
 
 {description}
-Invoke the function associated with the most applicable specialization
-to the object types given in ~arguments~.
+Invoke the {ref :glossary store-object-function} associated with the
+store object ~store~.
 
 {exceptional-situations}
-A condition of type {ref :type error} is signalled if the
-number of arguments given is not congruent with the store lambda list
-defined for ~store~.
+A condition of type {ref :type store-error} is signalled if the
+arguments given are not congruent with the {ref :function
+store-lambda-list :text "store lambda list"} defined for ~store~.
 
 A condition of type {ref :type inapplicable-arguments-error}
 is signalled if no specialization is applicable to ~arguments~.
@@ -557,4 +564,5 @@ global environment.
 
 ||| Local Variables:
 ||| mode: flyspell
+||| ispell-local-dictionary: "american"
 ||| End:
