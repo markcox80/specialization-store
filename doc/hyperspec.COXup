@@ -130,6 +130,12 @@ function {dictionary :ss :function remove-specialization}.
 The set of specialization objects managed by a store object can be
 obtained using the function {dictionary :ss :function
 store-specializations}.
+
+A store object implementation is allowed to optimize the functions
+{dictionary :ss :function funcall-store}, {dictionary :ss :function
+apply-store} and {dictionary :ss :function expand-store} provided that
+changes to any type specified user by a specialization are also
+propagated to the implemented optimizations.
 
 {subsection section/object-layer/specialization "Specialization Object"}
 The specialization object, or specialization, encapsulates the
