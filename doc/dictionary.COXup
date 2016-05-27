@@ -536,30 +536,86 @@ global environment.
 {description}
 
 
-{macro defstore :arguments (store-name store-lambda-list &body body)
-                :values new-store}
+{macro defstore :arguments (store-name store-lambda-list &body options)
+                :values store-object}
 {definition store-name}
+A function name.
 {definition store-lambda-list}
-{definition body}
-{definition new-store}
+A store lambda list.
+{definition options}
+Store function options.
+{definition store-object}
+A store object.
+{additional-syntax}
+options ::= (option*)
+option ::= (:documentation documentation)
+           (:store-class store-class) |
+           (:specialization-class specialization-class) |
+           store-class-specific-option
+store-class-specific-option ::= (keyword store-class-specific-option-value)
 {description}
+Define a store function in the global environment.
+
+The macro expands to code which performs the same task as the {ref
+:function ensure-store} function.
+
+The macro expansion must be evaluated at compile time.
+
+The macro expansion must arrange for
+~store-class-specific-option-value~ forms to be evaluated in the
+current lexical environment.
 
 {macro defspecialization :arguments (store-name specialized-lambda-list value-type &body body)
-                         :values new-specialization}
+                         :values specialization}
+{additional-syntax}
+store-name ::= symbol | extended-store-name
+extended-store-name ::= (symbol [[option*]])
+option ::= (:inline t | nil) |
+           (:name name) |
+           meta-class-specific-option
+meta-class-specific-option ::= (keyword value-form)
 {definition store-name}
+A symbol or ~extended-store-name~.
 {definition specialized-lambda-list}
+A specialized lambda list.
 {definition value-type}
+A type-specifier.
 {definition body}
-{definition new-specialization}
+An implicit {ref :function progn}.
+{definition specialization}
+A specialization object.
+{definition name}
+A symbol.
+{definition value-form}
+A form.
 {description}
+This macro expands to code which performs the same task as the {ref
+:function ensure-specialization} function.
+
+Valid ~meta-class-specific-option~s are determined by the
+specialization class used to represent specialization objects. The
+value forms to ~meta-class-specific-option~ will be evaluated.
 
-{macro define-specialization :arguments (store-name specialized-lambda-list value-type &body body)
-                             :values new-specialization}
+{macro define-specialization :arguments (store-name specialized-lambda-list value-type &body options)
+                             :values specialization}
+{additional-syntax}
+options ::= (:function function-form) |
+            (:expand-function expand-function-form) |
+            (:inline t | nil) |
+            (:name name) |
+            (:documentation documentation) |
+            meta-class-specific-option
+meta-class-specific-option ::= (keyword value-form)
 {definition store-name}
+A function name.
 {definition specialized-lambda-list}
+A specialized lambda list.
 {definition value-type}
-{definition body}
+A type specifier.
+{definition options}
+Specialization options.
 {definition new-specialization}
+A specialization object.
 {description}
 
 ||| Local Variables:

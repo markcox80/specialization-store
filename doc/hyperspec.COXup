@@ -11,10 +11,10 @@ The key differences between the common lisp object system's generic
 function and a store function are:
 {begin-list}
 {item}
-Optional, rest and/or keyword arguments are considered when selecting
-the most applicable specialization.
+Optional, rest and/or keyword arguments are considered when
+dispatching to specializations.
 {item}
-Improved support for compile time optimizations.
+Support for compile time optimizations.
 {end-list}
 
 The design of the store function specification consists of the
@@ -207,17 +207,19 @@ applies its arguments to the function returned by {dictionary :ss
 {dictionary-section :function (setf specialization-documentation)}
 
 {section section/syntax-layer "Syntax Layer"}
-In this section we outline a convenient syntax for creating store
-functions and adding specializations to them.
+This section outlines a convenient syntax for creating store functions
+and adding specializations to them.
 
 The {dictionary :ss :function defstore} macro is used to define new
 store functions in the global environment.
 
 The {dictionary :ss :function defspecialization} macro provides a
-simple method of defining specializations.
+simple syntax for defining specializations.
 
-The {dictionary :ss :function define-specialization} provides an
-advanced method of defining specializations.
+The {dictionary :ss :function define-specialization} macro performs
+the same task as {dictionary :ss :function defspecialization}, except
+that it is possible to specify the run-time behavior and compile time
+behavior separately.
 
 The {ref :section section/syntax-layer/dictionary :text "syntax layer
 dictionary"} contains all of the requirements for the syntax layer.
@@ -230,6 +232,8 @@ dictionary"} contains all of the requirements for the syntax layer.
 {section section/glue-layer "Glue Layer"}
 The {ref :section section/glue-layer/dictionary :text "glue layer
 dictionary"} contains all of the requirements for the glue layer.
+
+Completion functions.
 
 {subsection section/glue-layer/dictionary "Dictionary"}
 {heading "Store Namespace"}
