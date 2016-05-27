@@ -407,8 +407,10 @@
                                          (eql (first a) (first b)))))))
 
 
-;;;; Rewriting lexical functions as global functions
+;;;; Rewriting forms which could possibly call functions defined in
+;;;; the lexical environment.
 
+#- (and)
 (defun rewrite-form-p (form environment)
   (cond ((and form
               (symbolp form)
@@ -418,9 +420,11 @@
          nil)
         (t t)))
 
+#- (and)
 (defgeneric rewrite-init-forms (parameters environment)
   (:documentation "Ensure all init forms are either constant or invoke global functions."))
 
+#- (and)
 (defun random-init-function-name ()
   (let ((symbol (gensym "INIT-FUNCTION")))
     (multiple-value-bind (symbol status) (intern (symbol-name symbol) "SPECIALIZATION-STORE.GLOBALS")
@@ -428,6 +432,7 @@
           (random-init-function-name)
           symbol))))
 
+#- (and)
 (defmethod rewrite-init-forms ((parameters store-parameters) environment)
   (labels ((rewrite (fn vars parameters)
              (loop
