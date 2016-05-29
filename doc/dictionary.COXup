@@ -536,6 +536,23 @@ global environment.
 {description}
 
 
+{generic-function store-completion-function :arguments (store) :values function}
+{definition store}
+A store object.
+{definition function}
+A function.
+{description}
+Return the completion function used by the store function.
+
+
+{generic-function store-form-type-completion-function :arguments (store) :values function}
+{definition store}
+A store object.
+{definition function}
+A function.
+{description}
+Return the form type completion function used by the store function.
+
 {macro defstore :arguments (store-name store-lambda-list &body options)
                 :values store-object}
 {definition store-name}
@@ -564,6 +581,36 @@ The macro expansion must be evaluated at compile time.
 The macro expansion must arrange for
 ~store-class-specific-option-value~ forms to be evaluated in the
 current lexical environment.
+
+Evaluating {ref :function defstore} causes a completion function to be
+associated with the store function. A completion function is
+responsible for computing uninitialized optional and keyword
+arguments. The completion function is specified by the following
+lambda expression which is processed in the lexical environment in
+which the {ref :function defstore} was executed.
+
+{begin-example}
+(lambda (continuation)
+  (lambda store-lambda-list
+    (apply continuation completed-arguments)))
+{end-example}
+
+Evaluating {ref :function defstore} causes a form type completion
+function to be associated with the store function. A form type
+completion function is responsible for computing the types of all
+arguments at compile time from the input form and environment,
+including uninitialized optional and keyword arguments. The form type
+completion function is specified by the following lambda expression
+which is processed in the lexical environment in which the {ref
+:function defstore} was executed.
+
+{begin-example}
+(lambda (continuation)
+  (lambda (form env)
+    (apply continuation completed-form env)))
+{end-example}
+
+Explain what completed-form means.
 
 {macro defspecialization :arguments (store-name specialized-lambda-list value-type &body body)
                          :values specialization}

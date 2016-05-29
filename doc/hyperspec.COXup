@@ -226,6 +226,8 @@ dictionary"} contains all of the requirements for the syntax layer.
 
 {subsection section/syntax-layer/dictionary "Dictionary"}
 {dictionary-section :function defstore}
+{dictionary-section :function store-completion-function}
+{dictionary-section :function store-form-type-completion-function}
 {dictionary-section :function defspecialization}
 {dictionary-section :function define-specialization}
 
