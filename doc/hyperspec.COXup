@@ -210,6 +210,9 @@ applies its arguments to the function returned by {dictionary :ss
 This section outlines a convenient syntax for creating store functions
 and adding specializations to them.
 
+The syntax layer is not required to invoke the functions provided in
+the glue layer. It is however, required to perform the same actions.
+
 The {dictionary :ss :function defstore} macro is used to define new
 store functions in the global environment.
 
@@ -232,10 +235,75 @@ dictionary"} contains all of the requirements for the syntax layer.
 {dictionary-section :function define-specialization}
 
 {section section/glue-layer "Glue Layer"}
+
+The glue layer forms a bridge between the {ref :section
+section/syntax-layer} and the {ref :section section/object-layer}. Its
+purpose is to model the behavior of defining store functions in the
+global environment.
+
+The processes encapsulated by the glue layer are:
+{begin-list}
+{item}Defining a new store function.
+{item}Redefining an existing store function.
+{item}Defining a new specialization.
+{item}Redefining an exist specialization.
+{item}Capturing the lexical environment.
+{end-list}
+
+The ability to capture the lexical environment where the {dictionary
+:ss :function defstore} macro is evaluated is required when optional
+and keyword arguments are present in the store lambda list.
+
+Unlike CLOS' generic functions, initialization of optional and keyword
+arguments is defined by the store function. This choice was made as
+dispatch can be performed in these scenarios by delegating to a helper
+generic function or a store function containing all required
+arguments. The following example shows the one-to-one mapping between
+arguments in the function ~my-function~ to required arguments in the
+delegate function ~%my-function~.
+
+{begin-example}
+(defgeneric %my-function (a b c d))
+
+(defun my-function (a b &optional (c (default-c-value))
+                        &key d)
+  (%my-function a b c d))
+{end-example}
+
+Closing over the lexical environment of the {dictionary :ss :function
+defstore} macro is achieved using completion functions. A completion
+function is responsible for computing the default values of optional
+and keyword arguments and communicating them to the next stage of the
+store function dispatch procedure.
+
+There are two types of completion functions, a function that computes
+values at run-time and a function that computes types at compile time.
+
+The run-time completion function is specified by the following lambda
+expression which is processed in the lexical environment in which the
+{dictionary :ss :function defstore} form was executed.
+
+{begin-example}
+(lambda (continuation)
+  (lambda store-lambda-list
+    (funcall continuation [[completed-arguments]]*)))
+{end-example}
+
+The compile-time completion function deduces the type of the value
+returned by the initialization forms.
+
+{begin-example}
+(lambda (continuation)
+  (lambda (form environment)
+    (funcall continuation
+             form environment completed-argument-types)))
+{end-example}
+
+Completion functions are only required when the store lambda list
+contains either optional or keyword arguments.
+
 The {ref :section section/glue-layer/dictionary :text "glue layer
 dictionary"} contains all of the requirements for the glue layer.
-
-Completion functions.
 
 {subsection section/glue-layer/dictionary "Dictionary"}
 {heading "Store Namespace"}
