@@ -229,8 +229,6 @@ dictionary"} contains all of the requirements for the syntax layer.
 
 {subsection section/syntax-layer/dictionary "Dictionary"}
 {dictionary-section :function defstore}
-{dictionary-section :function store-completion-function}
-{dictionary-section :function store-form-type-completion-function}
 {dictionary-section :function defspecialization}
 {dictionary-section :function define-specialization}
 
@@ -321,6 +319,8 @@ dictionary"} contains all of the requirements for the glue layer.
 {heading "Glue Layer Protocol"}
 {dictionary-section :function specialization-name}
 {dictionary-section :function store-name}
+{dictionary-section :function store-value-completion-function}
+{dictionary-section :function store-type-completion-function}
 {dictionary-section :function ensure-store-using-class}
 {dictionary-section :function ensure-specialization-using-class}
 {dictionary-section :function store-specialization-class}

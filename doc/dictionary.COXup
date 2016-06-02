@@ -319,6 +319,45 @@ A string.
 
 {description}
 Change the documentation for the store object.
+
+
+{generic-function store-value-completion-function :arguments (store) :values function}
+{definition store}
+A store object.
+
+{definition function}
+A function.
+
+{description}
+Return the run time completion function for the store object ~store~.
+
+The function returned has the following composition
+
+{begin-example}
+(lambda (continuation)
+  (lambda store-lambda-list
+    (funcall continuation [[completed-arguments*]])))
+{end-example}
+
+{generic-function store-type-completion-function :arguments (store) :values function}
+{definition store}
+A store object.
+
+{definition function}
+A function.
+
+{description}
+Return the compile time completion function for the store object
+~store~.
+
+The function returned has the following composition
+
+{begin-example}
+(lambda (continuation)
+  (lambda (form environment)
+    (funcall continuation
+             form environment completed-argument-types)))
+{end-example}
 
 {generic-function specialization-name :arguments (specialization) :values symbol}
 {definition specialization}
@@ -440,49 +479,56 @@ If ~value~ is ~nil~ then {ref :function make-store-unbound}
 is called on the bound store object.
 
 {generic-function ensure-store-using-class
-                  :arguments (class store-name lambda-list
-                              completion-function form-type-completion-function
+                  :arguments (class store-name store-lambda-list
                               &key
-                                store-class specialization-class documentation
+                                specialization-class documentation
+                                completion-function form-type-completion-function
                               &allow-other-keys)
                   :values store}
 {definition class}
+A class designator.
 {definition store-name}
+A function name.
 {definition lambda-list}
-{definition completion-function}
-{definition form-type-completion-function}
-{definition store-class}
+A store lambda list.
 {definition specialization-class}
+A class designator.
 {definition documentation}
 A string.
-
+{definition completion-function}
+A function.
+{definition form-type-completion-function}
+A function.
 {definition store}
 A store object.
-
 {description}
 
 
 {function ensure-store
           :arguments (name store-lambda-list
-                      completion-function form-type-completion-function
                       &key
                         store-class specialization-class documentation
+                        completion-function form-type-completion-function
                       &allow-other-keys)
           :values store}
 {definition name}
+A function name.
 {definition store-lambda-list}
-{definition completion-function}
-{definition form-type-completion-function}
+A store lambda list.
 {definition store-class}
-{definition specializaiton-class}
-
+A class designator.
+{definition specialization-class}
+A class designator.
+{definition completion-function}
+A function.
+{definition form-type-completion-function}
+A function.
 {definition documentation}
 A string.
-
 {definition store}
 A store object.
-
 {description}
+
 
 {generic-function make-store-unbound :arguments (name) :values ()}
 {definition name}
@@ -534,24 +580,6 @@ global environment.
 {definition store}
 {definition class}
 {description}
-
-
-{generic-function store-completion-function :arguments (store) :values function}
-{definition store}
-A store object.
-{definition function}
-A function.
-{description}
-Return the completion function used by the store function.
-
-
-{generic-function store-form-type-completion-function :arguments (store) :values function}
-{definition store}
-A store object.
-{definition function}
-A function.
-{description}
-Return the form type completion function used by the store function.
 
 {macro defstore :arguments (store-name store-lambda-list &body options)
                 :values store-object}
@@ -576,41 +604,22 @@ Define a store function in the global environment.
 The macro expands to code which performs the same task as the {ref
 :function ensure-store} function.
 
-The macro expansion must be evaluated at compile time.
-
-The macro expansion must arrange for
-~store-class-specific-option-value~ forms to be evaluated in the
-current lexical environment.
-
-Evaluating {ref :function defstore} causes a completion function to be
-associated with the store function. A completion function is
-responsible for computing uninitialized optional and keyword
-arguments. The completion function is specified by the following
-lambda expression which is processed in the lexical environment in
-which the {ref :function defstore} was executed.
-
-{begin-example}
-(lambda (continuation)
-  (lambda store-lambda-list
-    (apply continuation completed-arguments)))
-{end-example}
+Evaluating {ref :function defstore} causes a completion
+function to be associated with the store function. A form type
+completion function is responsible for computing the values of
+uninitialized optional and keyword arguments at run-time. 
 
 Evaluating {ref :function defstore} causes a form type completion
 function to be associated with the store function. A form type
 completion function is responsible for computing the types of all
 arguments at compile time from the input form and environment,
-including uninitialized optional and keyword arguments. The form type
-completion function is specified by the following lambda expression
-which is processed in the lexical environment in which the {ref
-:function defstore} was executed.
+including uninitialized optional and keyword arguments.
 
-{begin-example}
-(lambda (continuation)
-  (lambda (form env)
-    (apply continuation completed-form env)))
-{end-example}
+The macro expansion must be evaluated at compile time.
 
-Explain what completed-form means.
+The macro expansion must arrange for
+~store-class-specific-option-value~ forms to be evaluated in the
+current lexical environment.
 
 {macro defspecialization :arguments (store-name specialized-lambda-list value-type &body body)
                          :values specialization}
