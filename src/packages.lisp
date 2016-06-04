@@ -144,8 +144,8 @@
   ;; Trees
   (:export "NODE"
            "NODE-VALUE"
-           "NODE-LEFT"
-           "NODE-RIGHT"
+           "NODE-PASS"
+           "NODE-FAIL"
            "MAKE-NODE"
            "LEAFP"
 

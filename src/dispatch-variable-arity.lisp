@@ -47,8 +47,8 @@
                           (let* ((type (specialization-store.dispatch.fixed-arity:fixed-arity-rule-type value))
                                  (index (specialization-store.dispatch.fixed-arity:fixed-arity-rule-index value)))
                             (make-node (make-positional-parameter-type-rule index type)
-                                       (rewrite-node (node-left node))
-                                       (rewrite-node (node-right node)))))
+                                       (rewrite-node (node-pass node))
+                                       (rewrite-node (node-fail node)))))
                          (t
                           (error "Do not know how to process node with value ~W." value)))))))
       (rewrite-node (build-tree)))))

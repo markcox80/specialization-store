@@ -1,29 +1,29 @@
 (in-package "SPECIALIZATION-STORE.DISPATCH")
 
 
-;;;; Binary Tree
+;;;; Binary Decision Tree
 
 (defstruct (node (:constructor %make-node))
   (value nil)
-  (left nil)
-  (right nil))
+  (pass nil)
+  (fail nil))
 
-(defun make-node (&optional value left right)
-  (check-type left (or null node))
-  (check-type right (or null node))
-  (%make-node :left left :right right :value value))
+(defun make-node (&optional value pass fail)
+  (check-type pass (or null node))
+  (check-type fail (or null node))
+  (%make-node :pass pass :fail fail :value value))
 
 (defun leafp (node)
-  (and (null (node-left node))
-       (null (node-right node))))
+  (and (null (node-pass node))
+       (null (node-fail node))))
 
 (defun split-leaf (node splitting-function)
   (assert (leafp node))
   (let ((split? (funcall splitting-function (node-value node))))
-    (cond (split? (destructuring-bind (new-value left-value right-value) split?
+    (cond (split? (destructuring-bind (new-value pass-value fail-value) split?
 		    (make-node new-value
-			       (make-node left-value)
-			       (make-node right-value))))
+			       (make-node pass-value)
+			       (make-node fail-value))))
 	  (t node))))
 
 (defun deepen-tree (node test-function splitting-function)
@@ -34,10 +34,10 @@
 			(values (split-leaf node splitting-function) t)
 			(values node nil)))
 		   (t
-		    (multiple-value-bind (left-node left?) (process (node-left node))
-		      (multiple-value-bind (right-node right?) (process (node-right node))
-			(values (make-node (node-value node) left-node right-node)
-				(or left? right?))))))))
+		    (multiple-value-bind (pass-node pass?) (process (node-pass node))
+		      (multiple-value-bind (fail-node fail?) (process (node-fail node))
+			(values (make-node (node-value node) pass-node fail-node)
+				(or pass? fail?))))))))
     (process node)))
 
 ;;;; Rules 
@@ -211,8 +211,8 @@
                     (eql (node-value a) (node-value b)))
                    ((and (not (leafp a)) (not (leafp b)))
                     (and (rule-equal (node-value a) (node-value b))
-                         (node-equal (node-left a) (node-left b))
-                         (node-equal (node-right a) (node-right b))))
+                         (node-equal (node-pass a) (node-pass b))
+                         (node-equal (node-fail a) (node-fail b))))
                    (t
                     nil)))
            (process (node knowledge)
@@ -222,20 +222,20 @@
                     node)
                    (t
                     (let ((rule (node-value node)))
-                      (cond ((node-equal (node-left node) (node-right node))
-                             (values (node-left node) t))
+                      (cond ((node-equal (node-pass node) (node-fail node))
+                             (values (node-pass node) t))
                             ((typep rule 'constantly-rule)
                              (values (if (constantly-rule-value rule)
-                                         (node-left node)
-                                         (node-right node))
+                                         (node-pass node)
+                                         (node-fail node))
                                      t))
                             (t
                              (multiple-value-bind (new-rule changed?) (remove-rule-tautologies rule knowledge)
                                (let ((new-knowledge (cons new-rule knowledge)))
-                                 (multiple-value-bind (new-left left-changed?) (process (node-left node) new-knowledge)
-                                   (multiple-value-bind (new-right right-changed?) (process (node-right node) knowledge)
-                                     (values (make-node new-rule new-left new-right)
-                                             (or changed? left-changed? right-changed?)))))))))))))
+                                 (multiple-value-bind (new-pass pass-changed?) (process (node-pass node) new-knowledge)
+                                   (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) knowledge)
+                                     (values (make-node new-rule new-pass new-fail)
+                                             (or changed? pass-changed? fail-changed?)))))))))))))
     (multiple-value-bind (new-tree changed?) (process tree nil)      
       (if changed?
           (remove-dispatch-tree-tautologies new-tree)
@@ -255,9 +255,9 @@
            (princ (node-value tree) stream)
            (terpri stream)
            (pprint-logical-block (stream nil :per-line-prefix "   ")
-             (pretty-print-dispatch-tree (node-left tree) stream)
+             (pretty-print-dispatch-tree (node-pass tree) stream)
              (terpri stream)
-             (pretty-print-dispatch-tree (node-right tree) stream))))))
+             (pretty-print-dispatch-tree (node-fail tree) stream))))))
 
 ;;;; Rule Implementation
 (defun compare-slot-values (slot-name test-fn &rest objects)

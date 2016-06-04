@@ -217,8 +217,8 @@
                         (check-type rule fixed-arity-rule)
                         (make-node (funcall (elt index-function-table (fixed-arity-rule-index rule))
                                             (fixed-arity-rule-type rule))
-                                   (process (node-left node))
-                                   (process (node-right node))))))))
+                                   (process (node-pass node))
+                                   (process (node-fail node))))))))
       (process tree))))
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
