@@ -231,6 +231,8 @@ dictionary"} contains all of the requirements for the syntax layer.
 {dictionary-section :function defstore}
 {dictionary-section :function defspecialization}
 {dictionary-section :function define-specialization}
+{dictionary-section :function defstore-using-class}
+{dictionary-section :function define-specialization-using-class}
 
 {section section/glue-layer "Glue Layer"}
 

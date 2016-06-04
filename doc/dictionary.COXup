@@ -601,37 +601,60 @@ store-class-specific-option ::= (keyword store-class-specific-option-value)
 {description}
 Define a store function in the global environment.
 
-The macro expands to code which performs the same task as the {ref
-:function ensure-store} function.
+The {ref :function defstore} macro function invokes the function {ref
+:function defstore-using-class} using the class object designated by
+~store-class~. If no store class is specified then ~standard-store~ is
+used.
 
-Evaluating {ref :function defstore} causes a completion
-function to be associated with the store function. A form type
-completion function is responsible for computing the values of
-uninitialized optional and keyword arguments at run-time. 
+The {ref :function defstore} macro function is required to install the
+store function at compile time.
 
-Evaluating {ref :function defstore} causes a form type completion
-function to be associated with the store function. A form type
-completion function is responsible for computing the types of all
-arguments at compile time from the input form and environment,
-including uninitialized optional and keyword arguments.
+Evaluating {ref :function defstore} causes two completion functions to
+be associated with the store function in cases where the store lambda
+list contains optional or keyword arguments. These functions are
+responsible for capturing the lexical environment in which the
+initialisation forms for optional and keyword arguments are defined.
+
+{generic-function defstore-using-class :arguments (store-class store-lambda-list
+                                                   &key documentation specialization-class environment
+                                                        value-completion-function
+                                                        type-completion-function
+                                                   &allow-other-keys)
+                                       :values store}
+{definition store-class}
+A store object class.
 
-The macro expansion must be evaluated at compile time.
+{definition store-lambda-list}
+A store lambda list.
 
-The macro expansion must arrange for
-~store-class-specific-option-value~ forms to be evaluated in the
-current lexical environment.
+{definition documentation}
+A string.
+
+{definition specialization-class}
+A specialization object class.
+
+{definition environment}
+An environment object.
+
+{description}
+Define a store function in the global environment. The store object
+underpinning the store function is of type ~store-class~.
+
+The purpose of this function is to provide users with the ability to
+customize the {ref :function defstore} macro. The function returns a
+form which when evaluated performs the same tasks as the function {ref
+:function ensure-store}.
 
 {macro defspecialization :arguments (store-name specialized-lambda-list value-type &body body)
                          :values specialization}
 {additional-syntax}
-store-name ::= symbol | extended-store-name
-extended-store-name ::= (symbol [[option*]])
-option ::= (:inline t | nil) |
-           (:name name) |
+store-name ::= store-function-name | extended-store-name
+extended-store-name ::= (store-function-name [[option*]])
+option ::= (:name function-name) |
            meta-class-specific-option
 meta-class-specific-option ::= (keyword value-form)
-{definition store-name}
-A symbol or ~extended-store-name~.
+{definition store-function-name}
+A function name.
 {definition specialized-lambda-list}
 A specialized lambda list.
 {definition value-type}
@@ -640,25 +663,36 @@ A type-specifier.
 An implicit {ref :function progn}.
 {definition specialization}
 A specialization object.
-{definition name}
-A symbol.
-{definition value-form}
-A form.
+{definition store-function-name}
+A function name.
+{definition function-name}
+A function name.
 {description}
-This macro expands to code which performs the same task as the {ref
-:function ensure-specialization} function.
+Add a specialization to the store function associated with the
+name ~store-name~.
 
-Valid ~meta-class-specific-option~s are determined by the
-specialization class used to represent specialization objects. The
-value forms to ~meta-class-specific-option~ will be evaluated.
+This macro provides a more convenient syntax of the macro {ref
+:function define-specialization}.
+
+The ~body~ argument specifies the run time behavior of the
+specialization.
+
+The evaluation of {ref :function defspecialization} must invoke {ref
+:function define-specialization-using-class}.
+
+Evaluation of {ref :function defspecialization} forms must have
+compile time side effects.
+
+{exceptional-situations}
+An error of type {ref :type invalid-store-name-error} is signalled if
+no store object is bound to the given ~store-name~.
 
 {macro define-specialization :arguments (store-name specialized-lambda-list value-type &body options)
                              :values specialization}
 {additional-syntax}
 options ::= (:function function-form) |
             (:expand-function expand-function-form) |
-            (:inline t | nil) |
-            (:name name) |
+            (:name specialization-name) |
             (:documentation documentation) |
             meta-class-specific-option
 meta-class-specific-option ::= (keyword value-form)
@@ -668,10 +702,62 @@ A function name.
 A specialized lambda list.
 {definition value-type}
 A type specifier.
-{definition options}
-Specialization options.
+{definition function-form}
+A function form.
+{definition expand-function-form}
+A function form.
+{definition specialization-name}
+A function name.
+{definition documentation}
+A string.
 {definition new-specialization}
 A specialization object.
+{description}
+Add a specialization to the store function associated with the
+name ~store-name~.
+
+This macro invokes the function {ref :function
+define-specialization-using-class} with the store object bound to the
+given ~store-name~.
+
+The ~function-form~ must evaluate to a function object representing
+the run-time behavior of the specialization.
+
+The ~expand-function-form~ must evaluate to a function object
+representing the compile-time behavior of the specialization.
+
+The ~specialization-name~ specifies a the name in the global
+environment which users can invoke directly the specialization
+directly i.e. by passing the store function.
+
+Evaluation of {ref :function define-specialization} forms must have
+compile time side effects.
+
+{exceptional-situations}
+An error of type {ref :type invalid-store-name-error} is signalled if
+no store object is bound to the given ~store-name~.
+
+{generic-function define-specialization-using-class :arguments (store specialized-lambda-list value-type
+                                                                &key function expand-function name
+                                                                     documentation environment
+                                                                &allow-other-keys)
+                                                    :values specialization}
+{definition store}
+A store object.
+{definition specialized-lambda-list}
+A specialized lambda list.
+{definition value-type}
+A type specifier.
+{definition function}
+A function.
+{definition expand-function}
+A function.
+{definition name}
+A symbol.
+{definition documentation}
+A string.
+{definition environment}
+An environment object.
 {description}
 
 ||| Local Variables:
