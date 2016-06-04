@@ -643,8 +643,8 @@ global environment.
 This function is responsible for removing all modifications to the
 global environment.
 
-{generic-function ensure-specialization-using-class
-                  :arguments (store-class specialized-lambda-list value-type function
+{generic-function ensure-specialization-using-object
+                  :arguments (store specialized-lambda-list value-type function
                               &key
                                 expand-function name documentation
                               &allow-other-keys)
@@ -781,7 +781,7 @@ The ~body~ argument specifies the run time behavior of the
 specialization.
 
 The evaluation of {ref :function defspecialization} must invoke {ref
-:function define-specialization-using-class}.
+:function define-specialization-using-object}.
 
 Evaluation of {ref :function defspecialization} forms must have
 compile time side effects.
@@ -820,7 +820,7 @@ Add a specialization to the store function associated with the
 name ~store-name~.
 
 This macro invokes the function {ref :function
-define-specialization-using-class} with the store object bound to the
+define-specialization-using-object} with the store object bound to the
 given ~store-name~.
 
 The ~function-form~ must evaluate to a function object representing
@@ -840,10 +840,10 @@ compile time side effects.
 An error of type {ref :type invalid-store-name-error} is signalled if
 no store object is bound to the given ~store-name~.
 
-{generic-function define-specialization-using-class :arguments (store specialized-lambda-list value-type
-                                                                &key function expand-function name
-                                                                     documentation environment
-                                                                &allow-other-keys)
+{generic-function define-specialization-using-object :arguments (store specialized-lambda-list value-type
+                                                                 &key function expand-function name
+                                                                      documentation environment
+                                                                 &allow-other-keys)
                                                     :values specialization}
 {definition store}
 A store object.

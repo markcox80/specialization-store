@@ -232,7 +232,7 @@ dictionary"} contains all of the requirements for the syntax layer.
 {dictionary-section :function defspecialization}
 {dictionary-section :function define-specialization}
 {dictionary-section :function defstore-using-class}
-{dictionary-section :function define-specialization-using-class}
+{dictionary-section :function define-specialization-using-object}
 
 {section section/glue-layer "Glue Layer"}
 
@@ -340,7 +340,7 @@ Store object entensions.
 
 Glue layer delegates.
 {dictionary-section :function ensure-store-using-object}
-{dictionary-section :function ensure-specialization-using-class}
+{dictionary-section :function ensure-specialization-using-object}
 
 {section section/lambda-lists "Lambda Lists"}
 
