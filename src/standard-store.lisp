@@ -20,7 +20,10 @@
 ;;;; Standard Store Class
 
 (defgeneric store-parameters (standard-store))
-(defgeneric clear-discriminating-functions (standard-store))
+
+(defgeneric compute-dispatch-functions (store))
+(defgeneric update-dispatch-functions (store))
+(defgeneric clear-dispatch-functions (store))
 
 (defclass standard-store ()
   ((name :initarg :name
@@ -107,14 +110,14 @@
                    nil)
      finally
        (alexandria:appendf (slot-value store 'specializations) (list specialization)))
-  (clear-discriminating-functions store)
+  (clear-dispatch-functions store)
   store)
 
 (defmethod remove-specialization ((store standard-store) (specialization standard-specialization))
   (alexandria:deletef (slot-value store 'specializations) specialization
                       :test #'(lambda (a b)
                                 (specialization-equal store a b)))
-  (clear-discriminating-functions store)
+  (clear-dispatch-functions store)
   store)
 
 (defmethod (setf store-specializations) (value (store standard-store))
@@ -185,3 +188,36 @@
                      (setf (compiler-macro-function specialization-name) nil))))
          (store-specializations store)))
   (values))
+
+
+;;;; Dispatch Functions
+
+(defmethod clear-dispatch-functions ((store standard-store))
+  (with-slots (runtime-function compile-time-function) store
+    (labels ((update-runtime (&rest args)
+               (update-dispatch-functions store)
+               (apply (slot-value store 'runtime-function) args))
+             (update-compile-time (form env)
+               (update-dispatch-functions store)
+               (apply (slot-value store 'compile-time-function) form env)))
+      (setf runtime-function #'update-runtime
+            compile-time-function #'update-compile-time)
+      (specialization-store.mop:set-funcallable-instance-function store #'update-runtime))))
+
+(defmethod update-dispatch-functions ((store standard-store))
+  (with-slots (runtime-function compile-time-function) store
+    (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
+      (setf runtime-function runtime
+            compile-time-function compile-time)
+      (specialization-store.mop:set-funcallable-instance-function store runtime)))
+  (values))
+
+(defun compute-dispatch-function/runtime (store)
+  )
+
+(defun compute-dispatch-function/compile-time (store)
+  )
+
+(defmethod compute-dispatch-functions ((store standard-store))
+  (list (compute-dispatch-function/runtime store)
+        (compute-dispatch-function/compile-time store)))
