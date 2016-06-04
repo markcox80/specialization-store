@@ -135,26 +135,32 @@
         (setf (get name indicator) value)
         (make-store-unbound name))))
 
-(defgeneric ensure-store-using-class (store-class store-name store-lambda-list
-                                      &key
-                                        specialization-class documentation
-                                        value-completion-function type-completion-function
-                                      &allow-other-keys))
+(defgeneric ensure-store-using-object (object store-name store-lambda-list
+                                       &key
+                                         specialization-class documentation
+                                         value-completion-function type-completion-function
+                                         &allow-other-keys))
 
 (defun ensure-store (name store-lambda-list &rest args
                      &key
                        store-class specialization-class documentation
                        value-completion-function type-completion-function
                        &allow-other-keys)
-  (alexandria:remove-from-plistf args :store-class)
+  (declare (ignore specialization-class
+                   documentation
+                   value-completion-function type-completion-function))
   (let* ((store-class (etypecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
                         (t store-class)))
          (current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
-         (store (cond ((and current-store )
-                       ()))))
+         (object (if current-store
+                     current-store
+                     store-class))
+         (store (apply #'ensure-store-using-object object store-lambda-list
+                       :store-class store-class
+                       args)))
     (setf (find-store name) store)
     store))
 
@@ -176,14 +182,14 @@
       (symbol (perform store))
       (t (perform (store-name store))))))
 
-(defgeneric ensure-specialization-using-class (store-class specialized-lambda-list value-type function &rest args
+(defgeneric ensure-specialization-using-object (store specialized-lambda-list value-type function &rest args
 					       &key expand-function name documentation &allow-other-keys))
 
 (defun ensure-specialization (store-name specialized-lambda-list value-type function
 			      &rest args &key expand-function documentation name &allow-other-keys)
   (declare (ignore expand-function documentation name))
   (let* ((store (find-store store-name)))
-    (apply #'ensure-specialization-using-class
+    (apply #'ensure-specialization-using-object
            store specialized-lambda-list value-type function
            args)))
 
@@ -192,30 +198,40 @@
 
 ;;;; Syntax Layer
 
-;; DEFSTORE
-
-(defgeneric defstore-using-class (store-class store-lambda-list
+(defgeneric defstore-using-class (store-class name store-lambda-list
+                                  &rest args
                                   &key
                                     documentation specialization-class environment
-                                    value-completion-function type-completion-function))
+                                    &allow-other-keys))
+
+(defgeneric define-specialization-using-object (store specialized-lambda-list value-type
+                                                &key
+                                                  function expand-function name
+                                                  documentation environment
+                                                &allow-other-keys))
+
+;; DEFSTORE
 
 (defmacro defstore (store-name store-lambda-list &body body &environment env)
-  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list)))
-    (let* ((completion (specialization-store.lambda-lists:make-runtime-completion-lambda-form parameters))
-           (form-type-completion (specialization-store.lambda-lists:make-form-type-completion-lambda-form parameters env)))
-      `(eval-when (:compile-toplevel :load-toplevel :execute)
-         (ensure-store ',store-name ',store-lambda-list ,completion ,form-type-completion
-                       ,@(mapcan #'(lambda (item)
-                                     (alexandria:destructuring-case item
-                                       ((:documentation doc)
-                                        (list :documentation doc))
-                                       ((:store-class name)
-                                        (list :store-class `',name))
-                                       ((:specialization-class name)
-                                        (list :specialization-class `',name))
-                                       ((t &rest args)
-                                        (list (first item) args))))
-                                 body))))))
+  (let* ((store-class (find :store-class body :key #'first))
+         (store-class (typecase store-class
+                        (null (find-class 'standard-store))
+                        (symbol (find-class store-class))
+                        (t store-class)))
+         (form (apply #'defstore-using-class store-class store-name store-lambda-list
+                      :environment env
+                      (mapcan #'(lambda (item)
+                                  (cond ((eql (first item) :store-class)
+                                         nil)
+                                        ((and (member (first item) '(:documentation :specialization-class)))
+                                         (if (= 2 (length item))
+                                             item
+                                             (error "Invalid store definition option: ~W." item)))
+                                        (t
+                                         (list (first item) (rest item)))))
+                              body))))
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
+       ,form)))
 
 ;; DEFSPECIALIZATION
 (defun canonicalize-store-name (store-name)  
@@ -231,7 +247,7 @@
 (defmacro defspecialization (store-name specialized-lambda-list value-type &body body)
   (destructuring-bind (store-name &rest args &key inline name &allow-other-keys)
       (canonicalize-store-name store-name)
-    (declare (ignore inline))
+    (declare (ignore inline name))
     (alexandria:remove-from-plistf args :name)
     (multiple-value-bind (body declarations doc-string) (alexandria:parse-body body :documentation t)
       (let* ((store (find-store store-name))
@@ -243,103 +259,23 @@
 			,@declarations
 			,@body))
 	   (:documentation ,doc-string)
-	   ,@(when name
-		   `((:name ,name)))
 	   ,@(loop
 		for (key value) on args :by #'cddr
 		collect
 		  `(,key ,value)))))))
 
 ;; DEFINE-SPECIALIZATION
-(defun lambda-form-p (form)
-  (and (listp form)
-       (eql 'lambda (first form))
-       (>= (length form) 2)))
 
-(defun function-form-p (form)
-  (and (listp form)
-       (eql 'function (first form))
-       (= 2 (length form))))
-
-(defun function-form->inlined-expand-function (function-form value-type)
-  (cond
-    ((lambda-form-p function-form)
-     (destructuring-bind (lambda-list &rest body) (rest function-form)
-       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
-         `(compiler-macro-lambda (&rest args)
-            (cons (quote (lambda ,lambda-list
-                           ,@declarations
-                           ,doc-string
-                           (the ,value-type
-                                (progn ,@remaining-forms))))
-                  args)))))
-    ((function-form-p function-form)
-     (function-form->inlined-expand-function (second function-form) value-type))
-    ((symbolp function-form)
-     `(compiler-macro-lambda (&rest args)
-	(append (list 'funcall (list 'function ',function-form))
-		args)))))
-
-(defun function-form->no-lexical-environment-lambda-form (function-form value-type)
-  (cond
-    ((lambda-form-p function-form)
-     (destructuring-bind (lambda-list &rest body) (rest function-form)
-       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
-         `(compile nil (quote (lambda ,lambda-list
-                                ,@declarations
-                                ,doc-string
-                                (the ,value-type
-                                     (progn ,@remaining-forms))))))))
-    ((function-form-p function-form)
-     (function-form->no-lexical-environment-lambda-form (second function-form) value-type))
-    ((symbolp function-form)
-     `(lambda (&rest args)
-        (the ,value-type (apply (function ,function-form) args))))
-    (t
-     (error "Invalid function form."))))
-
-(defmacro define-specialization (store-name specialized-lambda-list value-type &body body)
-  (let ((function nil)
-	(expand-function nil)
-	(inline nil)
-	(name nil)
-        (others nil))
-    (dolist (item body)
-      (alexandria:destructuring-case item
-        ((:function form)
-         (setf function form))
-	((:expand-function form)
-	 (setf expand-function form))
-	((:inline value)
-	 (check-type value (member nil t))
-	 (setf inline value))
-	((:name value)
-	 (setf name value))
-        ((t &rest args)
-         (declare (ignore args))
-         (push item others))))
-
-    (let ((expand-function (cond
-			     ((and (null expand-function) inline)
-			      (function-form->inlined-expand-function function value-type))
-			     ((and (null expand-function) name)			      
-			      nil)
-			     ((and expand-function (null inline))
-			      expand-function)
-			     ((and (null expand-function) (null inline))
-			      nil)
-			     (t
-			      (warn "Invalid use of :expand-function, :inline and :name in defspecialization.")
-			      expand-function)))
-	  (function (cond
-		      (inline
-		       (function-form->no-lexical-environment-lambda-form function value-type))
-		      (t
-		       function))))
-      `(eval-when (:compile-toplevel :load-toplevel :execute)
-	 (ensure-specialization ',store-name ',specialized-lambda-list ',value-type ,function
-				:expand-function ,expand-function
-				:name ',name
-				,@(mapcan #'(lambda (item)
-					      (list (first item) (second item)))
-					  others))))))
+(defmacro define-specialization (store-name specialized-lambda-list value-type &body body &environment env)
+  (let* ((store (find-store store-name))
+         (form (apply #'define-specialization-using-object store specialized-lambda-list value-type
+                      :environment env
+                      (mapcan #'(lambda (item)
+                                  (if (member (first item) '(:documentation :name :function :expand-function))
+                                      (if (= 2 (length item))
+                                          item
+                                          (error "Invalid specialization definition option: ~W." item))
+                                      (list (first item) (rest item))))
+                              body))))
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
+       ,form)))
