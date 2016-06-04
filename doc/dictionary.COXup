@@ -717,14 +717,15 @@ list contains optional or keyword arguments. These functions are
 responsible for capturing the lexical environment in which the
 initialisation forms for optional and keyword arguments are defined.
 
-{generic-function defstore-using-class :arguments (store-class store-lambda-list
+{generic-function defstore-using-class :arguments (store-class name store-lambda-list
                                                    &key documentation specialization-class environment
-                                                        value-completion-function
-                                                        type-completion-function
                                                    &allow-other-keys)
                                        :values store}
 {definition store-class}
 A store object class.
+
+{definition name}
+A function name.
 
 {definition store-lambda-list}
 A store lambda list.
