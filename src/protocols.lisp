@@ -11,12 +11,10 @@
 (defgeneric specialization-equal (store specialization-a specializabion-b))
 (defgeneric store-specializations (store))
 (defgeneric (setf store-specializations) (value store))
-(defgeneric store-name (store))
 (defgeneric store-lambda-list (store))
 (defgeneric store-documentation (store))
 
 ;; The specialization object protocol
-(defgeneric specialization-name (specialization))
 (defgeneric specialization-function (specialization))
 (defgeneric specialization-expand-function (specialization))
 (defgeneric specialization-lambda-list (specialization))
@@ -88,6 +86,27 @@
 
 ;;;; Glue Layer
 
+(define-condition ensure-store-error (error)
+  ((object :initarg :object
+           :reader ensure-store-error-object)))
+
+(define-condition invalid-store-lambda-list-error (ensure-store-error)
+  ((store-lambda-list :initarg :store-lambda-list
+                      :reader invalid-store-lamba-list)))
+
+(define-condition invalid-specialization-class-error (ensure-store-error)
+  ((specialization-class :initarg :specialization-class
+                         :reader invalid-specialization-class)))
+
+(define-condition invalid-store-class-error (ensure-store-error)
+  ((store-class :initarg :store-class
+                :reader invalid-store-class)))
+
+(defgeneric store-name (store))
+(defgeneric store-value-completion-function (store))
+(defgeneric store-type-completion-function (store))
+(defgeneric specialization-name (specialization))
+
 (defun %find-store-helper (name)
   (flet ((valid-symbol-p (symbol)
 	   (and (symbolp symbol)
@@ -116,32 +135,26 @@
         (setf (get name indicator) value)
         (make-store-unbound name))))
 
-(defgeneric ensure-store-using-class (class store-name lambda-list completion-function form-type-completion-function
-                                      &key store-class specialization-class documentation &allow-other-keys))
+(defgeneric ensure-store-using-class (store-class store-name store-lambda-list
+                                      &key
+                                        specialization-class documentation
+                                        value-completion-function type-completion-function
+                                      &allow-other-keys))
 
-(defmethod ensure-store-using-class ((class null) store-name lambda-list
-                                     completion-function form-type-completion-function
-                                     &rest args
-				     &key store-class specialization-class documentation &allow-other-keys)
-  (declare (ignore specialization-class documentation))
-  (ensure-store-using-class (apply #'make-instance
-				   (or store-class 'standard-store)
-				   :name store-name
-				   :lambda-list lambda-list
-                                   :completion-function completion-function
-                                   :form-type-completion-function form-type-completion-function
-				   args)
-			    store-name lambda-list completion-function form-type-completion-function))
-
-(defun ensure-store (name store-lambda-list completion-function form-type-completion-function &rest args
-                     &key store-class specialization-class documentation
+(defun ensure-store (name store-lambda-list &rest args
+                     &key
+                       store-class specialization-class documentation
+                       value-completion-function type-completion-function
                        &allow-other-keys)
-  (declare (ignore store-class specialization-class documentation))
-  (let* ((current-store (multiple-value-bind (name indicator) (%find-store-helper name)
+  (alexandria:remove-from-plistf args :store-class)
+  (let* ((store-class (etypecase store-class
+                        (null (find-class 'standard-store))
+                        (symbol (find-class store-class))
+                        (t store-class)))
+         (current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
-         (store (apply #'ensure-store-using-class
-                       current-store name store-lambda-list completion-function form-type-completion-function
-                       args)))
+         (store (cond ((and current-store )
+                       ()))))
     (setf (find-store name) store)
     store))
 
@@ -180,6 +193,11 @@
 ;;;; Syntax Layer
 
 ;; DEFSTORE
+
+(defgeneric defstore-using-class (store-class store-lambda-list
+                                  &key
+                                    documentation specialization-class environment
+                                    value-completion-function type-completion-function))
 
 (defmacro defstore (store-name store-lambda-list &body body &environment env)
   (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list)))

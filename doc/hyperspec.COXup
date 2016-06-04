@@ -312,20 +312,35 @@ dictionary"} contains all of the requirements for the glue layer.
 
 {dictionary-section :function find-store}
 {dictionary-section :function (setf find-store)}
+
 {dictionary-section :function make-store-unbound}
 
 {heading "Glue Layer Functions"}
 {dictionary-section :function ensure-store}
 {dictionary-section :function ensure-specialization}
 
+{dictionary-section :type ensure-store-error}
+{dictionary-section :function ensure-store-error-object}
+{dictionary-section :type invalid-store-lambda-list-error}
+{dictionary-section :function invalid-store-lambda-list}
+{dictionary-section :type invalid-specialization-class-error}
+{dictionary-section :function invalid-specialization-class}
+{dictionary-section :type invalid-store-class-error}
+{dictionary-section :function invalid-store-class}
+
 {heading "Glue Layer Protocol"}
+Specialization object extensions.
 {dictionary-section :function specialization-name}
+
+Store object entensions.
 {dictionary-section :function store-name}
 {dictionary-section :function store-value-completion-function}
 {dictionary-section :function store-type-completion-function}
-{dictionary-section :function ensure-store-using-class}
-{dictionary-section :function ensure-specialization-using-class}
 {dictionary-section :function store-specialization-class}
+
+Glue layer delegates.
+{dictionary-section :function ensure-store-using-object}
+{dictionary-section :function ensure-specialization-using-class}
 
 {section section/lambda-lists "Lambda Lists"}
 

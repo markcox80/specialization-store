@@ -87,6 +87,81 @@ type {ref :type inapplicable-arguments-error}.
 {condition-type duplicate-specialization-error :parent-classes (store-error)}
 {description}
 
+{condition-type ensure-store-error :parent-classes (error)}
+{description}
+Errors of this type are signalled inside methods of {ref :function
+ensure-store-using-object}.
+
+The object argument given to the function can be retrieved from the
+condition object using the function {ref :function
+ensure-store-error-object}.
+
+{function ensure-store-error-object :arguments (condition) :values object}
+{definition condition}
+A condition.
+
+{definition object}
+An object.
+
+{description}
+Return the object used as the argument to {ref :function
+ensure-store-using-object}.
+
+{condition-type invalid-store-lambda-list-error :parent-classes (ensure-store-error)}
+{description}
+This condition is signalled inside methods of {ref :function
+ensure-store-using-object} when the method is unable to
+proceed due to the given store lambda list.
+
+{function invalid-store-lambda-list :arguments (condition) :values store-lambda-list}
+{definition condition}
+A condition.
+
+{definition store-lambda-list}
+A store lambda list.
+
+{description}
+Return the store lambda list which a method of {ref :function
+ensure-store-using-object} was unable to process.
+
+{condition-type invalid-specialization-class-error :parent-classes (ensure-store-error)}
+{description}
+
+This condition is signalled inside methods of {ref :function
+ensure-store-using-object} when the method is unable to
+proceed due to the given specialization class.
+
+The function {ref :function invalid-specialization-class} can be used
+to retrieve the invalid specialization class.
+
+
+{function invalid-specialization-class :arguments (condition) :values class}
+{definition condition}
+A condition.
+{definition class}
+A class object.
+{description}
+Return the specialization class which a method of {ref :function
+ensure-store-using-object} was unable to process.
+
+{condition-type invalid-store-class-error :parent-classes (ensure-store-error)}
+{description}
+This condition is signalled inside methods of {ref :function
+ensure-store-using-object} when the method is unable to
+proceed due to the given store class argument.
+
+The function {ref :function invalid-store-class} can be used to
+retrieve the invalid store class.
+
+{function invalid-store-class :arguments (condition) :values object}
+{definition condition}
+A condition.
+{definition object}
+A store class.
+{description}
+Return the store class which a method of {ref :function
+ensure-store-using-object} was unable to process.
+
 {generic-function funcall-store
                   :arguments (store &rest arguments)
                   :values (&rest values)}
@@ -478,15 +553,15 @@ This function returns ~value~.
 If ~value~ is ~nil~ then {ref :function make-store-unbound}
 is called on the bound store object.
 
-{generic-function ensure-store-using-class
-                  :arguments (class store-name store-lambda-list
+{generic-function ensure-store-using-object
+                  :arguments (object store-name store-lambda-list
                               &key
                                 specialization-class documentation
                                 completion-function form-type-completion-function
                               &allow-other-keys)
                   :values store}
-{definition class}
-A class designator.
+{definition object}
+An object.
 {definition store-name}
 A function name.
 {definition lambda-list}
@@ -503,6 +578,19 @@ A function.
 A store object.
 {description}
 
+{exceptional-situations}
+A method should signal an error of type {ref :type
+invalid-store-lambda-list-error} if it is unable to complete
+successfully due to the given store lambda list. For example, ~object~
+is an instance of ~standard-store~ and the store lambda list is
+changed.
+
+A method should signal an error of type {ref :type
+invalid-specialization-class-error} if it is unable to model
+specialization objects using the specified specialization class. For
+example, ~object~ is an instance of ~standard-store~ and the specified
+specialization class is not of the same type currently used by the
+store object.
 
 {function ensure-store
           :arguments (name store-lambda-list
@@ -528,7 +616,21 @@ A string.
 {definition store}
 A store object.
 {description}
+Install a store function in to the global environment.
 
+If a store object is bound to name, then the function ~{ref :function
+ensure-store-using-object}~ is invoked using the existing store
+object.
+
+If a store object is not bound to name, then function ~{ref :function
+ensure-store-using-object}~ is invoked with the class object
+represented by the ~store-class~ designator. If ~store-class~ is not
+provided, then the ~standard-store~ class is used.
+
+{exceptional-situations}
+If ~store-class~ is specified then an error of type {ref :type
+invalid-store-class-error} is signalled when an existing store
+object bound to ~name~ is not of type ~store-class~.
 
 {generic-function make-store-unbound :arguments (name) :values ()}
 {definition name}
