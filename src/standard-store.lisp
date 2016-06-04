@@ -339,61 +339,54 @@
     specialization))
 
 
-;;;; Helpers
+;;;; Standard Store (Syntax Layer)
 
-(defun convert-optional-to-required (parameters)
-  (check-type parameters specialization-store.lambda-lists:store-parameters)
-  (let* ((required (specialization-store.lambda-lists:required-parameters parameters))
-         (optional (specialization-store.lambda-lists:optional-parameters parameters))
-         (rest (specialization-store.lambda-lists:rest-parameter parameters))
-         (keywordsp (specialization-store.lambda-lists:keyword-parameters-p parameters))
-         (keywords (specialization-store.lambda-lists:keyword-parameters parameters))
-         (allow-other-keys (specialization-store.lambda-lists:allow-other-keys-p parameters))
-         (positional-lambda-list (append required (mapcar #'first optional)))         
-         (keyword-lambda-list (when keywordsp
-                                `(&key ,@(loop
-                                            for (keyword var init-form) in keywords
-                                            collect `((,keyword ,var) ,init-form))
-                                       ,@(when allow-other-keys
-                                            '(&allow-other-keys)))))
-         (rest-lambda-list (when rest
-                             `(&rest ,rest)))
-         (lambda-list `(,@positional-lambda-list ,@rest-lambda-list ,@keyword-lambda-list)))
-    (specialization-store.lambda-lists:parse-store-lambda-list lambda-list)))
+(defun lambda-form-p (form)
+  (and (listp form)
+       (eql 'lambda (first form))
+       (>= (length form) 2)))
 
-(defun make-runtime-type-of-lambda-form (parameters)
-  (check-type parameters specialization-store.lambda-lists:store-parameters)
-  (let* ((parameters (convert-optional-to-required parameters))
-         (original-lambda-list (specialization-store.lambda-lists:original-lambda-list parameters))
-         (required (specialization-store.lambda-lists:required-parameters parameters))
-         (optional (specialization-store.lambda-lists:optional-parameters parameters))
-         (rest (specialization-store.lambda-lists:rest-parameter parameters))
-         (keywordsp (specialization-store.lambda-lists:keyword-parameters-p parameters))
-         (keywords (specialization-store.lambda-lists:keyword-parameters parameters))
-         (continuation (gensym "CONTINUATION"))
-         (positional-vars (loop
-                             for var in required
-                             collect `(type-of ,var)))
-         (keywords-vars (loop
-                           for (keyword-name var nil) in keywords
-                           append `(,keyword-name (type-of ,var)))))
-    (assert (null optional))
-    (cond
-      (keywordsp
-       (let* ((rest (or rest (gensym "REST")))
-              (lambda-list `(,@required &rest ,rest &key ,@keywords &allow-other-keys)))
-         `(lambda (,continuation)
-            (lambda ,lambda-list
-              (apply ,continuation ,@positional-vars ,keywords-vars ,rest)))))
-      (rest
-       `(lambda (,continuation)
-          (lambda ,original-lambda-list
-            (apply ,continuation ,@positional-vars (mapcar #'type-of ,rest)))))
-      (t
-       `(lambda (,continuation)
-          (lambda ,original-lambda-list
-            (funcall ,continuation ,@positional-vars)))))))
+(defun function-form-p (form)
+  (and (listp form)
+       (eql 'function (first form))
+       (= 2 (length form))))
 
+(defun function-form->inlined-expand-function (function-form value-type)
+  (cond
+    ((lambda-form-p function-form)
+     (destructuring-bind (lambda-list &rest body) (rest function-form)
+       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
+         `(compiler-macro-lambda (&rest args)
+            (cons (quote (lambda ,lambda-list
+                           ,@declarations
+                           ,doc-string
+                           (the ,value-type
+                                (progn ,@remaining-forms))))
+                  args)))))
+    ((function-form-p function-form)
+     (function-form->inlined-expand-function (second function-form) value-type))
+    ((symbolp function-form)
+     `(compiler-macro-lambda (&rest args)
+	(append (list 'funcall (list 'function ',function-form))
+		args)))))
+
+(defun function-form->no-lexical-environment-lambda-form (function-form value-type)
+  (cond
+    ((lambda-form-p function-form)
+     (destructuring-bind (lambda-list &rest body) (rest function-form)
+       (multiple-value-bind (remaining-forms declarations doc-string) (alexandria:parse-body body :documentation t)
+         `(compile nil (quote (lambda ,lambda-list
+                                ,@declarations
+                                ,doc-string
+                                (the ,value-type
+                                     (progn ,@remaining-forms))))))))
+    ((function-form-p function-form)
+     (function-form->no-lexical-environment-lambda-form (second function-form) value-type))
+    ((symbolp function-form)
+     `(lambda (&rest args)
+        (the ,value-type (apply (function ,function-form) args))))
+    (t
+     (error "Invalid function form."))))
 
 ;;;; Dispatch Tree Compiler
 
