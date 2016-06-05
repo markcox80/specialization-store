@@ -77,6 +77,7 @@
 (defpackage "SPECIALIZATION-STORE.LAMBDA-LISTS"
   (:use "COMMON-LISP")
   (:import-from "SPECIALIZATION-STORE"
+                "COMPILER-MACRO-LAMBDA"
                 "DETERMINE-FORM-VALUE-TYPE")
   
   ;; Parameters Protocol

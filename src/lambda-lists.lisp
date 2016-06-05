@@ -597,78 +597,45 @@
          (lambda-form (gensym "FORM"))
          (lambda-environment (gensym "ENVIRONMENT"))
          (required (required-parameters parameters))
+         (required-forms (loop
+                            for var in required
+                            collect `(determine-form-value-type ,var ,lambda-environment)))
          (optional (loop
                       for (var init-form) in (optional-parameters parameters)
-                      collect (list var init-form (gensym "SUPPLIEDP"))))
+                      for init-form-type = (determine-form-value-type init-form environment)
+                      collect (list var `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
+         (optional-forms (loop
+                            for (var init-form-type suppliedp) in optional
+                            collect `(if ,suppliedp
+                                         (determine-form-value-type ,var ,lambda-environment)
+                                         ,var)))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
                       for (keyword var init-form) in (keyword-parameters parameters)
-                      collect (list keyword var init-form (gensym "SUPPLIEDP"))))
-         (allow-other-keys (allow-other-keys-p parameters))
-         (required-lambda-list required)
-         (required-let* (loop
-                           for var in required
-                           collect `(,var (determine-form-value-type ,var ,lambda-environment))))
-         (required-vars required)
-         (optional-lambda-list (when optional
-                                 (cons '&optional
-                                       (loop
-                                          for (var nil supplied-p) in optional
-                                          collect (list var nil supplied-p)))))
-         (optional-let* (loop
-                           with lexical-vars = (reverse required)
-                           for (var init-form suppliedp) in optional
-                           collect (list var `(if ,suppliedp
-                                                  (determine-form-value-type ,var ,lambda-environment)
-                                                  ,(if (find init-form lexical-vars)
-                                                       init-form
-                                                       `(quote ,(determine-form-value-type init-form environment)))))
-                           do
-                             (push var lexical-vars)))
-         (optional-vars (mapcar #'first optional))
-         (rest (rest-parameter parameters))
-         (keyword-lambda-list (append (list '&key)
-                                      (loop
-                                         for (keyword var nil suppliedp) in keywords
-                                         collect `((,keyword ,var) nil ,suppliedp))
-                                      (when allow-other-keys
-                                        (list '&allow-other-keys))))
-         (keyword-let* (loop
-                          with lexical-vars = (reverse (append required-vars optional-vars))
-                          for (nil var init-form suppliedp) in keywords
-                          collect (list var `(if ,suppliedp
-                                                 (determine-form-value-type ,var ,lambda-environment)
-                                                 ,(if (find init-form lexical-vars)
-                                                      init-form
-                                                      `(quote ,(determine-form-value-type init-form environment)))))
-                          do
-                            (push var lexical-vars)))
-         (keyword-vars (loop
-                          for (keyword var) in keywords
-                          append (list keyword var)))
-         (keyword-keywords (mapcar #'first keywords))
-         (positional-lambda-list (append required-lambda-list optional-lambda-list))
-         (positional-let* (append required-let* optional-let*))
-         (positional-vars (append required-vars optional-vars)))
+                      for init-form-type = (determine-form-value-type init-form environment)
+                      collect (list (list keyword var) `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
+         (keyword-forms (loop
+                           for ((keyword var) init-form-type suppliedp) in keywords
+                           append (list keyword `(if ,suppliedp
+                                                     (determine-form-value-type ,var ,lambda-environment)
+                                                     ,var))))
+         (allow-other-keys (when (allow-other-keys-p parameters)
+                             '(&allow-other-keys))))
     (cond
+      ((and optional keywordsp)
+       `(lambda (,continuation)
+          (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &key ,@keywords ,@allow-other-keys
+                                  &environment ,lambda-environment)
+            (funcall ,continuation ,lambda-form ,lambda-environment
+                     (list ,@required-forms ,@optional-forms ,@keyword-forms)))))
       (keywordsp
-       (let ((rest (or rest (gensym "REST"))))
-         `(lambda (,continuation)
-            (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list &rest ,rest ,@keyword-lambda-list)
-              (alexandria:delete-from-plistf ,rest ,@keyword-keywords)
-              (let* (,@positional-let* ,@keyword-let*)
-                (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars ,@keyword-vars ,rest))))))
-      (rest
-       (let ((form (gensym "FORM")))
-         `(lambda (,continuation)
-            (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list &rest ,rest)
-              (let* ,positional-let*
-                (apply ,continuation ,lambda-form ,lambda-environment ,@positional-vars
-                       (loop
-                          for ,form in ,rest
-                          collect (determine-form-value-type ,form ,lambda-environment))))))))
+       `(lambda (,continuation)
+          (compiler-macro-lambda (&whole ,lambda-form ,@required &key ,@keywords ,@allow-other-keys
+                                  &environment ,lambda-environment)
+            (funcall ,continuation ,lambda-form ,lambda-environment
+                     (list ,@required-forms ,@keyword-forms)))))
       (t
        `(lambda (,continuation)
-          (lambda (,lambda-form ,lambda-environment ,@positional-lambda-list)
-            (let* ,positional-let*
-              (funcall ,continuation ,lambda-form ,lambda-environment ,@positional-vars))))))))
+          (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &environment ,lambda-environment)
+            (funcall ,continuation ,lambda-form ,lambda-environment
+                     (list ,@required-forms ,@optional-forms))))))))
