@@ -555,42 +555,37 @@
                               `((type (eql t) ,supplied-p-var)))))))
 
 (defmethod make-value-completion-lambda-form ((parameters store-parameters))
-  (let* ((original-lambda-list (original-lambda-list parameters))
-         (required (required-parameters parameters))
+  (let* ((required (required-parameters parameters))
+         (required-forms required)
          (optional (optional-parameters parameters))
-         (positional-vars (append (required-parameters parameters)
-                                  (mapcar #'first (optional-parameters parameters))))
+         (optional-forms (loop for (var) in optional collect var))
          (rest (rest-parameter parameters))
          (keywordsp (keyword-parameters-p parameters))
-         (keywords (keyword-parameters parameters))
-         (keyword-vars (loop
-                          for (keyword var nil) in keywords
-                          append (list keyword var)))
-         (allow-other-keys (allow-other-keys-p parameters))
+         (keywords (loop
+                      for (keyword var init-form) in (keyword-parameters parameters)
+                      collect `((,keyword ,var) ,init-form)))
+         (keyword-forms (loop for (keyword var) in keywords append (list keyword var)))
+         (allow-other-keys (when (allow-other-keys-p parameters)
+                             '(&allow-other-keys)))
          (continuation (gensym "CONTINUATION")))
-    (cond
-      (keywordsp
-       (let* ((rest (or rest (gensym "REST")))
-              (aok-lambda-list (when allow-other-keys
-                                 (list '&allow-other-keys)))
-              (keyword-lambda-list (loop
-                                      for (keyword var init-form) in keywords
-                                      collect (list (list keyword var) init-form)))
-              (lambda-list `(,@required &optional ,@optional &rest ,rest &key ,@keyword-lambda-list ,@aok-lambda-list)))
-         `(lambda (,continuation)
-            (declare (type function ,continuation))
-            (lambda ,lambda-list
-              (apply ,continuation ,@positional-vars ,@keyword-vars ,rest)))))
-      (rest
-       `(lambda (,continuation)
-          (declare (type function ,continuation))
-          (lambda ,original-lambda-list
-            (apply ,continuation ,@positional-vars ,rest))))
-      (t
-       `(lambda (,continuation)
-          (declare (type function ,continuation))
-          (lambda ,original-lambda-list
-            (funcall ,continuation ,@positional-vars)))))))
+    (cond ((and optional keywordsp)
+           (let* ((rest (or rest (gensym "REST"))))
+             `(lambda (,continuation)
+                (lambda (,@required &optional ,@optional &rest ,rest &key ,@keywords ,@allow-other-keys)
+                  (apply ,continuation ,@required-forms ,@optional-forms ,@keyword-forms ,rest)))))
+          (keywordsp
+           (let* ((rest (or rest (gensym "REST"))))
+             `(lambda (,continuation)
+                (lambda (,@required &rest ,rest &key ,@keywords ,@allow-other-keys)
+                  (apply ,continuation ,@required-forms ,@keyword-forms ,rest)))))
+          (rest
+           `(lambda (,continuation)
+              (lambda (,@required &optional ,@optional &rest ,rest)
+                (apply ,continuation ,@required-forms ,@optional-forms ,rest))))
+          (t
+           `(lambda (,continuation)
+              (lambda (,@required &optional ,@optional)
+                (funcall ,continuation ,@required-forms ,@optional-forms)))))))
 
 (defmethod make-type-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((continuation (gensym "CONTINUATION"))
@@ -609,6 +604,7 @@
                             collect `(if ,suppliedp
                                          (determine-form-value-type ,var ,lambda-environment)
                                          ,var)))
+         (rest (rest-parameter parameters))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
                       for (keyword var init-form) in (keyword-parameters parameters)
@@ -622,6 +618,10 @@
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys))))
     (cond
+      ;; The reason I test for this case is due to the warning some
+      ;; implementations signal when optional and keyword arguments
+      ;; are specified together. Who knows why specifying both is so
+      ;; confusing to people?
       ((and optional keywordsp)
        `(lambda (,continuation)
           (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &key ,@keywords ,@allow-other-keys
@@ -634,6 +634,15 @@
                                   &environment ,lambda-environment)
             (funcall ,continuation ,lambda-form ,lambda-environment
                      (list ,@required-forms ,@keyword-forms)))))
+      (rest
+       (let ((rest-form (gensym "REST-FORM")))
+         `(lambda (,continuation)
+            (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &rest ,rest &environment ,lambda-environment)
+              (funcall ,continuation ,lambda-form ,lambda-environment
+                       (append (list ,@required-forms ,@optional-forms)
+                               (mapcar #'(lambda (,rest-form)
+                                           (determine-form-value-type ,rest-form lambda-environment))
+                                       ,rest)))))))
       (t
        `(lambda (,continuation)
           (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &environment ,lambda-environment)
