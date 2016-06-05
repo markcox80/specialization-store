@@ -13,6 +13,9 @@
 (defun determine-form-multiple-value-type (form env)
   (let ((form (macroexpand form env)))
     (cond
+      ((or (numberp form)
+           (characterp form))
+       `(eql ,form))
       ((constantp form env)
        (type-of (introspect-environment:constant-form-value form env)))
       ((the-form-p form)
