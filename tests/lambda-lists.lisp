@@ -340,13 +340,13 @@
       (trial (&key a &allow-other-keys) (&key (a integer)) ((type integer a)))
       (trial (&key a &allow-other-keys) (&key (a integer a-p) (b t b-p)) ((type integer a) (type (eql T) a-p))))))
 
-(test make-runtime-completion-lambda-form
+(test make-value-completion-lambda-form
   (flet ((init-b ()
            1)
          (init-c ()
            2))
     (macrolet ((def (store-lambda-list)
-                 (make-runtime-completion-lambda-form (parse-store-lambda-list store-lambda-list))))
+                 (make-value-completion-lambda-form (parse-store-lambda-list store-lambda-list))))
       ;; keywords and allow-other-keys
       (let ((fn (funcall (def (a &optional (b (init-b)) &key (c (init-c)) &allow-other-keys))
                          (lambda (&rest args)
