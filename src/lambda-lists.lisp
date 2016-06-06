@@ -564,7 +564,9 @@
          (keywords (loop
                       for (keyword var init-form) in (keyword-parameters parameters)
                       collect `((,keyword ,var) ,init-form)))
-         (keyword-forms (loop for (keyword var) in keywords append (list keyword var)))
+         (keyword-forms (loop
+                           for (keyword var) in (keyword-parameters parameters)
+                           append (list keyword var)))
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys)))
          (continuation (gensym "CONTINUATION")))
