@@ -161,6 +161,14 @@ A store class.
 {description}
 Return the store class which a method of {ref :function
 ensure-store-using-object} was unable to process.
+
+
+{condition-type missing-completion-functions-error :parent-classes (store-error)}
+{description}
+This condition is signaled when installing a store function in the
+global environment without providing completion functions. Completion
+functions are required when the store lambda list contains optional
+and/or keyword arguments.
 
 {generic-function funcall-store
                   :arguments (store &rest arguments)
@@ -557,7 +565,7 @@ is called on the bound store object.
                   :arguments (object store-name store-lambda-list
                               &key
                                 specialization-class documentation
-                                completion-function form-type-completion-function
+                                value-completion-function type-completion-function
                               &allow-other-keys)
                   :values store}
 {definition object}
@@ -570,9 +578,9 @@ A store lambda list.
 A class designator.
 {definition documentation}
 A string.
-{definition completion-function}
+{definition value-completion-function}
 A function.
-{definition form-type-completion-function}
+{definition type-completion-function}
 A function.
 {definition store}
 A store object.
@@ -591,6 +599,10 @@ specialization objects using the specified specialization class. For
 example, ~object~ is an instance of ~standard-store~ and the specified
 specialization class is not of the same type currently used by the
 store object.
+
+A method should signal an error of type {ref :type
+missing-completion-functions-error} if completion functions are
+required by the store lambda list and none are provided.
 
 {function ensure-store
           :arguments (name store-lambda-list

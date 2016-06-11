@@ -102,6 +102,9 @@
   ((store-class :initarg :store-class
                 :reader invalid-store-class)))
 
+(define-condition missing-completion-functions-error (store-error)
+  ())
+
 (defgeneric store-name (store))
 (defgeneric store-value-completion-function (store))
 (defgeneric store-type-completion-function (store))

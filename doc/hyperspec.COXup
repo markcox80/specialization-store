@@ -328,6 +328,7 @@ dictionary"} contains all of the requirements for the glue layer.
 {dictionary-section :function invalid-specialization-class}
 {dictionary-section :type invalid-store-class-error}
 {dictionary-section :function invalid-store-class}
+{dictionary-section :type missing-completion-functions-error}
 
 {heading "Glue Layer Protocol"}
 Specialization object extensions.
