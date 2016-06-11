@@ -458,6 +458,22 @@
         (trial (list (type-of "hey") '(eql 5) '(eql 1))
                '(test "hey" 5 1))))
 
+    ;; &allow-other-keys
+    (let-type-completion-function (compute (&key d &allow-other-keys))
+      (flet ((trial (expected input)
+               (is (equal expected (compute input)))))
+        (trial '(:d null) '(test))
+        (trial '(:d null) '(test :e 1))
+        (trial '(:d (eql 1)) '(test :d 1 :f 2))))
+
+    ;; :allow-other-keys t
+    (let-type-completion-function (compute (&key d))
+      (flet ((trial (expected input)
+               (is (equal expected (compute input)))))
+        (trial '(:d null) '(test))
+        (trial '(:d null) '(test :allow-other-keys t :e 2))
+        (trial '(:d (eql 1)) '(test :allow-other-keys t :d 1 :e 2))))
+
     ;; Function Declarations
     #+specialization-store.features:function-declarations
     (locally (declare (ftype (function () integer) init-b init-c))
@@ -467,30 +483,13 @@
           (trial '(integer integer)
                  '(test)))))))
 
-(test make-form-type-completion-lambda-form/errors
-  (macrolet ((def (store-lambda-list &environment env)
-               (make-form-type-completion-lambda-form (parse-store-lambda-list store-lambda-list) env)))
-    ;; Invalid number of arguments
-    (let ((fn (funcall (def (a))
-                       (lambda (form env &rest args)
-                         (declare (ignore form env))
-                         args))))
-      (signals error (funcall fn nil nil))
-      (signals error (funcall fn nil nil nil nil))
-      (finishes (funcall fn nil nil nil)))
-    
-    ;; &allow-other-keys)
-    (let ((fn (funcall (def (&key d &allow-other-keys))
-                       (lambda (form env &rest args)
-                         (declare (ignore form env))
-                         args))))
-      (is (equal (list :d 'null :e 1) (funcall fn nil nil :e 1)))
-      (is (equal (list :d 'null :e 1 :allow-other-keys t) (funcall fn nil nil :e 1 :allow-other-keys t))))
-    
-    ;; Using :allow-other-keys 
-    (let ((fn (funcall (def (&key d))
-                       (lambda (form env &rest args)
-                         (declare (ignore form env))
-                         args))))
-      (signals error (funcall fn nil nil :e 1))
-      (is (equal (list :d 'null :e 1 :allow-other-keys t) (funcall fn nil nil :e 1 :allow-other-keys t))))))
+(test make-type-completion-lambda-form/errors
+  ;; Invalid number of arguments
+  (let-type-completion-function (compute (a))
+    (signals error (compute '(test)))
+    (signals error (compute '(test 1 2)))
+    (finishes (compute '(test 1))))
+
+  ;; Not specifying :allow-other-keys t
+  (let-type-completion-function (compute (&key d))
+    (signals error (compute '(test :e 1)))))
