@@ -789,6 +789,26 @@ compile time side effects.
 {exceptional-situations}
 An error of type {ref :type invalid-store-name-error} is signalled if
 no store object is bound to the given ~store-name~.
+
+
+{macro defspecialization-using-object :arguments (store specialized-lambda-list value-type body
+                                                  &key name environment &allow-other-keys)
+                                      :values specialization}
+{additional-syntax}
+body ::= [[ declaration* | documentation ]] form*
+{definition store}
+A store function object.
+{definition specialized-lambda-list}
+A specialized lambda list.
+{definition value-type}
+A type-specifier.
+{definition form}
+An implicit progn.
+{definition name}
+A function name.
+{definition environment}
+An environment object.
+{description}
 
 {macro define-specialization :arguments (store-name specialized-lambda-list value-type &body options)
                              :values specialization}

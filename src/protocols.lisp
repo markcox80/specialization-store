@@ -204,6 +204,9 @@
                                     documentation specialization-class environment
                                     &allow-other-keys))
 
+(defgeneric defspecialization-using-object (store specialized-lambda-list value-type body
+                                            &key name environment &allow-other-keys))
+
 (defgeneric define-specialization-using-object (store specialized-lambda-list value-type
                                                 &key
                                                   function expand-function name
@@ -241,28 +244,18 @@
     ((and (listp store-name)
 	  (eql 'setf (first store-name)))
      (list store-name))
+    ((listp store-name)
+     store-name)
     (t
-     store-name)))
+     (error "Invalid store name ~W." store-name))))
 
-(defmacro defspecialization (store-name specialized-lambda-list value-type &body body)
-  (destructuring-bind (store-name &rest args &key inline name &allow-other-keys)
-      (canonicalize-store-name store-name)
-    (declare (ignore inline name))
-    (alexandria:remove-from-plistf args :name)
-    (multiple-value-bind (body declarations doc-string) (alexandria:parse-body body :documentation t)
-      (let* ((store (find-store store-name))
-             (store-parameters (specialization-store.lambda-lists:parse-store-lambda-list (store-lambda-list store)))
-	     (specialization-parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
-	`(define-specialization ,store-name ,specialized-lambda-list ,value-type
-	   (:function (lambda ,(specialization-store.lambda-lists:ordinary-lambda-list store-parameters specialization-parameters)
-			(declare ,@(specialization-store.lambda-lists:type-declarations store-parameters specialization-parameters))
-			,@declarations
-			,@body))
-	   (:documentation ,doc-string)
-	   ,@(loop
-		for (key value) on args :by #'cddr
-		collect
-		  `(,key ,value)))))))
+(defmacro defspecialization (store-name specialized-lambda-list value-type &body body &environment env)
+  (destructuring-bind (store-name &rest args &key &allow-other-keys) (canonicalize-store-name store-name)
+    (let* ((store (find-store store-name))
+           (form (apply #'defspecialization-using-object store specialized-lambda-list value-type body
+                        :environment env args)))
+      `(eval-when (:compile-toplevel :load-toplevel :execute)
+         ,form))))
 
 ;; DEFINE-SPECIALIZATION
 
