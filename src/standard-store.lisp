@@ -29,6 +29,7 @@
   ((name :initarg :name
          :reader store-name)
    (lambda-list :initarg :lambda-list
+                :initform (error "A store lambda list must be supplied.")
                 :reader store-lambda-list)
    (parameters :initarg :parameters
                :reader store-parameters)
@@ -49,7 +50,8 @@
    :name nil
    :documentation nil    
    :specializations nil
-   :form-type-completion-function nil))
+   :value-completion-function nil
+   :type-completion-function nil))
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -86,6 +88,73 @@
     (princ (specialization-lambda-list object) stream)))
 
 ;;;; Standard Store Implementation (Object Layer)
+
+(defun completion-functions-required-p (store-parameters)
+  (check-type store-parameters store-parameters)
+  (or (loop
+         for (nil init-form) in (optional-parameters store-parameters)
+         thereis init-form)
+      (loop
+         for (nil nil init-form) in (keyword-parameters store-parameters)
+         thereis init-form)))
+
+(defun default-value-completion-function (continuation)
+  (lambda (&rest args)
+    (apply continuation args)))
+
+(defun default-type-completion-function (continuation)
+  (compiler-macro-lambda (&whole form &rest args &environment env)
+    (funcall continuation form env (loop
+                                      for arg in args
+                                      collect (determine-form-value-type arg env)))))
+
+(defmethod initialize-instance :after ((instance standard-store)
+                                       &key
+                                         (lambda-list nil lambda-list-p)
+                                         (value-completion-function nil value-completion-function-p)
+                                         (type-completion-function nil type-completion-function-p)
+                                         &allow-other-keys)
+  (assert lambda-list-p)
+  (let ((new-parameters (parse-store-lambda-list lambda-list)))
+    (when (and (completion-functions-required-p new-parameters)
+               (or (not (and value-completion-function-p
+                             (functionp value-completion-function)))
+                   (not (and type-completion-function-p
+                             (functionp type-completion-function)))))
+      (error 'missing-completion-functions-error :store instance))
+    (setf (slot-value instance 'parameters) new-parameters
+          (slot-value instance 'value-completion-function) (or value-completion-function
+                                                               #'default-value-completion-function)
+          (slot-value instance 'type-completion-function) (or type-completion-function
+                                                              #'default-type-completion-function))))
+
+(defmethod reinitialize-instance :after ((instance standard-store)
+                                         &key
+                                           ((:lambda-list new-lambda-list) nil new-lambda-list-p)
+                                           (value-completion-function nil value-completion-function-p)
+                                           (type-completion-function nil type-completion-function-p)
+                                         &allow-other-keys)
+  (when new-lambda-list-p
+    (let* ((old-parameters (store-parameters instance))
+           (new-parameters (parse-store-lambda-list new-lambda-list)))
+      (cond ((or (congruent-parameters-p old-parameters new-parameters)
+                 (null (store-specializations instance)))
+             (when (and (completion-functions-required-p new-parameters)
+                        (not (parameters-equal old-parameters new-parameters))
+                        (or (not (and value-completion-function-p
+                                      (functionp value-completion-function)))
+                            (not (and type-completion-function-p
+                                      (functionp type-completion-function)))))
+               (warn "No new completion functions were supplied with new store lambda list."))
+
+             (with-slots (parameters) instance
+               (setf parameters new-parameters))
+
+             (clear-dispatch-functions instance))
+            (t
+             (error 'simple-store-error
+                    :store instance
+                    :message (format nil "Unable to change store lambda list.")))))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
   (with-slots (runtime-function) store
