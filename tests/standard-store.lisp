@@ -30,7 +30,7 @@
       (good (a &rest args) (b c &rest args)))))
 
 (test add-and-remove-specialization
-  (let* ((store (make-instance 'standard-store :lambda-list '(a b) :completion-function (default-completion-function))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a b))))
     (flet ((add (specialized-lambda-list)
              (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
                (add-specialization store s)
@@ -58,7 +58,7 @@
           (is-false (find s2 (store-specializations store))))))))
 
 (test add-specialization/keywords
-  (let* ((store (make-instance 'standard-store :lambda-list '(&key a) :completion-function (default-completion-function))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(&key a))))
     (flet ((add (specialized-lambda-list)
              (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
                (add-specialization store s)
@@ -71,7 +71,7 @@
       (is (= 1 (specialization-count store))))))
 
 (test add-specialization/keywords/allow-other-keys
-  (let* ((store (make-instance 'standard-store :lambda-list '(&key a) :completion-function (default-completion-function))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(&key a))))
     (flet ((add (specialized-lambda-list)
              (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
                (add-specialization store s)
@@ -84,7 +84,7 @@
       (is (= 1 (specialization-count store))))))
 
 (test add-specialization/positional
-  (let* ((store (make-instance 'standard-store :lambda-list '(a) :completion-function (default-completion-function))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
     (flet ((add (specialized-lambda-list)
              (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
                (add-specialization store s)
@@ -114,7 +114,6 @@
 (test invoking-store
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(a)
-                               :completion-function (default-completion-function)
                                :form-type-completion-function (lambda (continuation)
                                                                 (compiler-macro-lambda (&whole form a &environment env)
                                                                   (funcall continuation form env
