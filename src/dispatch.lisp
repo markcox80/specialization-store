@@ -175,7 +175,7 @@
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
   (cond ((null all-specialization-parameters)
-         (make-constantly-rule nil))        
+         (make-node (make-constantly-rule nil)))
         ((fixed-arity-store-parameters-p store-parameters)
          (specialization-store.dispatch.fixed-arity:make-initial-dispatch-tree store-parameters all-specialization-parameters))
         ((variable-arity-store-parameters-p store-parameters)
