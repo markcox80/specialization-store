@@ -91,22 +91,18 @@
 
 (defun completion-functions-required-p (store-parameters)
   (check-type store-parameters store-parameters)
-  (or (loop
-         for (nil init-form) in (optional-parameters store-parameters)
-         thereis init-form)
-      (loop
-         for (nil nil init-form) in (keyword-parameters store-parameters)
-         thereis init-form)))
+  (or (not (loop
+              for (nil init-form) in (optional-parameters store-parameters)
+              always (constantp init-form)))
+      (not (loop
+              for (nil nil init-form) in (keyword-parameters store-parameters)
+              always (constantp init-form)))))
 
-(defun default-value-completion-function (continuation)
-  (lambda (&rest args)
-    (apply continuation args)))
+(defun make-default-value-completion-function (store-parameters)
+  (compile nil (make-value-completion-lambda-form store-parameters)))
 
-(defun default-type-completion-function (continuation)
-  (compiler-macro-lambda (&whole form &rest args &environment env)
-    (funcall continuation form env (loop
-                                      for arg in args
-                                      collect (determine-form-value-type arg env)))))
+(defun make-default-type-completion-function (store-parameters)
+  (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
@@ -124,9 +120,9 @@
       (error 'missing-completion-functions-error :store instance))
     (setf (slot-value instance 'parameters) new-parameters
           (slot-value instance 'value-completion-function) (or value-completion-function
-                                                               #'default-value-completion-function)
+                                                               (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              #'default-type-completion-function))))
+                                                              (make-default-type-completion-function new-parameters)))))
 
 (defmethod reinitialize-instance :after ((instance standard-store)
                                          &key
