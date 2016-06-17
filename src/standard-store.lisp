@@ -122,7 +122,9 @@
           (slot-value instance 'value-completion-function) (or value-completion-function
                                                                (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters)))))
+                                                              (make-default-type-completion-function new-parameters))))
+
+  (clear-dispatch-functions instance))
 
 (defmethod reinitialize-instance :after ((instance standard-store)
                                          &key
