@@ -97,7 +97,7 @@
       (is (= 1 (specialization-count store))))))
 
 (test add-specialization/rest
-  (let* ((store (make-instance 'standard-store :lambda-list '(a &rest args) :completion-function (default-completion-function))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a &rest args))))
     (flet ((add (specialized-lambda-list)
              (let ((s (make-instance 'standard-specialization :lambda-list specialized-lambda-list)))
                (add-specialization store s)
