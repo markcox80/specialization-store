@@ -113,11 +113,7 @@
 
 (test invoking-store
   (let* ((store (make-instance 'standard-store
-                               :lambda-list '(a)
-                               :form-type-completion-function (lambda (continuation)
-                                                                (compiler-macro-lambda (&whole form a &environment env)
-                                                                  (funcall continuation form env
-                                                                           (determine-form-value-type a env))))))
+                               :lambda-list '(a)))
          (specialization (make-instance 'standard-specialization
                                         :lambda-list '((a integer))
                                         :function (lambda (c)
