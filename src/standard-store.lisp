@@ -21,6 +21,7 @@
 
 (defgeneric store-parameters (standard-store))
 
+(defgeneric compute-dispatch-lambda-forms (store))
 (defgeneric compute-dispatch-functions (store))
 (defgeneric update-dispatch-functions (store))
 (defgeneric clear-dispatch-functions (store))
@@ -264,27 +265,303 @@
     (labels ((update-runtime (&rest args)
                (update-dispatch-functions store)
                (apply (slot-value store 'runtime-function) args))
-             (update-compile-time (form env)
+             (update-compile-time (form &optional env)
                (update-dispatch-functions store)
-               (apply (slot-value store 'compile-time-function) form env)))
+               (funcall (slot-value store 'compile-time-function) form env)))
       (setf runtime-function #'update-runtime
             compile-time-function #'update-compile-time)
       (specialization-store.mop:set-funcallable-instance-function store #'update-runtime))))
 
 (defmethod update-dispatch-functions ((store standard-store))
-  (with-slots (runtime-function compile-time-function) store
+  (with-slots (runtime-function compile-time-function value-completion-function type-completion-function) store
     (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
-      (setf runtime-function runtime
-            compile-time-function compile-time)
+      (setf runtime-function (funcall value-completion-function runtime)
+            compile-time-function (funcall type-completion-function compile-time))
       (specialization-store.mop:set-funcallable-instance-function store runtime)))
   (values))
 
-(defun compute-dispatch-function/runtime (store)
-  )
+;;;; Dispatch function environment
+(defclass function-environment ()
+  ((store :initarg :store)
+   (fail :initarg :fail))
+  (:default-initargs
+   :fail (gensym "FAIL")))
 
-(defun compute-dispatch-function/compile-time (store)
-  )
+(defclass value-function-environment (function-environment)
+  ())
+
+(defclass type-function-environment (function-environment)
+  ((form :initarg :form)
+   (environment :initarg :environment)
+   (completion :initarg :completion))
+  (:default-initargs
+   :form (gensym "FORM")
+   :environment (gensym "ENV")
+   :completion (gensym "COMPLETION")))
+
+(defun make-function-environment (store code-type)
+  (ecase code-type
+    (:value (make-instance 'value-function-environment :store store))
+    (:type (make-instance 'type-function-environment :store store))))
+
+;;;; Destructuring environment
+(defclass positional-environment ()
+  ((positional :initarg :positional)))
+
+(defclass keywords-environment (positional-environment)
+  ((keywords :initarg :keywords)
+   (args :initarg :args)
+   (allow-others-p :initarg :allow-others-p))
+  (:default-initargs
+   :args (gensym "ARGS")))
+
+(defclass variable-environment (positional-environment)
+  ((argument-count :initarg :argument-count)
+   (args :initarg :args))
+  (:default-initargs
+   :argument-count (gensym "ARGUMENT-COUNT")
+   :args (gensym "ARGS")))
+
+(defun make-destructuring-environment (store-parameters)
+  (let* ((required (required-parameters store-parameters))
+         (optional (optional-parameters store-parameters))
+         (keywords (loop
+                      for (keyword name) in (keyword-parameters store-parameters)
+                      collect (cons keyword name)))
+         (positional (append required (mapcar #'first optional))))
+    (cond ((keyword-parameters-p store-parameters)
+           (make-instance 'keywords-environment
+                          :positional positional
+                          :keywords keywords
+                          :allow-others-p (allow-other-keys-p store-parameters)))
+          ((rest-parameter store-parameters)
+           (make-instance 'variable-environment
+                          :positional positional))
+          (t
+           (make-instance 'positional-environment
+                          :positional positional)))))
+
+(defgeneric generate-code (object function-env destructuring-env))
+
+(defmethod generate-code ((node node) function-env destructuring-env)
+  (cond ((leafp node)
+         (with-slots (fail) function-env
+           (or (generate-code (node-value node) function-env destructuring-env)
+               `(,fail))))
+        (t
+         (let* ((condition (generate-code (node-value node) function-env destructuring-env))
+                (pass (generate-code (node-pass node) function-env destructuring-env))
+                (fail (generate-code (node-fail node) function-env destructuring-env)))
+           (cond ((eql condition t)
+                  pass)
+                 ((null condition)
+                  fail)
+                 (t
+                  `(if ,condition
+                       ,pass
+                       ,fail)))))))
+
+(defmethod generate-code ((rule fixed-argument-count-rule) f-env (d-env positional-environment))
+  (declare (ignore f-env))
+  (let ((count (argument-count rule)))
+    (with-slots (positional) d-env
+      (= count (length positional)))))
+
+(defmethod generate-code ((rule fixed-argument-count-rule) f-env (d-env variable-environment))
+  (declare (ignore f-env))
+  (let ((count (argument-count rule)))
+    (with-slots (argument-count) d-env
+      `(= ,argument-count ,count))))
+
+(defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env positional-environment))
+  (let ((count (argument-count rule)))
+    (with-slots (positional) d-env
+      (>= (length positional) count))))
+
+(defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env variable-environment))
+  (let ((count (argument-count rule)))
+    (with-slots (argument-count) d-env
+      `(>= ,argument-count ,count))))
+
+(defmethod generate-code ((rule positional-parameter-type-rule) f-env (d-env positional-environment))
+  (with-slots (positional) d-env
+    (let* ((position (parameter-position rule))
+           (type (parameter-type rule))
+           (symbol (elt positional position)))
+      (assert (and (<= 0 position) (< position (length positional))))
+      (etypecase f-env
+        (value-function-environment
+         `(typep ,symbol ',type))
+        (type-function-environment
+         `(subtypep ,symbol ',type))))))
+
+(defmethod generate-code ((rule keyword-parameter-type-rule) f-env (d-env keywords-environment))
+  (with-slots (keywords) d-env
+    (let* ((keyword (parameter-keyword rule))
+           (type (parameter-type rule))
+           (symbol (cdr (assoc keyword keywords))))
+      (assert symbol)
+      (etypecase f-env
+        (value-function-environment
+         `(typep ,symbol ',type))
+        (type-function-environment
+         `(subtypep ,symbol ',type))))))
+
+(defmethod generate-code ((rule constantly-rule) f-env d-env)
+  (declare (ignore f-env d-env))
+  (constantly-rule-value rule))
+
+(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env positional-environment))
+  (with-slots (store) f-env
+    (with-slots (positional) d-env
+      (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
+        (assert specialization)
+        `(funcall (specialization-function ,specialization) ,@positional)))))
+
+(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env keywords-environment))
+  (with-slots (store) f-env
+    (with-slots (positional args) d-env
+      (let ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
+        (assert specialization)
+        `(apply (specialization-function ,specialization) ,@positional ,args)))))
+
+(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env variable-environment))
+  (with-slots (store) f-env
+    (with-slots (positional args) d-env
+      (let ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
+        (assert specialization)
+        `(apply (specialization-function ,specialization) ,@positional ,args)))))
+
+(defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
+  (with-slots (store form environment) f-env
+    (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
+           (fn (gensym "FN")))
+      (assert specialization)
+      `(let ((,fn (specialization-expand-function ,specialization)))
+         (if ,fn
+             (funcall ,fn ,form ,environment)
+             ,form)))))
+
+(defmethod generate-code ((null null) (f-env function-environment) d-env)
+  (with-slots (fail) f-env
+    `(,fail)))
+
+(defgeneric generate-inapplicable-arguments-error-code (symbols store))
+
+(defmethod generate-inapplicable-arguments-error-code ((symbols positional-symbols) store)
+  (with-slots (positional) symbols
+    `(error 'inapplicable-arguments
+            :arguments (list ,@positional)
+            :store ,store)))
+
+(defmethod generate-inapplicable-arguments-error-code ((symbols keywords-symbols) store)
+  (with-slots (positional args) symbols
+    `(error 'inapplicable-arguments
+            :arguments (append (list ,@positional) ,args)
+            :store ,store)))
+
+(defmethod generate-inapplicable-arguments-error-code ((symbols variable-symbols) store)
+  (with-slots (positional args) symbols
+    `(error 'inapplicable-arguments
+            :arguments (append (list ,@positional) ,args)
+            :store ,store)))
+
+(defgeneric compute-dispatch-lambda-form (function-environment destructuring-environment dispatch-tree))
+
+(defmethod compute-dispatch-lambda-form ((f-env value-function-environment) (d-env positional-environment) dispatch-tree)
+  (with-slots (store fail) f-env
+    (with-slots (positional) d-env
+      `(lambda ,positional
+         (declare (ignorable ,@positional))
+         (flet ((,fail ()
+                  (error 'inapplicable-arguments-error :arguments (list ,@positional) :store ,store)))
+           (declare (ignorable (function ,fail)))
+           ,(generate-code dispatch-tree f-env d-env))))))
+
+(defmethod compute-dispatch-lambda-form ((f-env value-function-environment) (d-env keywords-environment) dispatch-tree)
+  (with-slots (store fail) f-env
+    (with-slots (positional keywords args allow-others-p) d-env
+      (let ((keys (loop
+                     for (keyword . name) in keywords
+                     collect `((,keyword ,name))))
+            (allow-other-keys (when allow-others-p
+                                '(&allow-other-keys))))
+        `(lambda (,@positional &rest ,args &key ,@keys ,@allow-other-keys)
+           (declare (ignorable ,@positional ,args ,@(mapcar #'cdr keywords)))
+           (flet ((,fail ()
+                    (error 'inapplicable-arguments-error :arguments (append (list ,@positional) ,args) :store ,store)))
+             (declare (ignorable (function ,fail)))
+             ,(generate-code dispatch-tree f-env d-env)))))))
+
+(defmethod compute-dispatch-lambda-form ((f-env value-function-environment) (d-env variable-environment) dispatch-tree)
+  (with-slots (store fail) f-env
+    (with-slots (positional args argument-count) d-env
+      `(lambda (,@positional &rest ,args)
+         (declare (ignorable ,@positional ,args))
+         (flet ((,fail ()
+                  (error 'inapplicable-arguments-error :arguments (append (list ,@positional) ,args) :store ,store)))
+           (declare (ignorable (function ,fail)))
+           (let ((,argument-count (+ ,(length positional) (length ,args))))
+             (declare (ignorable ,argument-count))
+             ,(generate-code dispatch-tree f-env d-env)))))))
+
+(defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env positional-environment) dispatch-tree)
+  (with-slots (store fail form environment completion) f-env
+    (with-slots (positional) d-env
+      `(lambda (,form ,environment ,completion)
+         (declare (ignorable ,form ,environment ,completion))
+         (destructuring-bind ,positional ,completion
+           (declare (ignorable ,@positional))
+           (flet ((,fail ()
+                    ,form))
+             (declare (ignorable (function ,fail)))
+             ,(generate-code dispatch-tree f-env d-env)))))))
+
+(defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env keywords-environment) dispatch-tree)
+  (with-slots (store fail form environment completion) f-env
+    (with-slots (positional keywords allow-others-p args) d-env
+      (let ((allow-other-keys (when allow-others-p '(&allow-other-keys)))
+            (keys (loop
+                     for (keyword . name) in keywords
+                     collect `((,keyword ,name)))))
+        `(lambda (,form ,environment ,completion)
+           (declare (ignorable ,form ,environment ,completion))
+           (destructuring-bind (,@positional &rest ,args &key ,@keys ,@allow-other-keys) ,completion
+             (declare (ignorable ,@positional ,args ,@(mapcar #'cdr keywords)))
+             (flet ((,fail ()
+                      ,form))
+               (declare (ignorable (function ,fail)))
+               ,(generate-code dispatch-tree f-env d-env))))))))
+
+(defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env variable-environment) dispatch-tree)
+  (with-slots (store fail form environment completion) f-env
+    (with-slots (positional args argument-count) d-env
+      `(lambda (,form ,environment ,completion)
+         (declare (ignorable ,form ,environment ,completion))
+         (destructuring-bind (,@positional &rest ,args) ,completion
+           (declare (ignorable ,@positional ,args))
+           (flet ((,fail ()
+                    ,form))
+             (declare (ignorable (function ,fail)))
+             (let ((,argument-count (+ ,(length positional) (length ,args))))
+               (declare (ignorable ,argument-count))
+               ,(generate-code dispatch-tree f-env d-env))))))))
+
+(defmethod compute-dispatch-lambda-forms ((store standard-store))
+  (let* ((parameters (store-parameters store))
+         (all-specialization-parameters (mapcar #'specialization-parameters (store-specializations store)))
+         (dispatch-tree (make-dispatch-tree parameters all-specialization-parameters))
+         (destructuring-env (make-destructuring-environment parameters))
+         (value-lambda-form (compute-dispatch-lambda-form (make-function-environment store :value)
+                                                          destructuring-env
+                                                          dispatch-tree))
+         (type-lambda-form (compute-dispatch-lambda-form (make-function-environment store :type)
+                                                         destructuring-env
+                                                         dispatch-tree)))
+    (list value-lambda-form type-lambda-form)))
 
 (defmethod compute-dispatch-functions ((store standard-store))
-  (list (compute-dispatch-function/runtime store)
-        (compute-dispatch-function/compile-time store)))
+  (destructuring-bind (value-lambda-form type-lambda-form)
+      (compute-dispatch-lambda-forms store)
+    (list (compile nil value-lambda-form)
+          (compile nil type-lambda-form))))
