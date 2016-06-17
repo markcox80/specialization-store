@@ -127,22 +127,22 @@
     (signals error (funcall-store store))
     (signals error (apply-store store nil))
     (signals error (expand-store store '(test)))
-    
+
     (signals error (funcall-store store 1 2))
     (signals error (apply-store store (list 1 2)))
     (signals error (expand-store store '(test 1 2)))
-    
+
     (signals inapplicable-arguments-error (funcall-store store 1))
     (signals inapplicable-arguments-error (apply-store store (list 1)))
     (let ((form '(test 1)))
       (is (eq form (expand-store store form))))
-    
+
     (add-specialization store specialization)
-    
+
     (is (= 2 (funcall-store store 1)))
     (is (= 3 (apply-store store (list 2))))
     (is (equal `(1+ 2) (expand-store store '(test 2))))
-    
+
     (signals inapplicable-arguments-error (funcall-store store 1d0))
     (signals inapplicable-arguments-error (apply-store store (list 1d0)))
     (let ((form '(test 1d0)))
