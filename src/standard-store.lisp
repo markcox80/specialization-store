@@ -446,26 +446,6 @@
   (with-slots (fail) f-env
     `(,fail)))
 
-(defgeneric generate-inapplicable-arguments-error-code (symbols store))
-
-(defmethod generate-inapplicable-arguments-error-code ((symbols positional-symbols) store)
-  (with-slots (positional) symbols
-    `(error 'inapplicable-arguments
-            :arguments (list ,@positional)
-            :store ,store)))
-
-(defmethod generate-inapplicable-arguments-error-code ((symbols keywords-symbols) store)
-  (with-slots (positional args) symbols
-    `(error 'inapplicable-arguments
-            :arguments (append (list ,@positional) ,args)
-            :store ,store)))
-
-(defmethod generate-inapplicable-arguments-error-code ((symbols variable-symbols) store)
-  (with-slots (positional args) symbols
-    `(error 'inapplicable-arguments
-            :arguments (append (list ,@positional) ,args)
-            :store ,store)))
-
 (defgeneric compute-dispatch-lambda-form (function-environment destructuring-environment dispatch-tree))
 
 (defmethod compute-dispatch-lambda-form ((f-env value-function-environment) (d-env positional-environment) dispatch-tree)
