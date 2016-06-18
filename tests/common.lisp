@@ -91,7 +91,7 @@
           (is (equal '(integer 5 5) (compute a))))
         
         ;; Constants
-        (is (equal (type-of 1) (compute 1)))
+        (is (equal '(eql 1) (compute 1)))
         (is (equal (type-of "hey") (compute "hey")))
         
         ;; Forms like (the type form)
