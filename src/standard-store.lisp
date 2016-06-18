@@ -395,6 +395,21 @@
         (type-function-environment
          `(subtypep ,symbol ',type))))))
 
+(defmethod generate-code ((rule positional-parameter-type-rule) f-env (d-env variable-environment))
+  (with-slots (positional args) d-env
+    (let* ((position (parameter-position rule))
+           (type (parameter-type rule))
+           (reader (cond ((< position (length positional))
+                          (elt positional position))
+                         (t
+                          `(elt ,args ,(- position (length positional)))))))
+      (assert (<= 0 position))
+      (etypecase f-env
+        (value-function-environment
+         `(typep ,reader ',type))
+        (type-function-environment
+         `(subtypep ,reader ',type))))))
+
 (defmethod generate-code ((rule keyword-parameter-type-rule) f-env (d-env keywords-environment))
   (with-slots (keywords) d-env
     (let* ((keyword (parameter-keyword rule))
