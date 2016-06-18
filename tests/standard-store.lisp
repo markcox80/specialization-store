@@ -228,13 +228,7 @@
       (signals inapplicable-arguments-error (funcall-store store "blah" 3.0 :c 4.0)))))
 
 (test dispatch-function/rest
-  (let* ((store (make-instance 'standard-store
-                               :lambda-list '(a &rest args)
-                               :completion-function (lambda (continuation)
-                                                      #+sbcl
-                                                      (declare (sb-ext:muffle-conditions style-warning))
-                                                      (lambda (a &rest args)
-                                                        (apply continuation a args))))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a &rest args))))
     (labels ((make (lambda-list function)
                (make-instance 'standard-specialization :lambda-list lambda-list :function function))
              (add (lambda-list function)
