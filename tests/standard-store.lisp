@@ -303,11 +303,7 @@
           (dotimes (c-offset type-count)            
             (let* ((argument-types (collate types (list a-offset b-offset c-offset)))
                    (argument-values (collate values (list a-offset b-offset c-offset)))
-                   (store (make-instance 'standard-store
-                                         :lambda-list '(a b &optional c)
-                                         :completion-function (lambda (continuation)
-                                                                (lambda (a b &optional c)
-                                                                  (funcall continuation a b c)))))
+                   (store (make-instance 'standard-store :lambda-list '(a b &optional c)))
                    (table (loop
                              for specialization-index from 0 below type-count
                              for (a-type b-type c-type) in argument-types
@@ -324,9 +320,9 @@
                 (let ((precedence (sort (remove-if-not #'(lambda (specialization-types)
                                                            (every #'typep function-inputs specialization-types))
                                                        table
-                                                       :key #'car)
+                                                       :key #'first)
                                         #'specialization<
-                                        :key #'car)))
+                                        :key #'first)))
                   (cond (precedence
                          (let* ((expected-specialization (second (first precedence)))
                                 (actual-specialization (apply-store store function-inputs)))
