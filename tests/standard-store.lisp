@@ -159,9 +159,9 @@
 (test store-reinitialization
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(&optional a)
-                               :completion-function (lambda (continuation)
-                                                      (lambda (&optional (a 1))
-                                                        (funcall continuation a))))))
+                               :value-completion-function (lambda (continuation)
+                                                            (lambda (&optional (a 1))
+                                                              (funcall continuation a))))))
     (add-specialization store (make-instance 'standard-specialization
                                              :lambda-list '((a (integer 0)))
                                              :function (lambda (a)
@@ -170,9 +170,9 @@
     (finishes (reinitialize-instance store :lambda-list '(&optional b)))
     (signals store-error (reinitialize-instance store :lambda-list '(b)))
 
-    (reinitialize-instance store :completion-function (lambda (continuation)
-                                                        (lambda (&optional (b 2))
-                                                          (funcall continuation b))))
+    (reinitialize-instance store :value-completion-function (lambda (continuation)
+                                                              (lambda (&optional (b 2))
+                                                                (funcall continuation b))))
     (is (= 3 (funcall-store store)))))
 
 
