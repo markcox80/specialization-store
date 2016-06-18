@@ -199,13 +199,7 @@
 ;;;; Dispatching
 
 (test dispatch-function/basic
-  (let* ((store (make-instance 'standard-store
-                               :lambda-list '(a &optional (b) &key c)
-                               :completion-function (lambda (continuation)
-                                                      #+sbcl
-                                                      (declare (sb-ext:muffle-conditions style-warning))
-                                                      (lambda (a &optional (b 2) &key (c 3))
-                                                        (funcall continuation a b :c c))))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a &optional (b 2) &key (c 3)))))
     (labels ((make (lambda-list function)
                (make-instance 'standard-specialization :lambda-list lambda-list :function function))
              (add (lambda-list function)
