@@ -175,12 +175,32 @@
                                                                 (funcall continuation b))))
     (is (= 3 (funcall-store store)))))
 
+(test require-completion-forms
+  (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
+  (finishes (make-instance 'standard-store :lambda-list '(&optional (a 2))))
+  (finishes (make-instance 'standard-store :lambda-list '(&key a)))
+  (finishes (make-instance 'standard-store :lambda-list '(&key (a 2))))
+
+  (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&optional (a (hellow-world)))))
+  (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&key (a (hello-world))))))
+
+(test default-completion-forms
+  (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
+        (a (make-instance 'standard-specialization
+                          :lambda-list '((a integer))
+                          :function (lambda (a) (1+ a))
+                          :expand-function (lambda (form env)
+                                             (declare (ignore form env))
+                                             'here))))
+    (add-specialization store a)
+    (is (= 3 (funcall-store store)))
+    (is (eql 'here (expand-store store '(test))))))
 
 ;;;; Dispatching
 
 (test dispatch-function/basic
   (let* ((store (make-instance 'standard-store
-                               :lambda-list '(a &optional b &key c)
+                               :lambda-list '(a &optional (b) &key c)
                                :completion-function (lambda (continuation)
                                                       #+sbcl
                                                       (declare (sb-ext:muffle-conditions style-warning))
