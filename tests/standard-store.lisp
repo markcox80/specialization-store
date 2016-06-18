@@ -261,11 +261,7 @@
       (signals inapplicable-arguments-error (funcall-store store "blah")))))
 
 (test dispatch-function/key-with-null-type
-  (let* ((store (make-instance 'standard-store
-                               :lambda-list '(&key c)
-                               :completion-function (lambda (continuation)
-                                                      (lambda (&key c)
-                                                        (funcall continuation :c c))))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(&key c))))
     (add-specialization store (make-instance 'standard-specialization
                                              :lambda-list '(&key (c integer))
                                              :function (lambda (&key c)
