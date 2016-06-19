@@ -195,6 +195,16 @@
     (add-specialization store a)
     (is (= 3 (funcall-store store)))
     (is (eql 'here (expand-store store '(test))))))
+
+(test default-completion-functions/argument-forms
+  (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
+        (a (make-instance 'standard-specialization
+                          :lambda-list '((a integer))
+                          :function (lambda (a) (1+ a))
+                          :expand-function (compiler-macro-lambda (value)
+                                             value))))
+    (add-specialization store a)
+    (is (eql 2 (expand-store store '(test))))))
 
 ;;;; Dispatching
 
