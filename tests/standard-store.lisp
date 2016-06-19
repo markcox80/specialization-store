@@ -175,7 +175,7 @@
                                                                 (funcall continuation b))))
     (is (= 3 (funcall-store store)))))
 
-(test require-completion-forms
+(test require-completion-functions
   (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
   (finishes (make-instance 'standard-store :lambda-list '(&optional (a 2))))
   (finishes (make-instance 'standard-store :lambda-list '(&key a)))
