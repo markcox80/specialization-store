@@ -441,6 +441,27 @@ The function returned has the following composition
     (funcall continuation
              form environment completed-argument-types)))
 {end-example}
+
+
+{generic-function store-form-completion-function :arguments (store) :values function}
+{definition store}
+A store object.
+
+{definition function}
+A function.
+
+{description}
+Return the compile time form completion function for the store object
+~store~.
+
+The function should provide forms for uninitialized arguments at
+compile time.
+
+{begin-example}
+(lambda (continuation)
+  (lambda (form environment)
+    (funcall continuation form environment completed-form)))
+{end-example}
 
 {generic-function specialization-name :arguments (specialization) :values symbol}
 {definition specialization}
