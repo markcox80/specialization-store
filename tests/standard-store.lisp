@@ -184,7 +184,7 @@
   (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&optional (a (hellow-world)))))
   (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&key (a (hello-world))))))
 
-(test default-completion-forms
+(test default-completion-functions/dispatch
   (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
         (a (make-instance 'standard-specialization
                           :lambda-list '((a integer))
