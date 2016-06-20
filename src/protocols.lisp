@@ -168,10 +168,11 @@
          (object (if current-store
                      current-store
                      store-class))
-         (store (apply #'ensure-store-using-object object store-lambda-list
+         (store (apply #'ensure-store-using-object object name store-lambda-list
                        :store-class store-class
                        args)))
-    (setf (find-store name) store)
+    (setf (find-store name) store
+          (fdefinition name) store)
     store))
 
 (defgeneric make-store-unbound (store))
