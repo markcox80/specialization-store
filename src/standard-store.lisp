@@ -142,11 +142,16 @@
 
 (defmethod reinitialize-instance :after ((instance standard-store)
                                          &key
+                                           ((:name new-name) nil new-name-p)
                                            ((:lambda-list new-lambda-list) nil new-lambda-list-p)
                                            (value-completion-function nil value-completion-function-p)
                                            (type-completion-function nil type-completion-function-p)
                                            (form-completion-function nil form-completion-function-p)
-                                         &allow-other-keys)
+                                           &allow-other-keys)
+  (when new-name-p
+    (unless (eql (store-name instance) new-name)
+      (error "Cannot change names of standard store objects.")))
+
   (when new-lambda-list-p
     (let* ((old-parameters (store-parameters instance))
            (new-parameters (parse-store-lambda-list new-lambda-list)))
