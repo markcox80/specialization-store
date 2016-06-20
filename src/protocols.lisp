@@ -142,17 +142,23 @@
 (defgeneric ensure-store-using-object (object store-name store-lambda-list
                                        &key
                                          specialization-class documentation
-                                         value-completion-function type-completion-function
+                                         value-completion-function
+                                         type-completion-function
+                                         form-completion-function
                                          &allow-other-keys))
 
 (defun ensure-store (name store-lambda-list &rest args
                      &key
                        store-class specialization-class documentation
-                       value-completion-function type-completion-function
+                       value-completion-function
+                       type-completion-function
+                       form-completion-function
                        &allow-other-keys)
   (declare (ignore specialization-class
                    documentation
-                   value-completion-function type-completion-function))
+                   value-completion-function
+                   type-completion-function
+                   form-completion-function))
   (let* ((store-class (etypecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
