@@ -53,8 +53,10 @@
    :name nil
    :documentation nil    
    :specializations nil
+   :specialization-class (find-class 'standard-specialization)
    :value-completion-function nil
-   :type-completion-function nil))
+   :type-completion-function nil
+   :form-completion-function nil))
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
