@@ -126,12 +126,12 @@
       (t
        (error 'invalid-store-name-error :name name)))))
 
-(defun find-store (name)
+(defun find-store (name &optional (errorp t))
   (multiple-value-bind (name indicator) (%find-store-helper name)
     (let ((store (get name indicator)))
-      (if store
-	  store
-	  (error 'invalid-store-name-error :name name)))))
+      (cond (store store)
+            (errorp (error 'invalid-store-name-error :name name))
+            (t nil)))))
 
 (defun (setf find-store) (value name)
   (multiple-value-bind (name indicator) (%find-store-helper name)
