@@ -586,7 +586,9 @@ is called on the bound store object.
                   :arguments (object store-name store-lambda-list
                               &key
                                 specialization-class documentation
-                                value-completion-function type-completion-function
+                                value-completion-function
+                                type-completion-function
+                                form-completion-function
                               &allow-other-keys)
                   :values store}
 {definition object}
