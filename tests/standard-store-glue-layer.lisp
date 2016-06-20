@@ -24,3 +24,18 @@
       (is (eql fn1 (store-value-completion-function (find-store 'my-function))))
       (ensure-store 'my-function '(a) :value-completion-function fn2)
       (is (eql fn2 (store-value-completion-function (find-store 'my-function)))))))
+
+(glue-layer-test find-store
+  (test find-store
+    (signals error (find-store 'my-function))
+    (is-false (find-store 'my-function nil))
+    
+    (ensure-store 'my-function '(a))
+    
+    (is-true (find-store 'my-function))
+    (is-true (find-store 'my-function nil))
+
+    (make-store-unbound 'my-function)
+
+    (signals error (find-store 'my-function))
+    (is-false (find-store 'my-function nil))))
