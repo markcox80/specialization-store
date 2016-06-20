@@ -205,6 +205,49 @@
                                              value))))
     (add-specialization store a)
     (is (eql 2 (expand-store store '(test))))))
+
+(test completion-functions
+  (let ((b-value 1)
+        (init-b-name (gensym "INIT-B")))
+    (labels ((init-b ()
+               (incf b-value)
+               b-value)
+             (value-function (continuation)
+               (lambda (a &optional (b (init-b)))
+                 (funcall continuation a b)))
+             (type-function (continuation)
+               (compiler-macro-lambda (&whole form a &optional (b nil bp) &environment env)
+                 (funcall continuation form env
+                          (list (determine-form-value-type a env)
+                                (if bp
+                                    (determine-form-value-type b env)
+                                    '(integer 0))))))
+             (form-function (continuation)
+               (compiler-macro-lambda (&whole form a &optional (b `(,init-b-name)) &environment env)
+                 (funcall continuation form env (list (first form) a b)))))
+      (setf (fdefinition init-b-name) #'init-b)
+      (let ((store (make-instance 'standard-store
+                                  :lambda-list '(a &optional b)
+                                  :value-completion-function #'value-function
+                                  :type-completion-function #'type-function
+                                  :form-completion-function #'form-function))
+            (a (make-instance 'standard-specialization
+                              :lambda-list '(a (b (integer 0)))
+                              :function (lambda (a b)
+                                          (list a b))
+                              :expand-function (compiler-macro-lambda (a b)
+                                                 (declare (ignore a))
+                                                 b))))
+        (add-specialization store a)
+        (is (equal (list "hey" 2) (funcall-store store "hey")))
+        (is (equal (list "there" 3) (funcall-store store "there")))
+        (is (equal (list "foobar" 10) (funcall-store store "foobar" 10)))
+        (is (equal (list "hello" 4) (funcall-store store "hello")))
+        (is (equal `(,init-b-name) (expand-store store '(test "one"))))
+        ;; Doesn't match anything
+        (let ((form '(test "hey" "there")))
+          (is (eq form (expand-store store form)))))
+      (fmakunbound init-b-name))))
 
 ;;;; Dispatching
 
