@@ -44,6 +44,8 @@
                               :reader store-value-completion-function)
    (type-completion-function :initarg :type-completion-function
                              :reader store-type-completion-function)
+   (form-completion-function :initarg :form-completion-function
+                             :reader store-form-completion-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
   (:metaclass specialization-store.mop:funcallable-standard-class)
@@ -105,11 +107,18 @@
 (defun make-default-type-completion-function (store-parameters)
   (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
+(defun make-default-form-completion-function (store-parameters)
+  (destructuring-bind (lambda-form globals) (make-form-completion-lambda-form store-parameters nil)
+    (unless (null globals)
+      (error "Cannot create default form completion function as the store lambda list requires the introduction of global functions."))
+    (compile nil lambda-form)))
+
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
                                          (value-completion-function nil value-completion-function-p)
                                          (type-completion-function nil type-completion-function-p)
+                                         (form-completion-function nil form-completion-function-p)
                                          &allow-other-keys)
   (assert lambda-list-p)
   (let ((new-parameters (parse-store-lambda-list lambda-list)))
@@ -117,13 +126,17 @@
                (or (not (and value-completion-function-p
                              (functionp value-completion-function)))
                    (not (and type-completion-function-p
-                             (functionp type-completion-function)))))
+                             (functionp type-completion-function)))
+                   (not (and form-completion-function-p
+                             (functionp form-completion-function)))))
       (error 'missing-completion-functions-error :store instance))
     (setf (slot-value instance 'parameters) new-parameters
           (slot-value instance 'value-completion-function) (or value-completion-function
                                                                (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters))))
+                                                              (make-default-type-completion-function new-parameters))
+          (slot-value instance 'form-completion-function) (or form-completion-function
+                                                              (make-default-form-completion-function new-parameters))))
 
   (clear-dispatch-functions instance))
 
@@ -132,6 +145,7 @@
                                            ((:lambda-list new-lambda-list) nil new-lambda-list-p)
                                            (value-completion-function nil value-completion-function-p)
                                            (type-completion-function nil type-completion-function-p)
+                                           (form-completion-function nil form-completion-function-p)
                                          &allow-other-keys)
   (when new-lambda-list-p
     (let* ((old-parameters (store-parameters instance))
@@ -143,7 +157,9 @@
                         (or (not (and value-completion-function-p
                                       (functionp value-completion-function)))
                             (not (and type-completion-function-p
-                                      (functionp type-completion-function)))))
+                                      (functionp type-completion-function)))
+                            (not (and form-completion-function-p
+                                      (functionp form-completion-function)))))
                (warn "No new completion functions were supplied with new store lambda list."))
 
              (with-slots (parameters) instance
@@ -273,11 +289,22 @@
       (specialization-store.mop:set-funcallable-instance-function store #'update-runtime))))
 
 (defmethod update-dispatch-functions ((store standard-store))
-  (with-slots (runtime-function compile-time-function value-completion-function type-completion-function) store
-    (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
-      (setf runtime-function (funcall value-completion-function runtime)
-            compile-time-function (funcall type-completion-function compile-time))
-      (specialization-store.mop:set-funcallable-instance-function store runtime)))
+  (with-slots (runtime-function compile-time-function) store
+    (with-slots (value-completion-function type-completion-function form-completion-function) store
+      (labels ((third-argument (a b c)
+                 (declare (ignore a b))
+                 c)
+               (cascade (compile-time)
+                 (let ((type-fn (funcall type-completion-function #'third-argument))
+                       (form-fn (funcall form-completion-function #'third-argument)))
+                   (lambda (form env)
+                     (funcall compile-time form env
+                              (funcall type-fn form env)
+                              (funcall form-fn form env))))))
+        (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
+          (setf runtime-function (funcall value-completion-function runtime)
+                compile-time-function (cascade compile-time))
+          (specialization-store.mop:set-funcallable-instance-function store runtime)))))
   (values))
 
 ;;;; Dispatch function environment
@@ -293,11 +320,13 @@
 (defclass type-function-environment (function-environment)
   ((form :initarg :form)
    (environment :initarg :environment)
-   (completion :initarg :completion))
+   (completed-types :initarg :completed-types)
+   (completed-form :initarg :completed-form))
   (:default-initargs
    :form (gensym "FORM")
    :environment (gensym "ENV")
-   :completion (gensym "COMPLETION")))
+   :completed-types (gensym "COMPLETED-TYPES")
+   :completed-form (gensym "COMPLETED-FORM")))
 
 (defun make-function-environment (store code-type)
   (ecase code-type
@@ -448,13 +477,13 @@
         `(apply (specialization-function ,specialization) ,@positional ,args)))))
 
 (defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
-  (with-slots (store form environment) f-env
+  (with-slots (store form environment completed-form) f-env
     (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
            (fn (gensym "FN")))
       (assert specialization)
       `(let ((,fn (specialization-expand-function ,specialization)))
          (if ,fn
-             (funcall ,fn ,form ,environment)
+             (funcall ,fn ,completed-form ,environment)
              ,form)))))
 
 (defmethod generate-code ((null null) (f-env function-environment) d-env)
@@ -501,11 +530,11 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env positional-environment) dispatch-tree)
-  (with-slots (store fail form environment completion) f-env
+  (with-slots (store fail form environment completed-types completed-form) f-env
     (with-slots (positional) d-env
-      `(lambda (,form ,environment ,completion)
-         (declare (ignorable ,form ,environment ,completion))
-         (destructuring-bind ,positional ,completion
+      `(lambda (,form ,environment ,completed-types ,completed-form)
+         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+         (destructuring-bind ,positional ,completed-types
            (declare (ignorable ,@positional))
            (flet ((,fail ()
                     ,form))
@@ -513,15 +542,15 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env keywords-environment) dispatch-tree)
-  (with-slots (store fail form environment completion) f-env
+  (with-slots (store fail form environment completed-types completed-form) f-env
     (with-slots (positional keywords allow-others-p args) d-env
       (let ((allow-other-keys (when allow-others-p '(&allow-other-keys)))
             (keys (loop
                      for (keyword . name) in keywords
                      collect `((,keyword ,name)))))
-        `(lambda (,form ,environment ,completion)
-           (declare (ignorable ,form ,environment ,completion))
-           (destructuring-bind (,@positional &rest ,args &key ,@keys ,@allow-other-keys) ,completion
+        `(lambda (,form ,environment ,completed-types ,completed-form)
+           (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+           (destructuring-bind (,@positional &rest ,args &key ,@keys ,@allow-other-keys) ,completed-types
              (declare (ignorable ,@positional ,args ,@(mapcar #'cdr keywords)))
              (flet ((,fail ()
                       ,form))
@@ -529,11 +558,11 @@
                ,(generate-code dispatch-tree f-env d-env))))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env variable-environment) dispatch-tree)
-  (with-slots (store fail form environment completion) f-env
+  (with-slots (store fail form environment completed-types completed-form) f-env
     (with-slots (positional args argument-count) d-env
-      `(lambda (,form ,environment ,completion)
-         (declare (ignorable ,form ,environment ,completion))
-         (destructuring-bind (,@positional &rest ,args) ,completion
+      `(lambda (,form ,environment ,completed-types ,completed-form)
+         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+         (destructuring-bind (,@positional &rest ,args) ,completed-types
            (declare (ignorable ,@positional ,args))
            (flet ((,fail ()
                     ,form))
