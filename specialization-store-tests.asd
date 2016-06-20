@@ -9,5 +9,5 @@
                                      (:file "common")
 				     (:file "lambda-lists")
                                      (:file "standard-store")
-                                     (:file "syntax-layer")
+                                     (:file "test-streams")
                                      (:file "asdf")))))
