@@ -411,6 +411,7 @@
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
+(defgeneric make-form-completion-lambda-form (parameters environment))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -581,3 +582,67 @@
             (let* (,@required-let*-forms ,@optional-let*-forms)
               (funcall ,continuation ,lambda-form ,lambda-environment
                        (list ,@required-forms ,@optional-forms)))))))))
+
+(defun compiler-macro-head (form)
+  (assert (listp form))
+  (if (eql 'funcall (first form))
+      (subseq form 0 2)
+      (subseq form 0 1)))
+
+(defmethod make-form-completion-lambda-form ((parameters store-parameters) environment)
+  (let* ((function-definitions nil)
+         (symbols (reverse (required-parameters parameters))))
+    (flet ((process-init-form (var init-form)
+             (push var symbols)
+             (cond ((member var (rest symbols))
+                    var)
+                   ((constantp init-form environment)
+                    init-form)
+                   (t
+                    (let* ((function-name (gensym "INIT-FORM")))
+                      (push `(defun ,function-name ()
+                               ,init-form)
+                            function-definitions)
+                      `'(the ,(determine-form-value-type init-form environment) (,function-name)))))))
+      (let* ((required (required-parameters parameters))
+             (optional (loop
+                          for (var init-form) in (optional-parameters parameters)
+                          collect
+                            (list var (process-init-form var init-form))))
+             (keywordsp (keyword-parameters-p parameters))
+             (allow-others-p (when (allow-other-keys-p parameters)
+                               '(&allow-other-keys)))
+             (keywords (loop
+                          for (keyword var init-form) in (keyword-parameters parameters)
+                          collect
+                            (list (list keyword var) (process-init-form var init-form))))
+             (rest (rest-parameter parameters))
+             (required-forms required)
+             (optional-forms (mapcar #'first optional))
+             (keyword-forms (mapcar #'first keywords))
+             (lambda-form (cond ((and optional keywordsp)
+                                 (let ((rest (or rest (gensym "REST"))))
+                                   `(compiler-macro-lambda (,@required &optional ,@optional &rest ,rest &key ,@keywords ,@allow-others-p)
+                                      (append (list ,@required-forms ,@optional-forms ,@keyword-forms)
+                                              ,rest))))
+                                (keywordsp
+                                 (let ((rest (or rest (gensym "REST"))))
+                                   `(compiler-macro-lambda (,@required &rest ,rest &key ,@keywords ,@allow-others-p)
+                                      (append (list ,@required-forms ,@keyword-forms)
+                                              ,rest))))
+                                (rest
+                                 `(compiler-macro-lambda (,@required &optional ,@optional &rest ,rest)
+                                    (append (list ,@required-forms ,@optional-forms)
+                                            ,rest)))
+                                (t
+                                 `(compiler-macro-lambda (,@required &optional ,@optional)
+                                    (list ,@required-forms ,@optional-forms)))))
+             (continuation (gensym "CONTINUATION"))
+             (form (gensym "FORM"))
+             (env (gensym "ENV")))
+        (list `(lambda (,continuation)
+                 (lambda (,form ,env)
+                   (funcall ,continuation ,form ,env
+                            (append (compiler-macro-head ,form)
+                                    (funcall ,lambda-form ,form ,env)))))
+              function-definitions)))))

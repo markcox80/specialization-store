@@ -108,6 +108,7 @@
 (defgeneric store-name (store))
 (defgeneric store-value-completion-function (store))
 (defgeneric store-type-completion-function (store))
+(defgeneric store-form-completion-function (store))
 (defgeneric specialization-name (specialization))
 
 (defun %find-store-helper (name)
