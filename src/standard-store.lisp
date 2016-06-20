@@ -280,6 +280,37 @@
          (store-specializations store)))
   (values))
 
+(defmethod ensure-store-using-object ((class (eql (find-class 'standard-store))) store-name store-lambda-list
+                                      &rest args
+                                      &key
+                                        specialization-class documentation
+                                        value-completion-function
+                                        type-completion-function
+                                        form-completion-function
+                                        &allow-other-keys)
+  (declare (ignore specialization-class documentation
+                   value-completion-function type-completion-function
+                   form-completion-function))
+  (apply #'make-instance 'standard-store
+         :name store-name
+         :lambda-list store-lambda-list
+         args))
+
+(defmethod ensure-store-using-object ((instance standard-store) store-name store-lambda-list
+                                      &rest args
+                                      &key
+                                        specialization-class documentation
+                                        value-completion-function
+                                        type-completion-function
+                                        form-completion-function
+                                      &allow-other-keys)
+  (declare (ignore specialization-class documentation
+                   value-completion-function type-completion-function
+                   form-completion-function))
+  (apply #'reinitialize-instance instance
+         :name store-name
+         :lambda-list store-lambda-list
+         args))
 
 ;;;; Dispatch Functions
 
