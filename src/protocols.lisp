@@ -172,7 +172,9 @@
                        :store-class store-class
                        args)))
     (setf (find-store name) store
-          (fdefinition name) store)
+          (fdefinition name) store
+          (compiler-macro-function name) (lambda (form env)
+                                           (expand-store store form env)))
     store))
 
 (defgeneric make-store-unbound (store))
