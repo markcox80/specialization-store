@@ -5,16 +5,24 @@
 
 (glue-layer-test ensure-store/initial
   (test ensure-store
+    (is-false (fboundp 'my-function))
     (is-false (find-store 'my-function nil))
+    (is-false (compiler-macro-function 'my-function))
+
     (ensure-store 'my-function '(a))
+
     (is-true (typep (find-store 'my-function) 'standard-store))
+    (is-true (fboundp 'my-function))
+    (is-true (compiler-macro-function 'my-function))
 
     (signals inapplicable-arguments-error
       (funcall (fdefinition 'my-function) 1))
 
     (make-store-unbound 'my-function)
+
     (is-false (find-store 'my-function nil))
-    (is-false (fboundp 'my-function))))
+    (is-false (fboundp 'my-function))
+    (is-false (compiler-macro-function 'my-function))))
 
 (glue-layer-test ensure-store/reinitialised
   (test ensure-store
