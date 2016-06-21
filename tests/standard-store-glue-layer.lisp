@@ -39,3 +39,21 @@
 
     (signals error (find-store 'my-function))
     (is-false (find-store 'my-function nil))))
+
+(glue-layer-test ensure-specialization
+  (test ensure-specialization
+    (ensure-store 'my-function '(a))
+    (ensure-specialization 'my-function '((a integer)) 'integer #'1+)
+
+    (flet ((invoke (&rest args)
+             (apply (fdefinition 'my-function) args)))
+      (signals inapplicable-arguments-error (invoke "hey"))
+      (is (= 2 (invoke 1))))))
+
+(glue-layer-test ensure-specialization/name
+  (test ensure-specialization
+    (ensure-store 'my-function '(a))
+    (ensure-specialization 'my-function '((a integer)) 'integer #'1+ :name 'my-function/integer)
+
+    (is-true (fboundp 'my-function/integer))
+    (is (equal '(my-function/integer 1) (expand-store (find-store 'my-function) '(my-function 1))))))

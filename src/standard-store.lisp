@@ -311,6 +311,29 @@
          :name store-name
          :lambda-list store-lambda-list
          args))
+
+(defmethod ensure-specialization-using-object ((store standard-store) specialized-lambda-list value-type function
+                                               &rest args &key name expand-function &allow-other-keys)
+  (let* ((specialization-expand-function (or expand-function
+                                             (when name
+                                               (lambda (form env)
+                                                 (declare (ignore env))
+                                                 (cons name
+                                                       (if (and (listp form) (eql (first form) 'funcall))
+                                                           (cddr form)
+                                                           (cdr form)))))))
+         (specialization (apply #'make-instance (store-specialization-class store)
+                               :lambda-list specialized-lambda-list
+                               :value-type value-type
+                               :function function
+                               :expand-function specialization-expand-function
+                               args)))
+    (add-specialization store specialization)
+    (when name
+      (setf (fdefinition name) function))
+    (when (and name expand-function)
+      (setf (compiler-macro-function name) expand-function))
+    specialization))
 
 ;;;; Dispatch Functions
 
