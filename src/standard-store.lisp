@@ -364,7 +364,7 @@
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
-          (specialization-store.mop:set-funcallable-instance-function store runtime)))))
+          (specialization-store.mop:set-funcallable-instance-function store runtime-function)))))
   (values))
 
 ;;;; Dispatch function environment
