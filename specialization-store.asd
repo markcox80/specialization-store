@@ -17,6 +17,5 @@
                                      (:file "dispatch-fixed-arity")
                                      (:file "dispatch-variable-arity")
 				     (:file "protocols")
-                                     #- (and)
 				     (:file "standard-store"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))
