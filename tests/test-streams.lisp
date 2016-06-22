@@ -68,6 +68,7 @@
                                    :use '("COMMON-LISP" "SPECIALIZATION-STORE" "FIVEAM"))))
       (import 'syntax-layer-test *package*)
       (import 'glue-layer-test *package*)
+      (import 'stop *package*)
       (let ((form (read stream nil nil)))
         (cond
           ((null form)
@@ -80,11 +81,13 @@
                 (eql 'glue-layer-test (first form)))
            (process-glue-layer-test-form form)
            t)
+          ((and (symbolp form) (eql form 'stop))
+           nil)
           (t
            t))))))
 
 (defun process-test-streams ()
   (with-open-file (in/syntax *syntax-layer-tests-pathname*)
     (with-open-file (in/glue *glue-layer-tests-pathname*)
-      (with-open-stream (in (make-concatenated-stream in/glue #- (and) in/syntax))
+      (with-open-stream (in (make-concatenated-stream #- (and) in/glue in/syntax))
         (loop while (process-test-stream in))))))
