@@ -540,11 +540,13 @@
       `(= ,argument-count ,count))))
 
 (defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env positional-environment))
+  (declare (ignore f-env))
   (let ((count (argument-count rule)))
     (with-slots (positional) d-env
       (>= (length positional) count))))
 
 (defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env variable-environment))
+  (declare (ignore f-env))
   (let ((count (argument-count rule)))
     (with-slots (argument-count) d-env
       `(>= ,argument-count ,count))))
@@ -614,6 +616,7 @@
         `(apply (specialization-function ,specialization) ,@positional ,args)))))
 
 (defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
+  (declare (ignore d-env))
   (with-slots (store form environment completed-form) f-env
     (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
            (fn (gensym "FN")))
@@ -624,6 +627,7 @@
              ,form)))))
 
 (defmethod generate-code ((null null) (f-env function-environment) d-env)
+  (declare (ignore d-env))
   (with-slots (fail) f-env
     `(,fail)))
 
