@@ -89,5 +89,5 @@
 (defun process-test-streams ()
   (with-open-file (in/syntax *syntax-layer-tests-pathname*)
     (with-open-file (in/glue *glue-layer-tests-pathname*)
-      (with-open-stream (in (make-concatenated-stream #- (and) in/glue in/syntax))
+      (with-open-stream (in (make-concatenated-stream in/glue in/syntax))
         (loop while (process-test-stream in))))))
