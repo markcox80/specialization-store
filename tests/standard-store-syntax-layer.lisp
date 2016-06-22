@@ -101,9 +101,10 @@
     (signals inapplicable-arguments-error (example 1))))
 
 (syntax-layer-test lexical-environment/optional
-  (flet ((init-a ()
-           5))
-    (defstore example (&optional (a (init-a)) (b a))))
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-a ()
+             5))
+      (defstore example (&optional (a (init-a)) (b a)))))
 
   (defspecialization example ((a integer) (b integer)) t
     (declare (ignore a b))
@@ -118,9 +119,10 @@
     (is (eql 't-t (example "Hey")))))
 
 (syntax-layer-test lexical-environment/keywords
-  (flet ((init-a ()
-           5))
-    (defstore example (&key (a (init-a)) (b a))))
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-a ()
+             5))
+      (defstore example (&key (a (init-a)) (b a)))))
 
   (defspecialization example (&key (a integer) (b integer)) t
     (declare (ignore a b))
