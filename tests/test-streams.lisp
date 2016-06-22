@@ -20,52 +20,15 @@
   `(progn
      ,@body))
 
-(defun process-syntax-layer-test-form (form)
-  (let ((suite (make-suite 'syntax-layer-test))
-        (name (second form)))
-    (in-suite syntax-layer-test)
-    (handler-case (progn
-                    (eval form)
-                    (let ((report (let ((*test-dribble* nil))
-                                    (run suite))))
-                      (cond
-                        ((fiveam:results-status report)
-                         (format t "~&Syntax layer test ~W passed.~%" name))
-                        (t
-                         (format t "~&Syntax layer test ~W failed.~%" name)
-                         (fiveam:explain! report)))))
-      (error (c)
-        (format t "~&;;;; Unhandled error occurred in syntax layer test ~W.~%" name)
-        (format t "~&;;;; Condition: ~W~%" c)
-        (let ((*print-escape* nil))
-          (format t "~&;;;;            ~W~%" c))))))
-
-(defun process-glue-layer-test-form (form)
-  (let ((suite (make-suite 'glue-layer-test))
-        (name (second form)))
-    (in-suite glue-layer-test)
-    (handler-case (progn
-                    (eval form)
-                    (let ((report (let ((*test-dribble* nil))
-                                    (run suite))))
-                      (cond
-                        ((fiveam:results-status report)
-                         (format t "~&Glue layer test ~W passed.~%" name))
-                        (t
-                         (format t "~&Glue layer test ~W failed.~%" name)
-                         (fiveam:explain! report)))))
-      (error (c)
-        (format t "~&;;;; Unhandled error occurred in glue layer test ~W.~%" name)
-        (format t "~&;;;; Condition: ~W~%" c)
-        (let ((*print-escape* nil))
-          (format t "~&;;;;            ~W~%" c))))))
-
 (defun process-test-stream (stream)
   (let ((temp-package-name "SPECIALIZATION-STORE.TESTS.TEST-STREAM"))
     (when (find-package temp-package-name)
       (delete-package temp-package-name))
     (let ((*package* (make-package temp-package-name
-                                   :use '("COMMON-LISP" "SPECIALIZATION-STORE" "FIVEAM"))))
+                                   :use '("COMMON-LISP" "SPECIALIZATION-STORE" "FIVEAM")))
+          (*print-case* :downcase)
+          (suite (make-suite 'test-stream-test)))
+      (in-suite test-stream-test)
       (import 'syntax-layer-test *package*)
       (import 'glue-layer-test *package*)
       (import 'stop *package*)
@@ -73,16 +36,26 @@
         (cond
           ((null form)
            nil)
-          ((and (listp form)
-                (eql 'syntax-layer-test (first form)))
-           (process-syntax-layer-test-form form)
-           t)
-          ((and (listp form)
-                (eql 'glue-layer-test (first form)))
-           (process-glue-layer-test-form form)
-           t)
           ((and (symbolp form) (eql form 'stop))
            nil)
+          ((and (listp form)
+                (member (first form) '(glue-layer-test syntax-layer-test)))
+           (format t "~%;;;; Preparing global environment for ~W ~W.~%" (second form) (first form))
+           (uiop:with-temporary-file (:stream s :pathname p)
+             (loop
+                for expression in (cddr form)
+                do
+                  (pprint expression s))
+             (close s)
+             (load (compile-file p)))
+           (let* ((fiveam:*test-dribble* nil)
+                  (report (run suite)))
+             (format t "~&;; Test ~A.~%"
+                     (if (fiveam:results-status report)
+                         "passed"
+                         "failed"))
+             (fiveam:explain! report))
+           t)
           (t
            t))))))
 
