@@ -175,6 +175,43 @@
                                                                 (funcall continuation b))))
     (is (= 3 (funcall-store store)))))
 
+(test store-reinitialization/different-lambda-list
+  ;; Changing lambda lists of a store object that does not contain
+  ;; specializations is fine.
+  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
+    (finishes (reinitialize-instance store :lambda-list '(a b))))
+
+  ;; Changing lambda lists of a store object with specializations
+  ;; should signal a store-error.
+  (let* ((store (make-instance 'standard-store :lambda-list '(a)))
+         (s (make-instance 'standard-specialization :lambda-list '((a integer)) :function #'1+)))
+    (add-specialization store s)
+    (signals store-error (reinitialize-instance store :lambda-list '(a b))))
+
+  ;; Check that is ok to reuse the completion functions for a new
+  ;; lambda list which is congruent with the old lambda list.
+  (let* ((store (make-instance 'standard-store
+                               :lambda-list '(&optional (a (init-a)))
+                               :value-completion-function #'null
+                               :type-completion-function #'null
+                               :form-completion-function #'null)))
+    (finishes (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
+
+  ;; Signal an error if a new lambda list is supplied that is not
+  ;; congruent with the old lambda list and no completion functions
+  ;; are supplied.
+  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
+    (signals store-error (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
+
+  ;; Check the above case completes if completion functions are
+  ;; specified.
+  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
+    (finishes (reinitialize-instance store
+                                     :lambda-list '(&optional (b (init-b)))
+                                     :value-completion-function #'null
+                                     :type-completion-function #'null
+                                     :form-completion-function #'null))))
+
 (test require-completion-functions
   (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
   (finishes (make-instance 'standard-store :lambda-list '(&optional (a 2))))
