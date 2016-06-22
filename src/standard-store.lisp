@@ -377,6 +377,7 @@
                            (make-instance 'standard-specialization
                                           :name ',name
                                           :lambda-list ',specialized-lambda-list
+                                          :value-type ',value-type
                                           :function ,function
                                           :expand-function ,expand-function
                                           ,@args)))))
@@ -405,6 +406,7 @@
                            (make-instance 'standard-specialization
                                           :name ',name
                                           :lambda-list ',specialized-lambda-list
+                                          :value-type ',value-type
                                           :function ,function
                                           :expand-function ,expand-function
                                           ,@args)))))
