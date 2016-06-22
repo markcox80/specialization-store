@@ -156,18 +156,20 @@
 
   (when new-lambda-list-p
     (let* ((old-parameters (store-parameters instance))
-           (new-parameters (parse-store-lambda-list new-lambda-list)))
-      (cond ((or (congruent-parameters-p old-parameters new-parameters)
-                 (null (store-specializations instance)))
+           (new-parameters (parse-store-lambda-list new-lambda-list))
+           (congruent? (congruent-parameters-p old-parameters new-parameters)))
+      (cond ((or congruent? (null (store-specializations instance)))
              (when (and (completion-functions-required-p new-parameters)
-                        (not (parameters-equal old-parameters new-parameters))
+                        (not congruent?)
                         (or (not (and value-completion-function-p
                                       (functionp value-completion-function)))
                             (not (and type-completion-function-p
                                       (functionp type-completion-function)))
                             (not (and form-completion-function-p
                                       (functionp form-completion-function)))))
-               (warn "No new completion functions were supplied with new store lambda list."))
+               (error 'simple-store-error
+                      :store instance
+                      :message "New completion functions are required for the new store lambda list."))
 
              (with-slots (parameters) instance
                (setf parameters new-parameters))
