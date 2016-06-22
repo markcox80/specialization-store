@@ -333,6 +333,81 @@
     (when (and name expand-function)
       (setf (compiler-macro-function name) expand-function))
     specialization))
+
+
+;;;; Standard Store (Syntax Layer)
+
+(defmethod defstore-using-class ((class (eql (find-class 'standard-store))) name store-lambda-list
+                                 &rest args &key environment &allow-other-keys)
+  (alexandria:remove-from-plistf args :environment)
+  (let* ((parameters (parse-store-lambda-list store-lambda-list))
+         (value-lambda-form (make-value-completion-lambda-form parameters))
+         (type-lambda-form (make-type-completion-lambda-form parameters environment)))
+    (destructuring-bind (form-lambda-form globals) (make-form-completion-lambda-form parameters environment)
+      `(progn
+         ,@globals
+         (ensure-store ',name ',store-lambda-list
+                       :value-completion-function ,value-lambda-form
+                       :type-completion-function ,type-lambda-form
+                       :form-completion-function ,form-lambda-form
+                       ,@args)))))
+
+(defmethod defspecialization-using-object ((store standard-store) specialized-lambda-list value-type body
+                                           &rest args &key name environment inline &allow-other-keys)
+  (declare (ignore environment))
+  (alexandria:remove-from-plistf args :name :environment :inline)
+  (let* ((parameters (parse-specialization-lambda-list specialized-lambda-list))
+         (lambda-list (ordinary-lambda-list (store-parameters store) parameters))
+         (function (if name
+                       `(function ,name)
+                       `(lambda ,lambda-list
+                          ,@body)))
+         (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
+                                           (list* '(lambda ,lambda-list ,@body)
+                                                  args)))
+                                (name `(compiler-macro-lambda (&rest args)
+                                         (list* ',name args))))))
+    `(progn
+       ,(when name
+              `(defun ,name ,lambda-list
+                 ,@body))
+       ,(when (and name inline)
+              `(setf (compiler-macro-function ',name) ,expand-function))
+       (add-specialization (find-store ',(store-name store))
+                           (make-instance 'standard-specialization
+                                          :name ',name
+                                          :lambda-list ',specialized-lambda-list
+                                          :function ,function
+                                          :expand-function ,expand-function
+                                          ,@args)))))
+
+(defmethod define-specialization-using-object ((store standard-store) specialized-lambda-list value-type
+                                               &rest args &key name environment function expand-function &allow-other-keys)
+  (declare (ignore environment))
+  (alexandria:remove-from-plistf args :name :environment :function :expand-function)
+  (destructuring-bind (&key (inline nil inlinep) &allow-other-keys) args
+    (declare (ignore inline))
+    (when inlinep
+      (warn "Inline option is not supported inside DEFINE-SPECIALIZATION.")))
+  
+  (let* ((function (if (and name function)
+                       `(function ,name)
+                       function))
+         (expand-function (if (and name expand-function)
+                              `(compiler-macro-function ',name)
+                              expand-function)))
+    `(progn
+       ,(when (and name function)
+              `(setf (fdefinition ',name) ,function))
+       ,(when (and name expand-function)
+              `(setf (compiler-macro-function ',name) ,expand-function))
+       (add-specialization (find-store ',(store-name store))
+                           (make-instance 'standard-specialization
+                                          :name ',name
+                                          :lambda-list ',specialized-lambda-list
+                                          :function ,function
+                                          :expand-function ,expand-function
+                                          ,@args)))))
 
 ;;;; Dispatch Functions
 
