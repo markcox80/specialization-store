@@ -466,6 +466,8 @@
          (required-forms required)
          (optional (optional-parameters parameters))
          (optional-forms (loop for (var) in optional collect var))
+         (positional (append required (when optional (append '(&optional) optional))))
+         (positional-forms (append required-forms optional-forms))
          (rest (rest-parameter parameters))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
@@ -477,24 +479,19 @@
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys)))
          (continuation (gensym "CONTINUATION")))
-    (cond ((and optional keywordsp)
+    (cond (keywordsp
            (let* ((rest (or rest (gensym "REST"))))
              `(lambda (,continuation)
-                (lambda (,@required &optional ,@optional &rest ,rest &key ,@keywords ,@allow-other-keys)
-                  (apply ,continuation ,@required-forms ,@optional-forms ,@keyword-forms ,rest)))))
-          (keywordsp
-           (let* ((rest (or rest (gensym "REST"))))
-             `(lambda (,continuation)
-                (lambda (,@required &rest ,rest &key ,@keywords ,@allow-other-keys)
-                  (apply ,continuation ,@required-forms ,@keyword-forms ,rest)))))
+                (lambda (,@positional &rest ,rest &key ,@keywords ,@allow-other-keys)
+                  (apply ,continuation ,@positional-forms ,@keyword-forms ,rest)))))
           (rest
            `(lambda (,continuation)
-              (lambda (,@required &optional ,@optional &rest ,rest)
-                (apply ,continuation ,@required-forms ,@optional-forms ,rest))))
+              (lambda (,@positional &rest ,rest)
+                (apply ,continuation ,@positional-forms ,rest))))
           (t
            `(lambda (,continuation)
-              (lambda (,@required &optional ,@optional)
-                (funcall ,continuation ,@required-forms ,@optional-forms)))))))
+              (lambda (,@positional)
+                (funcall ,continuation ,@positional-forms)))))))
 
 (defmethod make-type-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((continuation (gensym "CONTINUATION"))
