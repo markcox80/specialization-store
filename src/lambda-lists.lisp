@@ -610,6 +610,10 @@
                           for (var init-form) in (optional-parameters parameters)
                           collect
                             (list var (process-init-form var init-form))))
+             (positional (append required
+                                 (when optional
+                                   (append '(&optional)
+                                           optional))))
              (keywordsp (keyword-parameters-p parameters))
              (allow-others-p (when (allow-other-keys-p parameters)
                                '(&allow-other-keys)))
@@ -620,14 +624,15 @@
              (rest (rest-parameter parameters))
              (required-forms required)
              (optional-forms (mapcar #'first optional))
+             (positional-forms (append required-forms optional-forms))
              (keyword-forms (loop
                                for (keyword var) in (keyword-parameters parameters)
                                append
                                  (list keyword var)))
              (lambda-form (cond ((and optional keywordsp)
                                  (let ((rest (or rest (gensym "REST"))))
-                                   `(compiler-macro-lambda (,@required &optional ,@optional &rest ,rest &key ,@keywords ,@allow-others-p)
-                                      (append (list ,@required-forms ,@optional-forms ,@keyword-forms)
+                                   `(compiler-macro-lambda (,@positional &rest ,rest &key ,@keywords ,@allow-others-p)
+                                      (append (list ,@positional-forms ,@keyword-forms)
                                               ,rest))))
                                 (keywordsp
                                  (let ((rest (or rest (gensym "REST"))))
@@ -635,12 +640,12 @@
                                       (append (list ,@required-forms ,@keyword-forms)
                                               ,rest))))
                                 (rest
-                                 `(compiler-macro-lambda (,@required &optional ,@optional &rest ,rest)
-                                    (append (list ,@required-forms ,@optional-forms)
+                                 `(compiler-macro-lambda (,@positional &rest ,rest)
+                                    (append (list ,@positional-forms)
                                             ,rest)))
                                 (t
-                                 `(compiler-macro-lambda (,@required &optional ,@optional)
-                                    (list ,@required-forms ,@optional-forms)))))
+                                 `(compiler-macro-lambda (,@positional)
+                                    (list ,@positional-forms)))))
              (continuation (gensym "CONTINUATION"))
              (form (gensym "FORM"))
              (env (gensym "ENV")))
