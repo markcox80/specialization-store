@@ -183,7 +183,7 @@
 
 (defun map-from-problem (store-parameters all-specialization-parameters tree)
   (let* ((index-function-table (map 'vector #'identity (append (loop
-                                                                  for required in (required-parameters store-parameters)
+                                                                  for nil in (required-parameters store-parameters)
                                                                   for index from 0
                                                                   collect (let ((index index))
                                                                             #'(lambda (type)
