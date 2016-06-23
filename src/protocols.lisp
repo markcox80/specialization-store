@@ -159,10 +159,10 @@
                    value-completion-function
                    type-completion-function
                    form-completion-function))
-  (let* ((store-class (etypecase store-class
+  (let* ((store-class (typecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
-                        (t store-class)))
+                        (otherwise store-class)))
          (current-store (multiple-value-bind (name indicator) (%find-store-helper name)
                           (get name indicator)))
          (object (if current-store
