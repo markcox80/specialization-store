@@ -524,6 +524,9 @@
                                  do
                                    (push var left-vars)))
          (optional-forms optional-vars)
+         (positional (append required (when optional (append '(&optional) optional))))
+         (positional-let*-forms (append required-let*-forms optional-let*-forms))
+         (positional-forms (append required-forms optional-forms))
          (rest (rest-parameter parameters))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
@@ -548,38 +551,26 @@
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys))))
     (cond
-      ;; The reason I test for this case is due to the warning some
-      ;; implementations signal when optional and keyword arguments
-      ;; are specified together. Who knows why specifying both is so
-      ;; confusing to people?
-      ((and optional keywordsp)
-       `(lambda (,continuation)
-          (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &key ,@keywords ,@allow-other-keys
-                                         &environment ,lambda-environment)
-            (let* (,@required-let*-forms ,@optional-let*-forms ,@keyword-let*-forms)
-              (funcall ,continuation ,lambda-form ,lambda-environment
-                       (list ,@required-forms ,@optional-forms ,@keyword-forms))))))
       (keywordsp
        `(lambda (,continuation)
-          (compiler-macro-lambda (&whole ,lambda-form ,@required &key ,@keywords ,@allow-other-keys
-                                         &environment ,lambda-environment)
-            (let* (,@required-let*-forms ,@keyword-let*-forms)
+          (compiler-macro-lambda (&whole ,lambda-form ,@positional &key ,@keywords ,@allow-other-keys &environment ,lambda-environment)
+            (let* (,@positional-let*-forms ,@keyword-let*-forms)
               (funcall ,continuation ,lambda-form ,lambda-environment
-                       (list ,@required-forms ,@keyword-forms))))))
+                       (list ,@positional-forms ,@keyword-forms))))))
       (rest
        (let ((rest-form (gensym "REST-FORM")))
          `(lambda (,continuation)
-            (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &rest ,rest &environment ,lambda-environment)
-              (let* (,@required-let*-forms ,@optional-let*-forms)
+            (compiler-macro-lambda (&whole ,lambda-form ,@positional &rest ,rest &environment ,lambda-environment)
+              (let* (,@positional-let*-forms)
                 (funcall ,continuation ,lambda-form ,lambda-environment
-                         (append (list ,@required-forms ,@optional-forms)
+                         (append (list ,@positional-forms)
                                  (mapcar #'(lambda (,rest-form)
                                              (determine-form-value-type ,rest-form ,lambda-environment))
                                          ,rest))))))))
       (t
        `(lambda (,continuation)
-          (compiler-macro-lambda (&whole ,lambda-form ,@required &optional ,@optional &environment ,lambda-environment)
-            (let* (,@required-let*-forms ,@optional-let*-forms)
+          (compiler-macro-lambda (&whole ,lambda-form ,@positional &environment ,lambda-environment)
+            (let* (,@positional-let*-forms)
               (funcall ,continuation ,lambda-form ,lambda-environment
                        (list ,@required-forms ,@optional-forms)))))))))
 
