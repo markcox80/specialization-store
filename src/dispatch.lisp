@@ -333,6 +333,7 @@
            (values rule nil)))))
 
 (defmethod remove-rule-tautologies ((rule keyword-parameter-type-rule) known-rule)
+  (declare (ignore known-rule))
   (if (alexandria:type= t (parameter-type rule))
       (values (make-constantly-rule t) t)
       (values rule nil)))
