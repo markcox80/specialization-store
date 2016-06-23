@@ -534,7 +534,7 @@
                                 with left-vars = (append required-vars optional-vars)
                                 for (nil nil init-form) in (keyword-parameters parameters)
                                 for expanded-init-form = (macroexpand init-form environment)
-                                for ((keyword var) init-form-type suppliedp) in keywords
+                                for ((nil var) init-form-type suppliedp) in keywords
                                 collect (list var `(if ,suppliedp
                                                        (determine-form-value-type ,var ,lambda-environment)
                                                        ,(if (find expanded-init-form left-vars)
