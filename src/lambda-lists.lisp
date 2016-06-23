@@ -629,15 +629,10 @@
                                for (keyword var) in (keyword-parameters parameters)
                                append
                                  (list keyword var)))
-             (lambda-form (cond ((and optional keywordsp)
+             (lambda-form (cond (keywordsp
                                  (let ((rest (or rest (gensym "REST"))))
                                    `(compiler-macro-lambda (,@positional &rest ,rest &key ,@keywords ,@allow-others-p)
                                       (append (list ,@positional-forms ,@keyword-forms)
-                                              ,rest))))
-                                (keywordsp
-                                 (let ((rest (or rest (gensym "REST"))))
-                                   `(compiler-macro-lambda (,@required &rest ,rest &key ,@keywords ,@allow-others-p)
-                                      (append (list ,@required-forms ,@keyword-forms)
                                               ,rest))))
                                 (rest
                                  `(compiler-macro-lambda (,@positional &rest ,rest)
