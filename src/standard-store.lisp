@@ -375,7 +375,8 @@
                                                (list* '(lambda ,lambda-list ,@body)
                                                       args)))
                                     (name `(compiler-macro-lambda (&rest args)
-                                             (list* ',name args))))))
+                                             (list* ',name args)))))
+             (specialization-class-name (class-name (store-specialization-class store))))
         `(progn
            ,(when name
                   `(defun ,name ,lambda-list
@@ -383,7 +384,7 @@
            ,(when (and name inline)
                   `(setf (compiler-macro-function ',name) ,expand-function))
            (add-specialization (find-store ',(store-name store))
-                               (make-instance 'standard-specialization
+                               (make-instance ',specialization-class-name
                                               :name ',name
                                               :lambda-list ',specialized-lambda-list
                                               :value-type ',value-type
@@ -406,14 +407,15 @@
                        function))
          (expand-function (if (and name expand-function)
                               `(compiler-macro-function ',name)
-                              expand-function)))
+                              expand-function))
+         (specialization-class-name (class-name (store-specialization-class store))))
     `(progn
        ,(when (and name function)
               `(setf (fdefinition ',name) ,function))
        ,(when (and name expand-function)
               `(setf (compiler-macro-function ',name) ,expand-function))
        (add-specialization (find-store ',(store-name store))
-                           (make-instance 'standard-specialization
+                           (make-instance ',specialization-class-name
                                           :name ',name
                                           :lambda-list ',specialized-lambda-list
                                           :value-type ',value-type
