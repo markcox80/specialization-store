@@ -352,35 +352,45 @@
                        :form-completion-function ,form-lambda-form
                        ,@args)))))
 
+(defun %augment-body (store-parameters specialization-parameters body)
+  (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
+    (values (append declarations
+                    `((declare ,@(type-declarations store-parameters specialization-parameters)))
+                    forms)
+            documentation)))
+
 (defmethod defspecialization-using-object ((store standard-store) specialized-lambda-list value-type body
                                            &rest args &key name environment inline &allow-other-keys)
   (declare (ignore environment))
   (alexandria:remove-from-plistf args :name :environment :inline)
-  (let* ((parameters (parse-specialization-lambda-list specialized-lambda-list))
-         (lambda-list (ordinary-lambda-list (store-parameters store) parameters))
-         (function (if name
-                       `(function ,name)
-                       `(lambda ,lambda-list
-                          ,@body)))
-         (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
-                                           (list* '(lambda ,lambda-list ,@body)
-                                                  args)))
-                                (name `(compiler-macro-lambda (&rest args)
-                                         (list* ',name args))))))
-    `(progn
-       ,(when name
-              `(defun ,name ,lambda-list
-                 ,@body))
-       ,(when (and name inline)
-              `(setf (compiler-macro-function ',name) ,expand-function))
-       (add-specialization (find-store ',(store-name store))
-                           (make-instance 'standard-specialization
-                                          :name ',name
-                                          :lambda-list ',specialized-lambda-list
-                                          :value-type ',value-type
-                                          :function ,function
-                                          :expand-function ,expand-function
-                                          ,@args)))))
+  (let* ((store-parameters (store-parameters store))
+         (parameters (parse-specialization-lambda-list specialized-lambda-list)))
+    (multiple-value-bind (body documentation) (%augment-body store-parameters parameters body)
+      (let* ((lambda-list (ordinary-lambda-list store-parameters parameters))
+             (function (if name
+                           `(function ,name)
+                           `(lambda ,lambda-list
+                              ,@body)))
+             (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
+                                               (list* '(lambda ,lambda-list ,@body)
+                                                      args)))
+                                    (name `(compiler-macro-lambda (&rest args)
+                                             (list* ',name args))))))
+        `(progn
+           ,(when name
+                  `(defun ,name ,lambda-list
+                     ,@body))
+           ,(when (and name inline)
+                  `(setf (compiler-macro-function ',name) ,expand-function))
+           (add-specialization (find-store ',(store-name store))
+                               (make-instance 'standard-specialization
+                                              :name ',name
+                                              :lambda-list ',specialized-lambda-list
+                                              :value-type ',value-type
+                                              :function ,function
+                                              :expand-function ,expand-function
+                                              :documentation ,documentation
+                                              ,@args)))))))
 
 (defmethod define-specialization-using-object ((store standard-store) specialized-lambda-list value-type
                                                &rest args &key name environment function expand-function &allow-other-keys)
