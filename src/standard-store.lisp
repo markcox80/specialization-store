@@ -352,11 +352,13 @@
                        :form-completion-function ,form-lambda-form
                        ,@args)))))
 
-(defun %augment-body (store-parameters specialization-parameters body)
+(defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
     (values (append declarations
-                    `((declare ,@(type-declarations store-parameters specialization-parameters)))
-                    forms)
+                    (list `(declare ,@(type-declarations store-parameters specialization-parameters))
+                          `(the ,value-type
+                                (progn
+                                  ,@forms))))
             documentation)))
 
 (defmethod defspecialization-using-object ((store standard-store) specialized-lambda-list value-type body
@@ -365,14 +367,14 @@
   (alexandria:remove-from-plistf args :name :environment :inline)
   (let* ((store-parameters (store-parameters store))
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
-    (multiple-value-bind (body documentation) (%augment-body store-parameters parameters body)
+    (multiple-value-bind (body documentation) (%augment-body store-parameters parameters value-type body)
       (let* ((lambda-list (ordinary-lambda-list store-parameters parameters))
              (function (if name
                            `(function ,name)
                            `(lambda ,lambda-list
                               ,@body)))
              (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
-                                               (list* '(lambda ,lambda-list ,@body)
+                                               (list* ',function
                                                       args)))
                                     (name `(compiler-macro-lambda (&rest args)
                                              (list* ',name args)))))
@@ -383,6 +385,8 @@
                      ,@body))
            ,(when (and name inline)
                   `(setf (compiler-macro-function ',name) ,expand-function))
+           ,(when name
+                  `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
            (add-specialization (find-store ',(store-name store))
                                (make-instance ',specialization-class-name
                                               :name ',name
@@ -408,12 +412,16 @@
          (expand-function (if (and name expand-function)
                               `(compiler-macro-function ',name)
                               expand-function))
-         (specialization-class-name (class-name (store-specialization-class store))))
+         (specialization-class-name (class-name (store-specialization-class store)))
+         (store-parameters (store-parameters store))
+         (parameters (parse-specialization-lambda-list specialized-lambda-list)))
     `(progn
        ,(when (and name function)
               `(setf (fdefinition ',name) ,function))
        ,(when (and name expand-function)
               `(setf (compiler-macro-function ',name) ,expand-function))
+       ,(when name
+              `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
        (add-specialization (find-store ',(store-name store))
                            (make-instance ',specialization-class-name
                                           :name ',name

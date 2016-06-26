@@ -461,6 +461,26 @@
                             (when supplied-p-var
                               `((type (eql t) ,supplied-p-var)))))))
 
+(defun function-type (store-parameters specialization-parameters value-type)
+  (let* ((required (required-parameters specialization-parameters))
+         (optional (optional-parameters specialization-parameters))
+         (keywordsp (keyword-parameters-p specialization-parameters))
+         (keywords (keyword-parameters specialization-parameters))
+         (rest (rest-parameter specialization-parameters))
+         (input-types (append (mapcar #'second required)
+                              (when optional
+                                (cons '&optional (mapcar (constantly t) optional)))
+                              (when (and rest (not keywordsp))
+                                '(&rest t))
+                              (when keywordsp
+                                (cons '&key
+                                      (loop
+                                         with store-keyword-parameters = (keyword-parameters store-parameters)
+                                         for (keyword nil form) in keywords
+                                         when (find keyword store-keyword-parameters :key #'first)
+                                         append (list keyword form)))))))
+    `(function ,input-types ,value-type)))
+
 (defmethod make-value-completion-lambda-form ((parameters store-parameters))
   (let* ((required (required-parameters parameters))
          (required-forms required)
