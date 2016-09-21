@@ -5,17 +5,17 @@
   the function. The dispatching process required at run-time can be
   avoided provided that sufficient information is available at compile
   time."
-  :depends-on ("specialization-store-features" "introspect-environment")
+  :depends-on ("specialization-store-features" "introspect-environment" "alexandria")
   :license "Simplified BSD License variant"
   :serial t
   :components ((:module "src"
-			:serial t
-			:components ((:file "packages")
-				     (:file "common")
-				     (:file "lambda-lists")
-				     (:file "dispatch")
+                        :serial t
+                        :components ((:file "packages")
+                                     (:file "common")
+                                     (:file "lambda-lists")
+                                     (:file "dispatch")
                                      (:file "dispatch-fixed-arity")
                                      (:file "dispatch-variable-arity")
-				     (:file "protocols")
-				     (:file "standard-store"))))
+                                     (:file "protocols")
+                                     (:file "standard-store"))))
   :in-order-to ((test-op (test-op "specialization-store-tests"))))
