@@ -1,24 +1,27 @@
 {in-package "SPECIALIZATION-STORE"}
 
 This document defines a new type of function, called a store function,
-whose behaviour is conditioned on the types of objects given as
-arguments to the function.
+whose behavior is a selected according to the /types/ of objects given
+as arguments to the store function.
 
-The behaviour for a specific set of object types is referred to as a
-specialization of the store function.
-
-The key differences between the common lisp object system's generic
-function and a store function are:
+The major differences between a store function and common lisp's
+generic function are:
 {begin-list}
 {item}
+Types rather than classes are used to select behavior.
+{item}
 Optional, rest and/or keyword arguments are considered when
-dispatching to specializations.
+determining behavior.
+{item}
+Initialization forms for optional and keyword arguments are part of
+the store function's state.
 {item}
 Support for compile time optimizations.
+{item}
+No support for method/specialization combination.
 {end-list}
 
-The design of the store function specification consists of the
-following layers:
+The design of the store function consists of the following layers:
 {begin-list}
 {item/label-ref :section section/object-layer}
 {item/label-ref :section section/syntax-layer}
@@ -39,11 +42,11 @@ syntax and object layers and is responsible for modifying the global
 environment.
 
 The {ref :section section/lambda-lists :text "lambda lists"} section
-outlines how arguments are specified to store functions and what types
-of arguments are required for a specific specialization.
+outlines how arguments to a store function are processed and how to
+specify the domain of a specialization.
 
-The default store function is described in the {ref :section
-section/standard-classes} section.
+The requirements of the standard store function are described in the
+{ref :section section/standard-classes} section.
 
 Lastly, all of the symbols specified in this document have uppercase
 symbol names and exported from a single package. The name of this
@@ -65,35 +68,16 @@ layer dictionary"}.
 
 
 {subsection section/object-layer/store "Store Object"}
-A store function is represented by a {ref :glossary store-object}
-which encapsulates all of the data needed by a store function.
+A store object encapsulates all of the data needed by a store
+function.
 
-All operations performed by the store function are defined by
-operators that are applied to the store object.
-
-A store object manages a set of specialization objects. Each {ref
-:section section/object-layer/specialization :text "specialization
-object"}, or specialization, encapsulates behaviour which a store
-function may invoke during an invocation.
+A store object manages a set of {ref :section
+section/object-layer/specialization :text "specialization
+objects"}. Each specialization object, or specialization, encapsulates
+behaviour which a store function may invoke during an invocation.
 
 The arguments accepted by a store function are represented using a
-{ref :glossary store-lambda-list}. The store lambda list specifies the
-required, optional, rest and keyword arguments that are used to
-determine the behaviour for a given set of arguments.
-
-The set of specializations managed by a store object must be {ref
-:section section/lambda-lists/congruence :text "congruent"} with the
-store lambda list.
-
-The term store object function is used to represent the run-time
-behavior of a store object. The behaviour of the store object function
-is determined by the store object's state and the arguments given to
-the store object function.
-
-The term store object expander is used to represent the compile-time
-behavior of a store object. The behaviour of the store object expander
-is determined by the store object's state, the forms and current
-environment given as arguments to the store object expander.
+{ref :glossary store-lambda-list}.
 
 Invocations of a store function are represented by the following
 operators on {ref :glossary store-object :text "store objects"}:
@@ -105,11 +89,10 @@ operators on {ref :glossary store-object :text "store objects"}:
 
 The functions {dictionary :ss :function funcall-store} and {dictionary
 :ss :function apply-store} encapsulate run-time applications of a
-store function. These functions invoke the {ref :glossary
-store-object-function} of the store object.
+store function.
 
 The function {dictionary :ss :function expand-store} provides
-opportunities to perform compile time optimizations. 
+opportunities to perform compile time optimizations.
 
 Which specialization (or specializations) the above functions select
 during an invocation is defined by the implementation of the store
@@ -130,12 +113,6 @@ function {dictionary :ss :function remove-specialization}.
 The set of specialization objects managed by a store object can be
 obtained using the function {dictionary :ss :function
 store-specializations}.
-
-A store object implementation is allowed to optimize the functions
-{dictionary :ss :function funcall-store}, {dictionary :ss :function
-apply-store} and {dictionary :ss :function expand-store} provided that
-changes to any type specified user by a specialization are also
-propagated to the implemented optimizations.
 
 {subsection section/object-layer/specialization "Specialization Object"}
 The specialization object, or specialization, encapsulates the
