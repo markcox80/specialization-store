@@ -347,10 +347,10 @@
       `(progn
          ,@globals
          (ensure-store ',name ',store-lambda-list
+                       ,@args
                        :value-completion-function ,value-lambda-form
                        :type-completion-function ,type-lambda-form
-                       :form-completion-function ,form-lambda-form
-                       ,@args)))))
+                       :form-completion-function ,form-lambda-form)))))
 
 (defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
