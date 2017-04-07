@@ -1,11 +1,11 @@
 ;; Not the best check. Some would say that the wine has increased my
-;; apathy. 
+;; apathy.
 (unless (eql *package* (find-package "SPECIALIZATION-STORE.TESTS.SYNTAX-LAYER"))
   (error "This file can only be processed using SPECIALIZATION-STORE.TESTS::PROCESS-SYNTAX-LAYER-TESTS"))
 
 (syntax-layer-test basic
   (defstore example (a))
-  
+
   (defspecialization example ((a (integer 0))) (integer 1)
     (1+ a))
 
@@ -34,7 +34,7 @@
 
   (defspecialization example (a (b (integer 10)) (c float)) (eql 4)
     (declare (ignore a b c))
-    4)  
+    4)
 
   (defspecialization example (a b c) (eql 5)
     (declare (ignore a b c))
@@ -108,7 +108,7 @@
 
   (defspecialization example ((a integer) (b integer)) t
     (declare (ignore a b))
-    'integer-integer)  
+    'integer-integer)
 
   (defspecialization example (a b) t
     (declare (ignore a b))
@@ -126,7 +126,7 @@
 
   (defspecialization example (&key (a integer) (b integer)) t
     (declare (ignore a b))
-    'integer-integer)  
+    'integer-integer)
 
   (defspecialization example (&key a b) t
     (declare (ignore a b))
@@ -150,9 +150,10 @@
     (is (= 5 (example :a 2 :b 3)))
     (is (= 3 (funcall (compile nil `(lambda ()
                                       ,(introspect-environment:compiler-macroexpand '(example)))))))))
+
 (syntax-layer-test redefinition
   (defstore example (a))
-  
+
   (defspecialization example ((a (integer 0))) (integer 1)
     (1+ a))
 
@@ -222,7 +223,7 @@
 
   (defspecialization example ((object simple-vector) index) number
     (1+ (elt object index)))
-  
+
   (defspecialization example ((object array) &rest args) t
     (apply #'aref object args))
 
