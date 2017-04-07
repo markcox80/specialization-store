@@ -597,6 +597,14 @@
       (subseq form 0 2)
       (subseq form 0 1)))
 
+(defun generate-init-form-function-name ()
+  (loop
+    for symbol = (gensym "%%INIT-FORM")
+    do
+       (multiple-value-bind (interned-symbol status) (intern (symbol-name symbol) *package*)
+         (unless status
+           (return-from generate-init-form-function-name interned-symbol)))))
+
 (defmethod make-form-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((function-definitions nil)
          (symbols (reverse (required-parameters parameters))))
@@ -608,7 +616,7 @@
                      ((constantp init-form environment)
                       init-form)
                      (t
-                      (let* ((function-name (gensym "INIT-FORM")))
+                      (let* ((function-name (generate-init-form-function-name)))
                         (push `(defun ,function-name ()
                                  ,init-form)
                               function-definitions)
