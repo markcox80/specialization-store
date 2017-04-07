@@ -42,19 +42,28 @@
                 (member (first form) '(glue-layer-test syntax-layer-test)))
            (format t "~%;;;; Preparing global environment for ~W ~W.~%" (second form) (first form))
            (uiop:with-temporary-file (:stream s :pathname p)
-             (loop
-                for expression in (cddr form)
-                do
-                  (pprint expression s))
-             (close s)
-             (load (compile-file p)))
-           (let* ((fiveam:*test-dribble* nil)
-                  (report (run suite)))
-             (format t "~&;; Test ~A.~%"
-                     (if (fiveam:results-status report)
-                         "passed"
-                         "failed"))
-             (fiveam:explain! report))
+             (uiop:with-temporary-file (:pathname p-fasl)
+               (loop
+                 for expression in (cddr form)
+                 do
+                    (pprint expression s))
+               (close s)
+               (with-compilation-unit (:override t)
+                 (multiple-value-bind (fasl-pathname warningsp failurep) (compile-file p :output-file p-fasl)
+                   (cond ((or warningsp failurep)
+                          (format t "~&;; Failed to compile test ~A ~A.~%" (second form) (first form)))
+                         (t
+                          (load fasl-pathname)
+                          (let* ((fiveam:*test-dribble* nil)
+                                 (report (run suite))
+                                 (succeededp (fiveam:results-status report)))
+                            (format t "~&;; Test ~A.~%"
+                                    (if succeededp
+                                        "passed"
+                                        "failed"))
+                            (unless succeededp
+                              (setf fiveam:*test-dribble* t)
+                              (fiveam:explain! report)))))))))
            t)
           (t
            t))))))
