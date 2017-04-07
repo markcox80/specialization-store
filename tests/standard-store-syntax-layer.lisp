@@ -136,6 +136,20 @@
     (is (eql 'integer-integer (example)))
     (is (eql 't-t (example :a "Hey")))))
 
+(syntax-layer-test lexical-environment/keywords/init-form-function
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (a)
+             (1+ a)))
+      (defstore example (&key (a 1) (b (the number (init-b a)))))))
+
+  (defspecialization (example :inline t) (&key (a number) (b number)) t
+    (+ a b))
+
+  (test lexical-environment
+    (is (= 3 (print (example))))
+    (is (= 5 (example :a 2 :b 3)))
+    (is (= 3 (funcall (compile nil `(lambda ()
+                                      ,(introspect-environment:compiler-macroexpand '(example)))))))))
 (syntax-layer-test redefinition
   (defstore example (a))
   
