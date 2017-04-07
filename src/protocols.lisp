@@ -28,10 +28,10 @@
 
 (define-condition store-error (error)
   ((store :initarg :store
-          :reader store-error-store          
+          :reader store-error-store
           :initform (error "A value for the slot :store must be specified.")))
   (:report (lambda (condition stream)
-	     (format stream "The store function ~W is in error."
+             (format stream "The store function ~W is in error."
                      (store-error-store condition)))))
 
 ;; simple-store-error
@@ -42,7 +42,7 @@
             :reader simple-store-error-message
             :initform (error "A value for the slot :message must be specified.")))
   (:report (lambda (condition stream)
-	     (write-string (simple-store-error-message condition)
+             (write-string (simple-store-error-message condition)
                            stream))))
 
 ;; invalid-store-name-error
@@ -113,15 +113,15 @@
 
 (defun %find-store-helper (name)
   (flet ((valid-symbol-p (symbol)
-	   (and (symbolp symbol)
-		symbol)))
+           (and (symbolp symbol)
+                symbol)))
     (cond
       ((valid-symbol-p name)
        (values name 'store))
       ((and (listp name)
-	    (= 2 (length name))
-	    (eql 'setf (first name))
-	    (and (valid-symbol-p (second name))))
+            (= 2 (length name))
+            (eql 'setf (first name))
+            (and (valid-symbol-p (second name))))
        (values (second name) 'setf-store))
       (t
        (error 'invalid-store-name-error :name name)))))
@@ -198,10 +198,10 @@
       (t (perform (store-name store))))))
 
 (defgeneric ensure-specialization-using-object (store specialized-lambda-list value-type function &rest args
-					       &key expand-function name documentation &allow-other-keys))
+                                               &key expand-function name documentation &allow-other-keys))
 
 (defun ensure-specialization (store-name specialized-lambda-list value-type function
-			      &rest args &key expand-function documentation name &allow-other-keys)
+                              &rest args &key expand-function documentation name &allow-other-keys)
   (declare (ignore expand-function documentation name))
   (let* ((store (find-store store-name)))
     (apply #'ensure-specialization-using-object
@@ -252,12 +252,12 @@
        ,form)))
 
 ;; DEFSPECIALIZATION
-(defun canonicalize-store-name (store-name)  
+(defun canonicalize-store-name (store-name)
   (cond
     ((symbolp store-name)
      (list store-name))
     ((and (listp store-name)
-	  (eql 'setf (first store-name)))
+          (eql 'setf (first store-name)))
      (list store-name))
     ((listp store-name)
      store-name)
