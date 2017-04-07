@@ -15,7 +15,7 @@
 ;;    the optional and keyword argument types (using information from
 ;;    the store lambda list).
 ;; 2. Compute the most specific specialization.
-;; 3. Invoke the specialization expander function with the 
+;; 3. Invoke the specialization expander function with the
 
 ;;;; Standard Store Class
 
@@ -51,7 +51,7 @@
   (:metaclass specialization-store.mop:funcallable-standard-class)
   (:default-initargs
    :name nil
-   :documentation nil    
+   :documentation nil
    :specializations nil
    :specialization-class (find-class 'standard-specialization)
    :value-completion-function nil
@@ -405,7 +405,7 @@
     (declare (ignore inline))
     (when inlinep
       (warn "Inline option is not supported inside DEFINE-SPECIALIZATION.")))
-  
+
   (let* ((function (if (and name function)
                        `(function ,name)
                        function))
