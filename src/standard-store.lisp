@@ -44,8 +44,6 @@
                               :reader store-value-completion-function)
    (type-completion-function :initarg :type-completion-function
                              :reader store-type-completion-function)
-   (form-completion-function :initarg :form-completion-function
-                             :reader store-form-completion-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
   (:metaclass specialization-store.mop:funcallable-standard-class)
@@ -55,8 +53,7 @@
    :specializations nil
    :specialization-class (find-class 'standard-specialization)
    :value-completion-function nil
-   :type-completion-function nil
-   :form-completion-function nil))
+   :type-completion-function nil))
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -109,18 +106,11 @@
 (defun make-default-type-completion-function (store-parameters)
   (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
-(defun make-default-form-completion-function (store-parameters)
-  (destructuring-bind (lambda-form globals) (make-form-completion-lambda-form store-parameters nil)
-    (unless (null globals)
-      (error "Cannot create default form completion function as the store lambda list requires the introduction of global functions."))
-    (compile nil lambda-form)))
-
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
                                          (value-completion-function nil value-completion-function-p)
                                          (type-completion-function nil type-completion-function-p)
-                                         (form-completion-function nil form-completion-function-p)
                                          &allow-other-keys)
   (assert lambda-list-p)
   (let ((new-parameters (parse-store-lambda-list lambda-list)))
@@ -128,17 +118,13 @@
                (or (not (and value-completion-function-p
                              (functionp value-completion-function)))
                    (not (and type-completion-function-p
-                             (functionp type-completion-function)))
-                   (not (and form-completion-function-p
-                             (functionp form-completion-function)))))
+                             (functionp type-completion-function)))))
       (error 'missing-completion-functions-error :store instance))
     (setf (slot-value instance 'parameters) new-parameters
           (slot-value instance 'value-completion-function) (or value-completion-function
                                                                (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters))
-          (slot-value instance 'form-completion-function) (or form-completion-function
-                                                              (make-default-form-completion-function new-parameters))))
+                                                              (make-default-type-completion-function new-parameters))))
 
   (clear-dispatch-functions instance))
 
@@ -148,7 +134,6 @@
                                            ((:lambda-list new-lambda-list) nil new-lambda-list-p)
                                            (value-completion-function nil value-completion-function-p)
                                            (type-completion-function nil type-completion-function-p)
-                                           (form-completion-function nil form-completion-function-p)
                                            &allow-other-keys)
   (when new-name-p
     (unless (eql (store-name instance) new-name)
@@ -164,9 +149,7 @@
                         (or (not (and value-completion-function-p
                                       (functionp value-completion-function)))
                             (not (and type-completion-function-p
-                                      (functionp type-completion-function)))
-                            (not (and form-completion-function-p
-                                      (functionp form-completion-function)))))
+                                      (functionp type-completion-function)))))
                (error 'simple-store-error
                       :store instance
                       :message "New completion functions are required for the new store lambda list."))
@@ -285,11 +268,9 @@
                                         specialization-class documentation
                                         value-completion-function
                                         type-completion-function
-                                        form-completion-function
                                         &allow-other-keys)
   (declare (ignore specialization-class documentation
-                   value-completion-function type-completion-function
-                   form-completion-function))
+                   value-completion-function type-completion-function))
   (apply #'make-instance 'standard-store
          :name store-name
          :lambda-list store-lambda-list
@@ -452,12 +433,10 @@
                  (declare (ignore a b))
                  c)
                (cascade (compile-time)
-                 (let ((type-fn (funcall type-completion-function #'third-argument))
-                       (form-fn (funcall form-completion-function #'third-argument)))
+                 (let ((type-fn (funcall type-completion-function #'third-argument)))
                    (lambda (form env)
-                     (funcall compile-time form env
-                              (funcall type-fn form env)
-                              (funcall form-fn form env))))))
+                     (let ((rewritten-form (rewrite-form form (store-parameters )))))
+                     (funcall compile-time form env (funcall type-fn form env))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
