@@ -411,7 +411,6 @@
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
-(defgeneric make-form-completion-lambda-form (parameters environment))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'first (required-parameters specialization-parameters))
@@ -604,65 +603,3 @@
        (multiple-value-bind (interned-symbol status) (intern (symbol-name symbol) *package*)
          (unless status
            (return-from generate-init-form-function-name interned-symbol)))))
-
-(defmethod make-form-completion-lambda-form ((parameters store-parameters) environment)
-  (let* ((function-definitions nil)
-         (symbols (reverse (required-parameters parameters))))
-    (flet ((process-init-form (var init-form)
-             (push var symbols)
-             (let ((init-form (macroexpand init-form environment)))
-               (cond ((member init-form (rest symbols))
-                      init-form)
-                     ((constantp init-form environment)
-                      init-form)
-                     (t
-                      (let* ((function-name (generate-init-form-function-name)))
-                        (push `(defun ,function-name ()
-                                 ,init-form)
-                              function-definitions)
-                        `'(the ,(determine-form-value-type init-form environment) (,function-name))))))))
-      (let* ((required (required-parameters parameters))
-             (optional (loop
-                         for (var init-form) in (optional-parameters parameters)
-                         collect
-                         (list var (process-init-form var init-form))))
-             (positional (append required
-                                 (when optional
-                                   (append '(&optional)
-                                           optional))))
-             (keywordsp (keyword-parameters-p parameters))
-             (allow-others-p (when (allow-other-keys-p parameters)
-                               '(&allow-other-keys)))
-             (keywords (loop
-                         for (keyword var init-form) in (keyword-parameters parameters)
-                         collect
-                         (list (list keyword var) (process-init-form var init-form))))
-             (rest (rest-parameter parameters))
-             (required-forms required)
-             (optional-forms (mapcar #'first optional))
-             (positional-forms (append required-forms optional-forms))
-             (keyword-forms (loop
-                              for (keyword var) in (keyword-parameters parameters)
-                              append
-                              (list keyword var)))
-             (lambda-form (cond (keywordsp
-                                 (let ((rest (or rest (gensym "REST"))))
-                                   `(compiler-macro-lambda (,@positional &rest ,rest &key ,@keywords ,@allow-others-p)
-                                      (append (list ,@positional-forms ,@keyword-forms)
-                                              ,rest))))
-                                (rest
-                                 `(compiler-macro-lambda (,@positional &rest ,rest)
-                                    (append (list ,@positional-forms)
-                                            ,rest)))
-                                (t
-                                 `(compiler-macro-lambda (,@positional)
-                                    (list ,@positional-forms)))))
-             (continuation (gensym "CONTINUATION"))
-             (form (gensym "FORM"))
-             (env (gensym "ENV")))
-        (list `(lambda (,continuation)
-                 (lambda (,form ,env)
-                   (funcall ,continuation ,form ,env
-                            (append (compiler-macro-head ,form)
-                                    (funcall ,lambda-form ,form ,env)))))
-              function-definitions)))))
