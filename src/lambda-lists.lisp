@@ -18,6 +18,76 @@
              (t
               (push item processed)))
     finally (return duplicates)))
+
+
+;;;; Parameter Protocol
+
+(defgeneric parameter-var (parameter))
+(defgeneric parameterp (parameter))
+(defgeneric required-parameter-p (parameter))
+(defgeneric optional-parameter-p (parameter))
+(defgeneric rest-parameter-p (parameter))
+(defgeneric keyword-parameter-p (parameter))
+
+;;; Non required parameter protocol
+(defgeneric parameter-init-form (parameter))
+(defgeneric parameter-varp (parameter))
+
+;; Keyword parameter protocol
+(defgeneric parameter-keyword (parameter))
+
+(defclass parameter ()
+  ((var :initarg :var
+        :reader parameter-var)))
+
+(defclass required-parameter (parameter)
+  ())
+
+(defclass voluntary-parameter (parameter)
+  ((init-form :initarg :init-form
+              :reader parameter-init-form)
+   (varp :initarg :varp
+         :reader parameter-varp)))
+
+(defclass optional-parameter (voluntary-parameter)
+  ())
+
+(defclass keyword-parameter (voluntary-parameter)
+  ((keyword :initarg :keyword
+            :reader parameter-keyword)))
+
+(defclass rest-parameter (parameter)
+  ())
+
+(defmethod parameterp ((object t))
+  nil)
+
+(defmethod parameterp ((object parameter))
+  t)
+
+(defmethod required-parameter-p ((object parameter))
+  nil)
+
+(defmethod required-parameter-p ((object required-parameter))
+  t)
+
+(defmethod optional-parameter-p ((object parameter))
+  nil)
+
+(defmethod optional-parameter-p ((object optional-parameter))
+  t)
+
+(defmethod keyword-parameter-p ((object parameter))
+  nil)
+
+(defmethod keyword-parameter-p ((object keyword-parameter))
+  t)
+
+(defmethod rest-parameter-p ((object parameter))
+  nil)
+
+(defmethod rest-parameter-p ((object rest-parameter))
+  t)
 
 ;;;; Parameters Protocol
 
