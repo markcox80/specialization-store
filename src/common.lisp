@@ -73,4 +73,4 @@
     do
        (multiple-value-bind (interned-symbol status) (intern (symbol-name symbol) package)
          (unless status
-           (return-from generate-function-name interned-symbol)))))
+           (return-from generate-interned-symbol interned-symbol)))))
