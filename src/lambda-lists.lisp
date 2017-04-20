@@ -243,6 +243,20 @@
 (defmethod rest-parameter-p ((parameters parameters))
   (and (rest-parameter parameters)
        t))
+
+(defmethod duplicate-keywords-p ((parameters parameters))
+  (let ((keywords (mapcar #'parameter-keyword (keyword-parameters parameters))))
+    (filter-duplicates keywords)))
+
+(defmethod duplicate-variables-p ((parameters parameters))
+  (let* ((names (loop
+                  for p in (all-parameters parameters)
+                  append (if (or (required-parameter-p p)
+                                 (rest-parameter-p p)
+                                 (not (parameter-varp p)))
+                             (list (parameter-var p))
+                             (list (parameter-var p) (parameter-varp p))))))
+    (filter-duplicates names)))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
@@ -422,19 +436,6 @@
 (defclass store-parameters (parameters)
   ())
 
-(defmethod duplicate-keywords-p ((parameters store-parameters))
-  (let ((keywords (mapcar #'parameter-keyword (keyword-parameters parameters))))
-    (loop
-      with duplicates = nil
-      with processed = nil
-      for keyword of-type keyword in keywords
-      do
-         (cond ((find keyword processed)
-                (pushnew keyword duplicates))
-               (t
-                (push keyword processed)))
-      finally (return duplicates))))
-
 (defun parse-store-lambda-list (store-lambda-list)
   (labels ((process (command value &optional dependencies)
              (ecase command
@@ -492,20 +493,6 @@
 
 (defclass specialization-parameters (parameters)
   ())
-
-(defmethod duplicate-keywords-p ((parameters specialization-parameters))
-  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
-    (filter-duplicates keywords)))
-
-(defmethod duplicate-variables-p ((parameters specialization-parameters))
-  (let ((variables (append (mapcar #'first (required-parameters parameters))
-                           (mapcar #'first (optional-parameters parameters))
-                           (mapcar #'third (optional-parameters parameters))
-                           (alexandria:when-let ((v (rest-parameter parameters)))
-                             (list v))
-                           (mapcar #'second (keyword-parameters parameters))
-                           (mapcar #'fourth (keyword-parameters parameters)))))
-    (filter-duplicates variables)))
 
 (defun parse-specialization-lambda-list (specialization-lambda-list)
   (labels ((process (what value)
