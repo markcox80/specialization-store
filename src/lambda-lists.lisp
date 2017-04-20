@@ -395,11 +395,11 @@
   ())
 
 (defmethod duplicate-keywords-p ((parameters store-parameters))
-  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
+  (let ((keywords (mapcar #'parameter-keyword (keyword-parameters parameters))))
     (loop
       with duplicates = nil
       with processed = nil
-      for keyword in keywords
+      for keyword of-type keyword in keywords
       do
          (cond ((find keyword processed)
                 (pushnew keyword duplicates))
