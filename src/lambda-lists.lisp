@@ -408,36 +408,46 @@
       finally (return duplicates))))
 
 (defun parse-store-lambda-list (store-lambda-list)
-  (labels ((process (command value)
-             (case command
+  (labels ((process (command value &optional dependencies)
+             (ecase command
                (:required (if (symbolp value)
-                              value
+                              (make-required-parameter value)
                               (signal-parse-lambda-list-error "Invalid required parameter name ~W." value)))
-               (:optional (cond ((symbolp value)
-                                 (list value nil))
-                                ((and (listp value) (<= 1 (length value) 2))
-                                 (destructuring-bind (var &optional init-form) value
-                                   (cond ((null var)
-                                          (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
-                                         (t
-                                          (list var init-form)))))
-                                (t
-                                 (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))))
-               (:keyword (cond ((symbolp value)
-                                (list (intern (symbol-name value) "KEYWORD")
-                                      value
-                                      nil))
-                               ((and (listp value) (<= 1 (length value) 2))
-                                (destructuring-bind (name &optional init-form) value
-                                  (cond ((and name (symbolp name))
-                                         (list (intern (symbol-name name) "KEYWORD") name init-form))
-                                        ((and name (listp name))
-                                         (destructuring-bind (keyword var) name
-                                           (list keyword var init-form)))
-                                        (t
-                                         (signal-parse-lambda-list-error "Invalid keyword parameter specification." value)))))
-                               (t
-                                (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))))))
+               (:optional (flet ((signal-invalid ()
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))
+                            (cond ((symbolp value)
+                                   (make-optional-parameter dependencies value))
+                                  ((and (listp value) (<= 1 (length value) 3))
+                                   (destructuring-bind (var &optional init-form varp) value
+                                     (cond ((or (null var) (not (symbolp varp))
+                                                (not (symbolp varp)))
+                                            (signal-invalid))
+                                           (t
+                                            (make-optional-parameter dependencies var init-form varp)))))
+                                  (t
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))))
+               (:rest (if (and value (symbolp value))
+                          (make-rest-parameter value)
+                          (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value)))
+               (:keyword (flet ((signal-invalid ()
+                                  (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))
+                           (cond ((symbolp value)
+                                  (make-keyword-parameter dependencies value))
+                                 ((and (listp value) (<= 1 (length value) 3))
+                                  (destructuring-bind (name &optional init-form varp) value
+                                    (cond ((and name (symbolp name))
+                                           (make-keyword-parameter dependencies name init-form varp))
+                                          ((and name (listp name) (= 2 (length name)))
+                                           (destructuring-bind (keyword var) name
+                                             (cond ((and keyword (keywordp keyword)
+                                                         var (symbolp var))
+                                                    (make-keyword-parameter dependencies var init-form varp keyword))
+                                                   (t
+                                                    (signal-invalid)))))
+                                          (t
+                                           (signal-invalid)))))
+                                 (t
+                                  (signal-invalid))))))))
     (let* ((*lambda-list* store-lambda-list)
            (*lambda-list-description* "store-lambda-list")
            (*parse-lambda-list-error-class* 'parse-store-lambda-list-error)
