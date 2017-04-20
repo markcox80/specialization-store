@@ -408,7 +408,6 @@
                  (after-keys (parse-ordinary-lambda-list/keys #'process after-rest (append required
                                                                                            optional
                                                                                            (when rest
-                                                                                             (:debug "here")
                                                                                              (list rest)))))
                  (after-allow-other-keys (parse-ordinary-lambda-list/allow-other-keys #'process after-keys)))
             (assert (null after-allow-other-keys))
