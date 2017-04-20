@@ -109,7 +109,8 @@
            "PARAMETER-INIT-FORM"
            "PARAMETER-DEPENDENCIES"
            "PARAMETER-VARP"
-           "PARAMETER-KEYWORD")
+           "PARAMETER-KEYWORD"
+           "PARAMETER-LAMBDA-LIST-SPECIFICATION")
 
   ;; Parameters Protocol
   (:export "PARAMETERS"

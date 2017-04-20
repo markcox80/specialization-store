@@ -28,6 +28,7 @@
 (defgeneric optional-parameter-p (parameter))
 (defgeneric rest-parameter-p (parameter))
 (defgeneric keyword-parameter-p (parameter))
+(defgeneric parameter-lambda-list-specification (parameter))
 
 ;;; Non required parameter protocol
 (defgeneric parameter-init-form (parameter))
@@ -152,6 +153,33 @@
   (print-unreadable-object (object stream :type t :identity t)
     (with-slots (keyword var init-form varp) object
       (write (list (list keyword var) init-form varp) :stream stream))))
+
+(defmethod parameter-lambda-list-specification ((p required-parameter))
+  (parameter-var p))
+
+(defmethod parameter-lambda-list-specification ((p optional-parameter))
+  (with-slots (var init-form varp) p
+    (cond ((and (null init-form) (null varp))
+           var)
+          ((and (null varp))
+           (list var init-form))
+          (t
+           (list var init-form varp)))))
+
+(defmethod parameter-lambda-list-specification ((p rest-parameter))
+  (parameter-var p))
+
+(defmethod parameter-lambda-list-specification ((p keyword-parameter))
+  (with-slots (keyword var init-form varp) p
+    (let* ((name (if (eql keyword (alexandria:make-keyword (symbol-name var)))
+                     var
+                     (list keyword var))))
+      (cond ((and (null init-form) (null varp))
+             name)
+            ((and (null varp))
+             (list name init-form))
+            (t
+             (list name init-form varp))))))
 
 ;;;; Parameters Protocol
 
