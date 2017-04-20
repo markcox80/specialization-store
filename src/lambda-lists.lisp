@@ -481,9 +481,12 @@
            (*lambda-list-description* "store-lambda-list")
            (*parse-lambda-list-error-class* 'parse-store-lambda-list-error)
            (rv (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list))
-           (duplicate-keywords (duplicate-keywords-p rv)))
+           (duplicate-keywords (duplicate-keywords-p rv))
+           (duplicate-variables (duplicate-variables-p rv)))
       (when duplicate-keywords
         (signal-parse-lambda-list-error "The keywords ~W are used more than once in the store lambda list." duplicate-keywords))
+      (when duplicate-variables
+        (signal-parse-lambda-list-error "The variables ~W are used more than once in the store lambda list." duplicate-variables))
       rv)))
 
 ;;;; Specialization Lambda Lists
