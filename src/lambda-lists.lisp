@@ -109,7 +109,7 @@
 (deftype parameter-dependencies ()
   '(satisfies %parameter-dependencies-p))
 
-(defun make-optional-parameter (var &optional init-form dependencies varp)
+(defun make-optional-parameter (dependencies var &optional init-form varp)
   (check-type var symbol)
   (check-type dependencies parameter-dependencies)
   (check-type varp symbol)
@@ -121,7 +121,7 @@
 (defun make-rest-parameter (var)
   (make-instance 'rest-parameter :var var))
 
-(defun make-keyword-parameter (var &optional init-form dependencies varp (keyword nil keywordp))
+(defun make-keyword-parameter (dependencies var &optional init-form varp (keyword nil keywordp))
   (check-type var symbol)
   (check-type dependencies parameter-dependencies)
   (check-type varp symbol)
