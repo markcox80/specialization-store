@@ -87,6 +87,30 @@
                 "COMPILER-MACRO-LAMBDA"
                 "DETERMINE-FORM-VALUE-TYPE")
 
+  ;; Parameter Protocol
+  (:export "PARAMETER"
+           "REQUIRED-PARAMETER"
+           "OPTIONAL-PARAMETER"
+           "KEYWORD-PARAMETER"
+           "REST-PARAMETER"
+
+           "MAKE-REQUIRED-PARAMETER"
+           "MAKE-OPTIONAL-PARAMETER"
+           "MAKE-REST-PARAMETER"
+           "MAKE-KEYWORD-PARAMETER"
+
+           "PARAMETERP"
+           "REQUIRED-PARAMETER-P"
+           "OPTIONAL-PARAMETER-P"
+           "KEYWORD-PARAMETER-P"
+           "REST-PARAMETER-P"
+
+           "PARAMETER-VAR"
+           "PARAMETER-INIT-FORM"
+           "PARAMETER-DEPENDENCIES"
+           "PARAMETER-VARP"
+           "PARAMETER-KEYWORD")
+
   ;; Parameters Protocol
   (:export "PARAMETERS"
            "ORIGINAL-LAMBDA-LIST"
