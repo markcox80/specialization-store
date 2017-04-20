@@ -94,6 +94,43 @@
 
 (defmethod parameter-dependencies ((object required-parameter))
   nil)
+
+(defun make-required-parameter (var)
+  (check-type var symbol)
+  (make-instance 'required-parameter :var var))
+
+(defun %parameter-dependencies-p (object)
+  (and (listp object)
+       (every #'parameterp object)))
+
+(deftype parameter-dependencies ()
+  '(satisfies %parameter-dependencies-p))
+
+(defun make-optional-parameter (var &optional init-form dependencies varp)
+  (check-type var symbol)
+  (check-type dependencies parameter-dependencies)
+  (check-type varp symbol)
+  (make-instance 'optional-parameter :var var
+                                     :init-form init-form
+                                     :dependencies dependencies
+                                     :varp varp))
+
+(defun make-rest-parameter (var)
+  (make-instance 'rest-parameter :var var))
+
+(defun make-keyword-parameter (var &optional init-form dependencies varp (keyword nil keywordp))
+  (check-type var symbol)
+  (check-type dependencies parameter-dependencies)
+  (check-type varp symbol)
+  (let* ((keyword (if keywordp
+                      keyword
+                      (alexandria:make-keyword (symbol-name var)))))
+    (check-type keyword keyword)
+    (make-instance 'keyword-parameter :var var
+                                      :init-form init-form
+                                      :dependencies dependencies
+                                      :varp varp
+                                      :keyword keyword)))
 
 ;;;; Parameters Protocol
 
