@@ -156,6 +156,7 @@
 ;;;; Parameters Protocol
 
 ;; Properties
+(defgeneric all-parameters (parameters))
 (defgeneric original-lambda-list (parameters))
 (defgeneric required-parameters (parameters))
 (defgeneric optional-parameters (parameters))
@@ -174,6 +175,8 @@
 (defclass parameters ()
   ((original-lambda-list :initarg :original-lambda-list
                          :reader original-lambda-list)
+   (all-parameters :initarg :all-parameters
+                   :reader all-parameters)
    (required-parameters :initarg :required-parameters
                         :reader required-parameters)
    (optional-parameters :initarg :optional-parameters
@@ -248,8 +251,8 @@
        (funcall fn :required item)
        (parse-ordinary-lambda-list/required fn (rest list))))))
 
-(defun parse-ordinary-lambda-list/optional (fn list)
-  (labels ((process (list)
+(defun parse-ordinary-lambda-list/optional (fn list dependencies)
+  (labels ((process (list dependencies)
              (let ((item (first list)))
                (cond
                  ((null list)
@@ -259,14 +262,15 @@
                  ((or (null item) (member item '(&optional &allow-other-keys)))
                   (invalid-ordinary-lambda-list-item item))
                  (t
-                  (funcall fn :optional item)
-                  (process (rest list)))))))
+                  (let* ((new-dependency (funcall fn :optional item dependencies)))
+                    (process (rest list)
+                             (append dependencies (list new-dependency)))))))))
     (let ((item (first list)))
       (cond
         ((null list)
          list)
         ((eql '&optional item)
-         (process (rest list)))
+         (process (rest list) dependencies))
         ((member item '(&rest &key))
          list)
         (t
@@ -294,8 +298,8 @@
         (t
          (invalid-ordinary-lambda-list-item item))))))
 
-(defun parse-ordinary-lambda-list/keys (fn list)
-  (labels ((process (list)
+(defun parse-ordinary-lambda-list/keys (fn list dependencies)
+  (labels ((process (list dependencies)
              (let ((item (first list)))
                (cond
                  ((or (null list) (eql '&allow-other-keys item))
@@ -303,13 +307,14 @@
                  ((or (null item) (member item '(&rest &optional &key)))
                   (invalid-ordinary-lambda-list-item item))
                  (t
-                  (funcall fn :keyword item)
-                  (process (rest list)))))))
+                  (let* ((new-dependency (funcall fn :keyword item dependencies)))
+                    (process (rest list)
+                             (append dependencies (list new-dependency)))))))))
     (let ((item (first list)))
       (cond
         ((eql '&key item)
          (funcall fn :keys? t)
-         (process (rest list)))
+         (process (rest list) dependencies))
         ((null list)
          list)
         (t
@@ -331,28 +336,42 @@
 (defun parse-ordinary-lambda-list (class-name function ordinary-lambda-list)
   (catch 'ordinary-lambda-list-error
     (let (required optional rest keys? keywords allow-other-keys?)
-      (flet ((process (what value)
-               (ecase what
-                 (:required (push (funcall function what value) required))
-                 (:optional (push (funcall function what value) optional))
-                 (:rest (setf rest value))
-                 (:keys? (setf keys? t))
-                 (:keyword (push (funcall function what value) keywords))
-                 (:allow-other-keys? (setf allow-other-keys? t)))))
-        (let* ((after-required (parse-ordinary-lambda-list/required #'process ordinary-lambda-list))
-               (after-optional (parse-ordinary-lambda-list/optional #'process after-required))
-               (after-rest (parse-ordinary-lambda-list/rest #'process after-optional))
-               (after-keys (parse-ordinary-lambda-list/keys #'process after-rest))
-               (after-allow-other-keys (parse-ordinary-lambda-list/allow-other-keys #'process after-keys)))
-          (assert (null after-allow-other-keys))
-          (make-instance class-name
-                         :original-lambda-list ordinary-lambda-list
-                         :required-parameters (nreverse required)
-                         :optional-parameters (nreverse optional)
-                         :rest-parameter rest
-                         :keyword-parameters-p keys?
-                         :keyword-parameters (nreverse keywords)
-                         :allow-other-keys-p allow-other-keys?))))))
+      (macrolet ((%appendf-value/return-value (place new-value)
+                   (alexandria:with-gensyms (tmp)
+                     `(let* ((,tmp ,new-value))
+                        (alexandria:appendf ,place (list ,tmp))
+                        ,tmp))))
+        (flet ((process (what value &optional dependencies)
+                 (ecase what
+                   (:required (%appendf-value/return-value required (funcall function what value dependencies)))
+                   (:optional (%appendf-value/return-value optional (funcall function what value dependencies)))
+                   (:rest (setf rest (funcall function what value)))
+                   (:keys? (setf keys? t))
+                   (:keyword (%appendf-value/return-value keywords (funcall function what value dependencies)))
+                   (:allow-other-keys? (setf allow-other-keys? t)))))
+          (let* ((after-required (parse-ordinary-lambda-list/required #'process ordinary-lambda-list))
+                 (after-optional (parse-ordinary-lambda-list/optional #'process after-required required))
+                 (after-rest (parse-ordinary-lambda-list/rest #'process after-optional))
+                 (after-keys (parse-ordinary-lambda-list/keys #'process after-rest (append required
+                                                                                           optional
+                                                                                           (when rest
+                                                                                             (:debug "here")
+                                                                                             (list rest)))))
+                 (after-allow-other-keys (parse-ordinary-lambda-list/allow-other-keys #'process after-keys)))
+            (assert (null after-allow-other-keys))
+            (make-instance class-name
+                           :all-parameters (append required
+                                                   optional
+                                                   (when rest
+                                                     (list rest))
+                                                   keywords)
+                           :original-lambda-list ordinary-lambda-list
+                           :required-parameters required
+                           :optional-parameters optional
+                           :rest-parameter rest
+                           :keyword-parameters-p keys?
+                           :keyword-parameters keywords
+                           :allow-other-keys-p allow-other-keys?)))))))
 
 ;;;; Store Lambda Lists
 
