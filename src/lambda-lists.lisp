@@ -209,7 +209,7 @@
   (slot-value parse-lambda-list-error 'lambda-list))
 
 (defun signal-parse-lambda-list-error (control-string &rest args)
-  (signal *parse-lambda-list-error-class* :message (apply #'format nil control-string args)))
+  (error *parse-lambda-list-error-class* :message (apply #'format nil control-string args)))
 
 (defun invalid-ordinary-lambda-list-item (item)
   (signal-parse-lambda-list-error "Invalid item ~W in ~A lambda list." item *lambda-list-description*))
