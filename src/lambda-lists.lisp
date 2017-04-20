@@ -95,6 +95,9 @@
 (defmethod parameter-dependencies ((object required-parameter))
   nil)
 
+(defmethod parameter-dependencies ((object rest-parameter))
+  nil)
+
 (defun make-required-parameter (var)
   (check-type var symbol)
   (make-instance 'required-parameter :var var))
