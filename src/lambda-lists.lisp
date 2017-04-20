@@ -32,6 +32,7 @@
 ;;; Non required parameter protocol
 (defgeneric parameter-init-form (parameter))
 (defgeneric parameter-varp (parameter))
+(defgeneric parameter-dependencies (parameter))
 
 ;; Keyword parameter protocol
 (defgeneric parameter-keyword (parameter))
@@ -44,7 +45,9 @@
   ())
 
 (defclass voluntary-parameter (parameter)
-  ((init-form :initarg :init-form
+  ((dependencies :initarg :dependencies
+                 :reader parameter-dependencies)
+   (init-form :initarg :init-form
               :reader parameter-init-form)
    (varp :initarg :varp
          :reader parameter-varp)))
@@ -88,6 +91,9 @@
 
 (defmethod rest-parameter-p ((object rest-parameter))
   t)
+
+(defmethod parameter-dependencies ((object required-parameter))
+  nil)
 
 ;;;; Parameters Protocol
 
