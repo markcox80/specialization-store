@@ -160,7 +160,10 @@
 (defgeneric original-lambda-list (parameters))
 (defgeneric required-parameters (parameters))
 (defgeneric optional-parameters (parameters))
-(defgeneric rest-parameter (parameter))
+(defgeneric optional-parameters-p (parameters))
+;; These are defined above
+;; (defgeneric rest-parameter (parameters))
+;; (defgeneric rest-parameter-p (parameters))
 (defgeneric keyword-parameters-p (parameters))
 (defgeneric allow-other-keys-p (parameters))
 (defgeneric keyword-parameters (parameters))
@@ -204,6 +207,14 @@
     (t
      (+ (length (required-parameters parameters))
         (length (optional-parameters parameters))))))
+
+(defmethod optional-parameters-p ((parameters parameters))
+  (and (optional-parameters parameters)
+       t))
+
+(defmethod rest-parameter-p ((parameters parameters))
+  (and (rest-parameter parameters)
+       t))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
