@@ -134,6 +134,24 @@
                                       :dependencies dependencies
                                       :varp varp
                                       :keyword keyword)))
+
+(defmethod print-object ((object required-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (parameter-var object) :stream stream)))
+
+(defmethod print-object ((object optional-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (var init-form varp) object
+      (write (list var init-form varp) :stream stream))))
+
+(defmethod print-object ((object rest-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (parameter-var object) :stream stream)))
+
+(defmethod print-object ((object keyword-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (keyword var init-form varp) object
+      (write (list (list keyword var) init-form varp) :stream stream))))
 
 ;;;; Parameters Protocol
 
