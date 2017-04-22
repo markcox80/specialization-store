@@ -53,6 +53,7 @@
     (trial '(&rest &allow-other-keys))
     (trial '(&rest var &optional))
     (trial '(&rest var &allow-other-keys))
+    (trial '(&rest var var2))
     (trial '(&optional &allow-other-keys))
     (trial '(&key &optional))
     (trial '(&key &rest))
@@ -62,25 +63,25 @@
     ;; Invalid parameter specifications
     (trial '((a 1)))
     (trial '(nil))
-    (trial '(&optional (a nil a-p)))
     (trial '(&optional nil))
     (trial '(&optional (nil nil)))
     (trial '(&rest nil))
     (trial '(&rest (args 1)))
     (trial '(&key nil))
-    (trial '(&key (a nil a-p)))
-    (trial '(&key (nil nil)))))
-
-(test parse-store-lambda-list/duplicate-keywords
-  (labels ((do-trial (lambda-list)
-             (signals parse-store-lambda-list-error (parse-store-lambda-list lambda-list))))
-    (macrolet ((trial (lambda-list)
-                 `(do-trial ',lambda-list)))
-      (trial (&key a a))
-      (trial (&key a a b))
-      (trial (&key a (a 1)))
-      (trial (&key a ((:a b))))
-      (trial (&key ((:a b)) (a 2))))))
+    (trial '(&key (nil nil)))
+    ;; Duplicate Keywords
+    (trial '(&key a a))
+    (trial '(&key a ((:a b))))
+    ;; Duplicate variables
+    (trial '(a a))
+    (trial '(a &optional a))
+    (trial '(a &optional (a 5)))
+    (trial '(a &optional (b 5 a)))
+    (trial '(a &rest a))
+    (trial '(a &key ((:m a))))
+    (trial '(a &key (c 5 a)))
+    (trial '(&optional a &key ((:m a))))
+    (trial '(&optional (a nil bad) &key (b nil bad)))))
 
 ;;;; parse-specialization-lambda-list
 
