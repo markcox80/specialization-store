@@ -493,44 +493,123 @@
 (define-condition parse-specialization-lambda-list-error (parse-lambda-list-error)
   ())
 
+(defgeneric parameter-type (object))
+
+(defclass specialized-required-parameter (required-parameter)
+  ((type :initarg :type)))
+
+(defclass specialized-optional-parameter (optional-parameter)
+  ())
+
+(defclass specialized-rest-parameter (rest-parameter)
+  ())
+
+(defclass specialized-keyword-parameter (keyword-parameter)
+  ())
+
+(defun make-specialized-required-parameter (var type)
+  (check-type var (and (not null) symbol))
+  (make-instance 'specialized-required-parameter :var var :type type))
+
+(defun make-specialized-optional-parameter (dependencies var &optional init-form-or-type varp)
+  (check-type dependencies parameter-dependencies)
+  (check-type var (and (not null) symbol))
+  (check-type varp symbol)
+  (make-instance 'specialized-optional-parameter :dependencies dependencies
+                                                 :var var
+                                                 :init-form init-form-or-type
+                                                 :varp varp))
+
+(defun make-specialized-rest-parameter (var)
+  (check-type var (and (not null) symbol))
+  (make-instance 'specialized-rest-parameter :var var))
+
+(defun make-specialized-keyword-parameter (dependencies var &optional init-form-or-type varp (keyword nil keywordp))
+  (check-type dependencies parameter-dependencies)
+  (check-type var (and (not null) symbol))
+  (check-type varp symbol)
+  (let* ((keyword (if keywordp
+                      keyword
+                      (alexandria:make-keyword (symbol-name var)))))
+    (check-type keyword keyword)
+    (make-instance 'specialized-keyword-parameter :dependencies dependencies
+                                                  :var var
+                                                  :init-form init-form-or-type
+                                                  :varp varp
+                                                  :keyword keyword)))
+
+(defmethod parameter-lambda-list-specification ((parameter specialized-required-parameter))
+  (list (parameter-var parameter)
+        (parameter-type parameter)))
+
+(defmethod parameter-type ((object specialized-required-parameter))
+  (slot-value object 'type))
+
+(defmethod parameter-type ((object specialized-optional-parameter))
+  (error "Specialized lambda lists are unable to specify the type of optional parameters."))
+
+(defmethod parameter-type ((object specialized-rest-parameter))
+  'list)
+
+(defmethod parameter-type ((object specialized-keyword-parameter))
+  (or (parameter-init-form object)
+      t))
+
 (defclass specialization-parameters (parameters)
   ())
 
 (defun parse-specialization-lambda-list (specialization-lambda-list)
-  (labels ((process (what value)
+  (labels ((process (what value &optional dependencies)
              (ecase what
                (:required (cond ((symbolp value)
-                                 (list value t))
+                                 (make-specialized-required-parameter value t))
                                 ((and (listp value) (<= 1 (length value) 2))
                                  (destructuring-bind (name &optional (type t)) value
-                                   (list name type)))
+                                   (make-specialized-required-parameter name type)))
                                 (t
                                  (signal-parse-lambda-list-error "Invalid required parameter specification ~W." value))))
-               (:optional (cond ((symbolp value)
-                                 (list value nil nil))
-                                ((and (listp value) (<= 1 (length value) 3))
-                                 (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
-                                   (when (not (and var
-                                                   (or (not supplied-p-var?)
-                                                       (and supplied-p-var supplied-p-var?))))
-                                     (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
-                                   (list var init-form supplied-p-var)))))
-               (:keyword (cond ((symbolp value)
-                                (list (intern (symbol-name value) "KEYWORD")
-                                      value nil nil))
-                               ((and (listp value) (<= 1 (length value) 3))
-                                (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
-                                  (when (not (and (or (and var (symbolp var))
-                                                      (and (listp var) (= 2 (length var))
-                                                           (first var) (second var)))
-                                                  (or (not supplied-p-var?)
-                                                      (and supplied-p-var supplied-p-var?))))
-                                    (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value))
-                                  (destructuring-bind (keyword var) (if (listp var)
-                                                                        var
-                                                                        (list (intern (symbol-name var) "KEYWORD")
-                                                                              var))
-                                    (list keyword var init-form supplied-p-var)))))))))
+               (:optional (flet ((signal-invalid ()
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))
+                            (cond ((symbolp value)
+                                   (make-specialized-optional-parameter dependencies value))
+                                  ((and (listp value) (<= 1 (length value) 3))
+                                   (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
+                                     (cond ((not var)
+                                            (signal-invalid))
+                                           ((and supplied-p-var? (not supplied-p-var))
+                                            (signal-invalid))
+                                           (supplied-p-var?
+                                            (make-specialized-optional-parameter dependencies var init-form supplied-p-var))
+                                           (t
+                                            (make-specialized-optional-parameter dependencies var init-form)))))
+                                  (t
+                                   (signal-invalid)))))
+               (:rest (if value
+                          (make-specialized-rest-parameter value)
+                          (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value)))
+               (:keyword (flet ((signal-invalid ()
+                                  (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))
+                           (cond ((symbolp value)
+                                  (make-specialized-keyword-parameter dependencies value))
+                                 ((and (listp value) (<= 1 (length value) 3))
+                                  (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
+                                    (cond ((not var)
+                                           (signal-invalid))
+                                          ((and supplied-p-var? (not supplied-p-var))
+                                           (signal-invalid))
+                                          ((and (listp var) (= (length var) 2))
+                                           (destructuring-bind (keyword name) var
+                                             (when (or (not (keywordp keyword))
+                                                       (null name)
+                                                       (not (symbolp keyword)))
+                                               (signal-invalid))
+                                             (make-specialized-keyword-parameter dependencies name init-form supplied-p-var keyword)))
+                                          ((and (not (null var)) (symbolp var))
+                                           (make-specialized-keyword-parameter dependencies var init-form supplied-p-var))
+                                          (t
+                                           (signal-invalid)))))
+                                 (t
+                                  (signal-invalid))))))))
     (let* ((*lambda-list* specialization-lambda-list)
            (*lambda-list-description* "specialization-lambda-list")
            (*parse-lambda-list-error-class* 'parse-specialization-lambda-list-error)
