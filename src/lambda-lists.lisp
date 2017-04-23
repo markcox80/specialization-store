@@ -123,7 +123,7 @@
   (make-instance 'rest-parameter :var var))
 
 (defun make-keyword-parameter (dependencies var &optional init-form varp (keyword nil keywordp))
-  (check-type var symbol)
+  (check-type var (and (not null) symbol))
   (check-type dependencies parameter-dependencies)
   (check-type varp symbol)
   (let* ((keyword (if keywordp
