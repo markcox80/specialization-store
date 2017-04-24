@@ -208,7 +208,12 @@
       (false (a &key c d) (a &key d))
       (false (a &key c d) (a &key c))
       (false (a) (b &key))
-      (false (a &key) (b)))))
+      (false (a &key) (b))
+      (false (&key c &allow-other-keys) (&key d))
+
+      ;; Key Order
+      (true (&key a b) (&key a b))
+      (false (&key a b) (&key b a)))))
 
 (test congruent-store-parameters
   (flet ((do-trial (expected lambda-list-1 lambda-list-2)
