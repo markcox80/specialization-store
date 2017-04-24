@@ -652,8 +652,9 @@
                    (loop
                      with st-keys = (keyword-parameters store)
                      with sp-keys = (keyword-parameters specialization)
-                     for (st-key-name nil) in st-keys
-                     for sp-key = (find st-key-name sp-keys :key #'first)
+                     for st-key in st-keys
+                     for st-key-name = (parameter-keyword st-key)
+                     for sp-key = (find st-key-name sp-keys :key #'parameter-keyword)
                      always
                      sp-key)))
              (t
