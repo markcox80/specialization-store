@@ -673,9 +673,8 @@
              t
              (compare #'eql #'not #'rest-parameter))
          (alexandria:set-equal (keyword-parameters store-a) (keyword-parameters store-b)
-                               :test #'(lambda (a b)
-                                         ;; (keyword var init-form)
-                                         (eql (first a) (first b)))))))
+                               :key #'parameter-keyword
+                               :test #'eql))))
 
 ;;;; Lambda list conversions
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
