@@ -178,8 +178,14 @@
                   (specialization-parameters (parse-specialization-lambda-list specialization-lambda-list))
                   (congruence (congruent-parameters-p store-parameters specialization-parameters)))
              (if expected
-                 (is-true congruence)
-                 (is-false congruence)))))
+                 (is-true congruence
+                          "congruent-parameters-p failed with store lambda list ~A and specialization lambda list ~A."
+                          store-lambda-list
+                          specialization-lambda-list)
+                 (is-false congruence
+                           "The specialized lambda list ~A should be congruent with the store lambda list ~A."
+                           specialization-lambda-list
+                           store-lambda-list)))))
     (macrolet ((true (store-lambda-list specialization-lambda-list)
                  `(do-trial t ',store-lambda-list ',specialization-lambda-list))
                (false (store-lambda-list specialization-lambda-list)
