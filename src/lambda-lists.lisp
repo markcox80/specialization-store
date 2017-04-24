@@ -645,18 +645,17 @@
            (positional-parameters-upper-bound specialization)
            (positional-parameters-upper-bound store))
        (cond ((keyword-parameters-p store)
-              (and (keyword-parameters specialization)
+              (and (keyword-parameters-p specialization)
                    ;; All keyword parameters in the store must be
-                   ;; present in the specialization and must be in the
-                   ;; type form.
-                   (loop
-                     with st-keys = (keyword-parameters store)
-                     with sp-keys = (keyword-parameters specialization)
-                     for st-key in st-keys
-                     for st-key-name = (parameter-keyword st-key)
-                     for sp-key = (find st-key-name sp-keys :key #'parameter-keyword)
-                     always
-                     sp-key)))
+                   ;; present in the specialization, they must be in
+                   ;; the same order and they must in type form.
+                   (<= (length (keyword-parameters store))
+                       (length (keyword-parameters specialization)))
+                   (every #'(lambda (store-keyword-parameter specialization-keyword-parameter)
+                              (eql (parameter-keyword store-keyword-parameter)
+                                   (parameter-keyword specialization-keyword-parameter)))
+                          (keyword-parameters store)
+                          (keyword-parameters specialization))))
              (t
               (not (keyword-parameters-p specialization))))
        t))
