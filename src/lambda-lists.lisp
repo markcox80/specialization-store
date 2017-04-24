@@ -715,13 +715,19 @@
 
 (defmethod type-declarations ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (loop
-            for (var type) in (required-parameters specialization-parameters)
+            for parameter in (required-parameters specialization-parameters)
+            for var = (parameter-var parameter)
+            for type = (parameter-type parameter)
             unless (eql type t)
               collect `(type ,type ,var))
           (loop
             with store-keyword-parameters = (keyword-parameters store-parameters)
-            for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
-            when (find keyword store-keyword-parameters :key #'first)
+            for parameter in (keyword-parameters specialization-parameters)
+            for keyword = (parameter-keyword parameter)
+            for var = (parameter-var parameter)
+            for form = (parameter-init-form parameter)
+            for supplied-p-var = (parameter-varp parameter)
+            when (find keyword store-keyword-parameters :key #'parameter-keyword)
               append (append (when form
                                `((type ,form ,var)))
                              (when supplied-p-var
