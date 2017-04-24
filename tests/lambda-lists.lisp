@@ -204,6 +204,7 @@
       (true (&key c) (&key ((:c d))))
       (true (&key c) (&rest args &key c))
       (true (&rest args &key c) (&key c))
+      (true (&key c &allow-other-keys) (&key c d))
       (false (a &key c d) (a &key d))
       (false (a &key c d) (a &key c))
       (false (a) (b &key))
