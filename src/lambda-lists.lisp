@@ -683,24 +683,21 @@
 (defgeneric make-type-completion-lambda-form (parameters environment))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
-  (append (mapcar #'first (required-parameters specialization-parameters))
-          (when (optional-parameters specialization-parameters)
-            `(&optional ,@(loop
-                            for (var init-form supplied-p-var) in (optional-parameters specialization-parameters)
-                            collect (cond (supplied-p-var
-                                           `(,var ,init-form ,supplied-p-var))
-                                          (init-form
-                                           `(,var ,init-form))
-                                          (t
-                                           var)))))
+  (append (mapcar #'parameter-var (required-parameters specialization-parameters))
+          (when (optional-parameters-p specialization-parameters)
+            `(&optional ,@(mapcar #'parameter-lambda-list-specification (optional-parameters specialization-parameters))))
           (when (rest-parameter specialization-parameters)
-            `(&rest ,(rest-parameter specialization-parameters)))
+            `(&rest ,(parameter-lambda-list-specification (rest-parameter specialization-parameters))))
           (when (keyword-parameters-p specialization-parameters)
             `(&key ,@(loop
                        with store-keyword-parameters = (keyword-parameters store-parameters)
-                       for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
-                       for init-form = (if (find keyword store-keyword-parameters :key #'first)
-                                           nil
+                       for parameter in (keyword-parameters specialization-parameters)
+                       for keyword = (parameter-keyword parameter)
+                       for var = (parameter-var parameter)
+                       for form = (parameter-init-form parameter)
+                       for supplied-p-var = (parameter-varp parameter)
+                       for init-form = (if (find keyword store-keyword-parameters :key #'parameter-keyword)
+                                           nil ;; The value completion function takes care of this.
                                            form)
                        for first-form = (if (equal (symbol-name keyword) (symbol-name var))
                                             var
