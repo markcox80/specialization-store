@@ -739,7 +739,7 @@
          (keywordsp (keyword-parameters-p specialization-parameters))
          (keywords (keyword-parameters specialization-parameters))
          (rest (rest-parameter specialization-parameters))
-         (input-types (append (mapcar #'second required)
+         (input-types (append (mapcar #'parameter-type required)
                               (when optional
                                 (cons '&optional (mapcar (constantly t) optional)))
                               (when (and rest (not keywordsp))
@@ -748,8 +748,10 @@
                                 (cons '&key
                                       (loop
                                         with store-keyword-parameters = (keyword-parameters store-parameters)
-                                        for (keyword nil form) in keywords
-                                        when (find keyword store-keyword-parameters :key #'first)
+                                        for parameter in keywords
+                                        for keyword = (parameter-keyword parameter)
+                                        for form = (parameter-init-form parameter)
+                                        when (find keyword store-keyword-parameters :key #'parameter-keyword)
                                           append (list keyword form)))))))
     `(function ,input-types ,value-type)))
 
