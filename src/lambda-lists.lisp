@@ -107,8 +107,11 @@
   (list (parameter-var object)))
 
 (defmethod parameter-vars ((object voluntary-parameter))
-  (list (parameter-var object)
-        (parameter-varp object)))
+  (let* ((var (parameter-var object))
+         (varp (parameter-varp object)))
+    (if varp
+        (list var varp)
+        (list var))))
 
 (defun make-required-parameter (var)
   (check-type var symbol)
