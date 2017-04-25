@@ -330,7 +330,7 @@
     (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions parameters environment)
       `(progn
          ,@globals
-         (ensure-store ',name ',store-lambda-list
+         (ensure-store ',name ',(original-lambda-list new-parameters)
                        ,@args
                        :value-completion-function ,(or value-completion-function
                                                        (make-value-completion-lambda-form new-parameters))
