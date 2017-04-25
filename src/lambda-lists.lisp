@@ -704,15 +704,14 @@
 
 (defmethod parameter-init-forms-as-global-functions ((parameters store-parameters) environment)
   (let* ((globals nil))
-    (flet ((generate-init-form (parameter)
-             (let* ((function-name (specialization-store:generate-interned-symbol (parameter-var parameter)
-                                                                                  "INIT-FUNCTION"))
-                    (vars (reduce #'append (parameter-dependencies parameter)
+    (flet ((generate-init-form (dependencies var init-form)
+             (let* ((function-name (specialization-store:generate-interned-symbol var "INIT-FUNCTION"))
+                    (vars (reduce #'append dependencies
                                   :key #'parameter-vars
                                   :initial-value nil))
                     (function `(defun ,function-name ,vars
                                  (declare (ignorable ,@vars))
-                                 ,(parameter-init-form parameter))))
+                                 ,init-form)))
                (push function globals)
                `(,function-name ,@vars))))
       (let* ((required (required-parameters parameters))
@@ -720,13 +719,19 @@
                          with dependencies = required
                          for parameter in (optional-parameters parameters)
                          for init-form = (parameter-init-form parameter)
-                         for new-parameter = (cond ((constantp init-form environment)
+                         for new-parameter = (cond ((and (constantp init-form environment)
+                                                         (parameter-varp parameter))
                                                     parameter)
                                                    (t
                                                     (make-optional-parameter dependencies
                                                                              (parameter-var parameter)
-                                                                             (generate-init-form parameter)
-                                                                             (parameter-varp parameter))))
+                                                                             (generate-init-form dependencies
+                                                                                                 (parameter-var parameter)
+                                                                                                 (parameter-init-form parameter))
+                                                                             (or (parameter-varp parameter)
+                                                                                 (gensym (concatenate 'string
+                                                                                                      (string (parameter-var parameter))
+                                                                                                      "?"))))))
                          do
                             (alexandria:appendf dependencies (list new-parameter))
                          collect
@@ -736,13 +741,19 @@
                          with dependencies = (append required optional (when rest (list rest)))
                          for parameter in (keyword-parameters parameters)
                          for init-form = (parameter-init-form parameter)
-                         for new-parameter = (cond ((constantp init-form environment)
+                         for new-parameter = (cond ((and (constantp init-form environment)
+                                                         (parameter-varp parameter))
                                                     parameter)
                                                    (t
                                                     (make-keyword-parameter dependencies
                                                                             (parameter-var parameter)
-                                                                            (generate-init-form parameter)
-                                                                            (parameter-varp parameter)
+                                                                            (generate-init-form dependencies
+                                                                                                (parameter-var parameter)
+                                                                                                (parameter-init-form parameter))
+                                                                            (or (parameter-varp parameter)
+                                                                                (gensym (concatenate 'string
+                                                                                                     (string (parameter-var parameter))
+                                                                                                     "?")))
                                                                             (parameter-keyword parameter))))
                          do
                             (alexandria:appendf dependencies (list new-parameter))
