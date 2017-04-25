@@ -835,7 +835,7 @@
                                         for keyword = (parameter-keyword parameter)
                                         for form = (parameter-init-form parameter)
                                         when (find keyword store-keyword-parameters :key #'parameter-keyword)
-                                          append (list keyword form)))))))
+                                          collect (list keyword form)))))))
     `(function ,input-types ,value-type)))
 
 (defmethod make-value-completion-lambda-form ((parameters store-parameters))
