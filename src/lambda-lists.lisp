@@ -811,54 +811,50 @@
   (let* ((continuation (gensym "CONTINUATION"))
          (lambda-form (gensym "FORM"))
          (lambda-environment (gensym "ENVIRONMENT"))
-         (required (required-parameters parameters))
+         (required (mapcar #'parameter-var (required-parameters parameters)))
          (required-vars required)
          (required-let*-forms (loop
                                 for var in required
                                 collect `(,var (determine-form-value-type ,var ,lambda-environment))))
          (required-forms required-vars)
          (optional (loop
-                     for (var init-form) in (optional-parameters parameters)
-                     for init-form-type = (determine-form-value-type init-form environment)
-                     collect (list var `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
-         (optional-vars (mapcar #'first (optional-parameters parameters)))
+                     for parameter in (optional-parameters parameters)
+                     for var = (parameter-var parameter)
+                     for init-form = (parameter-init-form parameter)
+                     collect (list var nil (gensym "SUPPLIEDP"))))
+         (optional-vars (mapcar #'parameter-var (optional-parameters parameters)))
          (optional-let*-forms (loop
-                                with left-vars = required-vars
-                                for (nil init-form) in (optional-parameters parameters)
-                                for expanded-init-form = (macroexpand init-form environment)
-                                for (var init-form-type suppliedp) in optional
+                                for parameter in (optional-parameters parameters)
+                                for init-form = (parameter-init-form parameter)
+                                for init-form-type = (determine-form-value-type init-form environment)
+                                for (var nil suppliedp) in optional
                                 collect `(,var (if ,suppliedp
                                                    (determine-form-value-type ,var ,lambda-environment)
-                                                   ,(if (find expanded-init-form left-vars)
-                                                        expanded-init-form
-                                                        init-form-type)))
-                                do
-                                   (push var left-vars)))
+                                                   (quote ,init-form-type)))))
          (optional-forms optional-vars)
          (positional (append required (when optional (append '(&optional) optional))))
          (positional-let*-forms (append required-let*-forms optional-let*-forms))
          (positional-forms (append required-forms optional-forms))
-         (rest (rest-parameter parameters))
+         (rest (when (rest-parameter-p parameters)
+                 (parameter-var (rest-parameter parameters))))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
-                     for (keyword var init-form) in (keyword-parameters parameters)
-                     for init-form-type = (determine-form-value-type init-form environment)
-                     collect (list (list keyword var) `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
+                     for parameter in (keyword-parameters parameters)
+                     for keyword = (parameter-keyword parameter)
+                     for var = (parameter-var parameter)
+                     collect (list (list keyword var) nil (gensym "SUPPLIEDP"))))
          (keyword-let*-forms (loop
-                               with left-vars = (append required-vars optional-vars)
-                               for (nil nil init-form) in (keyword-parameters parameters)
-                               for expanded-init-form = (macroexpand init-form environment)
-                               for ((nil var) init-form-type suppliedp) in keywords
+                               for parameter in (keyword-parameters parameters)
+                               for init-form = (parameter-init-form parameter)
+                               for init-form-type = (determine-form-value-type init-form environment)
+                               for ((nil var) nil suppliedp) in keywords
                                collect (list var `(if ,suppliedp
                                                       (determine-form-value-type ,var ,lambda-environment)
-                                                      ,(if (find expanded-init-form left-vars)
-                                                           expanded-init-form
-                                                           init-form-type)))
-                               do
-                                  (push var left-vars)))
+                                                      ',init-form-type))))
          (keyword-forms (loop
-                          for (keyword var) in (keyword-parameters parameters)
-                          append (list keyword var)))
+                          for parameter in (keyword-parameters parameters)
+                          append (list (parameter-keyword parameter)
+                                       (parameter-var parameter))))
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys))))
     (cond
