@@ -951,7 +951,7 @@
               (funcall ,continuation ,lambda-form ,lambda-environment
                        (list ,@required-forms ,@optional-forms)))))))))
 
-;;;; function-and-macro
+;;;; store-function-form-rewriter
 
 ;; When a function call is made, all of the arguments are evaluated
 ;; first and then given to the function as a list. The arguments are
@@ -1025,3 +1025,79 @@
 ;; The init form for the b argument should only be expanded once, when
 ;; generating the lexical environment used by the function and the
 ;; compiler macro function.
+
+(defun rewrite-store-function-form (store-parameters form env)
+  (check-type store-parameters store-parameters)
+  (let* ((form-head (specialization-store:compiler-macro-form-head form))
+         (form-args (specialization-store:compiler-macro-form-arguments form))
+         (dependencies nil)
+         (let-forms nil)
+         (required (loop
+                     for parameter in (required-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for var-formp = (not (null form-args))
+                     for var-form = (pop form-args)
+                     for var-type = (determine-form-value-type var-form env)
+                     do
+                        (unless var-formp
+                          (warn "Insufficient arguments for function in form ~A." form))
+                        (cond ((constantp var-form env)
+                               (setf var var-form))
+                              (t
+                               (alexandria:appendf let-forms (list (list var var-form)))))
+                        (alexandria:appendf dependencies (list var))
+                     collect
+                     `(the ,var-type ,var)))
+         (optional (loop
+                     for parameter in (optional-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for var-formp = (not (null form-args))
+                     for var-form = (pop form-args)
+                     for var-type = (determine-form-value-type var-form env)
+                     for init-form = (parameter-init-form parameter)
+                     do
+                        (cond ((and var-formp (constantp var-form env))
+                               (setf var var-form))
+                              (t
+                               (alexandria:appendf let-forms (list (list var (cond (var-formp
+                                                                                    var-form)
+                                                                                   ((constantp init-form nil)
+                                                                                    init-form)
+                                                                                   (t
+                                                                                    (cons (first (parameter-init-form parameter))
+                                                                                          dependencies))))))))
+                        (alexandria:appendf dependencies (list var var-formp))
+                     collect
+                       `(the ,var-type ,var)))
+         (keywords (loop
+                     with no-form = '#:no-form
+                     for parameter in (keyword-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for var-form = (getf form-args (parameter-keyword parameter) no-form)
+                     for var-formp = (eql var-form no-form)
+                     for var-type = (determine-form-value-type var-form env)
+                     for init-form = (parameter-init-form parameter)
+                     do
+                        (cond ((and var-formp (constantp var-form env))
+                               (setf var var-form))
+                              (t
+                               (alexandria:appendf let-forms (list (list var (cond (var-formp
+                                                                                    var-form)
+                                                                                   ((constantp init-form nil)
+                                                                                    init-form)
+                                                                                   (t
+                                                                                    (cons (first (parameter-init-form parameter))
+                                                                                          dependencies))))))))
+                        (alexandria:appendf dependencies (list var var-formp))
+                     append
+                     (list (parameter-keyword parameter) `(the ,var-type ,var))))
+         (rest     form-args))
+    (list #'(lambda (body)
+              `(let* ,let-forms
+                 ,body))
+          (cond ((keyword-parameters-p store-parameters)
+                 (append form-head required optional keywords rest))
+                ((rest-parameter-p store-parameters)
+                 (append form-head required optional rest))
+                (t
+                 (append form-head required optional))))))
