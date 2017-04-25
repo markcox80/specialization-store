@@ -1087,7 +1087,7 @@
                      for parameter in (keyword-parameters store-parameters)
                      for var = (gensym (symbol-name (parameter-var parameter)))
                      for %var-form = (getf form-args (parameter-keyword parameter) no-form)
-                     for var-formp = (eql %var-form no-form)
+                     for var-formp = (not (eql %var-form no-form))
                      for init-form = (parameter-init-form parameter)
                      for var-form = (cond (var-formp
                                            %var-form)
