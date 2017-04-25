@@ -425,14 +425,16 @@
     (declare (ignorable (function init-b) (function init-c)))
     (let-type-completion-function (compute (a &optional (b (init-b)) (c b) &key (d 5) (e d)))
       (flet ((trial (expected input)
-               (is (equal expected (compute input)))))
-        (trial '((eql 1) t t :d (eql 5) :e (eql 5))
+               (is (equal expected (compute input))
+                   "The type completion function did not produce ~A for form ~A."
+                   expected input)))
+        (trial '((eql 1) t t :d (eql 5) :e t)
                '(test 1))
-        (trial (list '(eql 1) (type-of "hey") (type-of "hey") :d '(eql 5) :e '(eql 5))
+        (trial (list '(eql 1) (type-of "hey") t :d '(eql 5) :e t)
                '(test 1 "hey"))
-        (trial (list '(eql 1) (type-of "hey") '(eql 5) :d '(eql 5) :e '(eql 5))
+        (trial (list '(eql 1) (type-of "hey") '(eql 5) :d '(eql 5) :e t)
                '(test 1 "hey" 5))
-        (trial (list '(eql 1) (type-of "hey") '(eql 5) :d '(eql 10) :e '(eql 10))
+        (trial (list '(eql 1) (type-of "hey") '(eql 5) :d '(eql 10) :e t)
                '(test 1 "hey" 5 :d 10))
         (trial (list '(eql 1) (type-of "hey") '(eql 5) :d '(eql 5) :e '(eql 20))
                '(test 1 "hey" 5 :e 20))
@@ -442,10 +444,12 @@
     ;; Rest
     (let-type-completion-function (compute (a &optional (b (init-b)) (c b) &rest args))
       (flet ((trial (expected input)
-               (is (equal expected (compute input)))))
+               (is (equal expected (compute input))
+                   "The type completion function did not produce ~A for form ~A."
+                   expected input)))
         (trial '((eql 1) t t)
                '(test 1))
-        (trial (list '(eql 1) (type-of "hey") (type-of "hey"))
+        (trial (list '(eql 1) (type-of "hey") t)
                '(test 1 "hey"))
         (trial (list '(eql 1) (type-of "hey") '(eql 5))
                '(test 1 "hey" 5))
@@ -455,7 +459,9 @@
     ;; Positional
     (let-type-completion-function (compute (a &optional (b (init-b)) (c (init-c))))
       (flet ((trial (expected input)
-               (is (equal expected (compute input)))))
+               (is (equal expected (compute input))
+                   "The type completion function did not produce ~A for form ~A."
+                   expected input)))
         (trial '((eql 1) t t)
                '(test 1))
         (trial (list (type-of "hey") t t)
@@ -466,7 +472,9 @@
     ;; &allow-other-keys
     (let-type-completion-function (compute (&key d &allow-other-keys))
       (flet ((trial (expected input)
-               (is (equal expected (compute input)))))
+               (is (equal expected (compute input))
+                   "The type completion function did not produce ~A for form ~A."
+                   expected input)))
         (trial '(:d null) '(test))
         (trial '(:d null) '(test :e 1))
         (trial '(:d (eql 1)) '(test :d 1 :f 2))))
@@ -474,7 +482,9 @@
     ;; :allow-other-keys t
     (let-type-completion-function (compute (&key d))
       (flet ((trial (expected input)
-               (is (equal expected (compute input)))))
+               (is (equal expected (compute input))
+                   "The type completion function did not produce ~A for form ~A."
+                   expected input)))
         (trial '(:d null) '(test))
         (trial '(:d null) '(test :allow-other-keys t :e 2))
         (trial '(:d (eql 1)) '(test :allow-other-keys t :d 1 :e 2))))
@@ -484,7 +494,9 @@
     (locally (declare (ftype (function () integer) init-b init-c))
       (let-type-completion-function (compute (&optional (b (init-b)) (c (init-c))))
         (flet ((trial (expected input)
-                 (is (equal expected (compute input)))))
+                 (is (equal expected (compute input))
+                     "The type completion function did not produce ~A for form ~A."
+                     expected input)))
           (trial '(integer integer)
                  '(test)))))))
 
