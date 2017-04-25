@@ -110,6 +110,7 @@
            "PARAMETER-DEPENDENCIES"
            "PARAMETER-VARP"
            "PARAMETER-KEYWORD"
+           "PARAMETER-TYPE"
            "PARAMETER-LAMBDA-LIST-SPECIFICATION")
 
   ;; Parameters Protocol
