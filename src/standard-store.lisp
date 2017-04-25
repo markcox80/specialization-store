@@ -439,8 +439,12 @@
                (cascade (compile-time)
                  (let ((type-fn (funcall type-completion-function #'third-argument)))
                    (lambda (form env)
-                     (let ((rewritten-form (rewrite-form form (store-parameters )))))
-                     (funcall compile-time form env (funcall type-fn form env))))))
+                     (let* ((completed-types (funcall type-fn form env)))
+                       (destructuring-bind (lexical-fn rewritten-form) (rewrite-store-function-form (store-parameters store) form env)
+                         (let* ((new-form (funcall compile-time rewritten-form env completed-types)))
+                           (if (eql new-form rewritten-form)
+                               form
+                               (funcall lexical-fn new-form)))))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
@@ -460,13 +464,11 @@
 (defclass type-function-environment (function-environment)
   ((form :initarg :form)
    (environment :initarg :environment)
-   (completed-types :initarg :completed-types)
-   (completed-form :initarg :completed-form))
+   (completed-types :initarg :completed-types))
   (:default-initargs
    :form (gensym "FORM")
    :environment (gensym "ENV")
-   :completed-types (gensym "COMPLETED-TYPES")
-   :completed-form (gensym "COMPLETED-FORM")))
+   :completed-types (gensym "COMPLETED-TYPES")))
 
 (defun make-function-environment (store code-type)
   (ecase code-type
@@ -620,13 +622,13 @@
 
 (defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
   (declare (ignore d-env))
-  (with-slots (store form environment completed-form) f-env
+  (with-slots (store form environment) f-env
     (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
            (fn (gensym "FN")))
       (assert specialization)
       `(let ((,fn (specialization-expand-function ,specialization)))
          (if ,fn
-             (funcall ,fn ,completed-form ,environment)
+             (funcall ,fn ,form ,environment)
              ,form)))))
 
 (defmethod generate-code ((null null) (f-env function-environment) d-env)
@@ -674,10 +676,10 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env positional-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional) d-env
-      `(lambda (,form ,environment ,completed-types ,completed-form)
-         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+      `(lambda (,form ,environment ,completed-types)
+         (declare (ignorable ,form ,environment ,completed-types))
          (destructuring-bind ,positional ,completed-types
            (declare (ignorable ,@positional))
            (flet ((,fail ()
@@ -686,14 +688,14 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env keywords-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional keywords allow-others-p args) d-env
       (let ((allow-other-keys (when allow-others-p '(&allow-other-keys)))
             (keys (loop
                      for (keyword . name) in keywords
                      collect `((,keyword ,name)))))
-        `(lambda (,form ,environment ,completed-types ,completed-form)
-           (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+        `(lambda (,form ,environment ,completed-types)
+           (declare (ignorable ,form ,environment ,completed-types))
            (destructuring-bind (,@positional &rest ,args &key ,@keys ,@allow-other-keys) ,completed-types
              (declare (ignorable ,@positional ,args ,@(mapcar #'cdr keywords)))
              (flet ((,fail ()
@@ -702,10 +704,10 @@
                ,(generate-code dispatch-tree f-env d-env))))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env variable-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional args argument-count) d-env
-      `(lambda (,form ,environment ,completed-types ,completed-form)
-         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+      `(lambda (,form ,environment ,completed-types)
+         (declare (ignorable ,form ,environment ,completed-types))
          (destructuring-bind (,@positional &rest ,args) ,completed-types
            (declare (ignorable ,@positional ,args))
            (flet ((,fail ()
