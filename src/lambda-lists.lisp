@@ -34,6 +34,7 @@
 (defgeneric parameter-init-form (parameter))
 (defgeneric parameter-varp (parameter))
 (defgeneric parameter-dependencies (parameter))
+(defgeneric parameter-vars (parameter))
 
 ;; Keyword parameter protocol
 (defgeneric parameter-keyword (parameter))
@@ -98,6 +99,16 @@
 
 (defmethod parameter-dependencies ((object rest-parameter))
   nil)
+
+(defmethod parameter-vars ((object required-parameter))
+  (list (parameter-var object)))
+
+(defmethod parameter-vars ((object rest-parameter))
+  (list (parameter-var object)))
+
+(defmethod parameter-vars ((object voluntary-parameter))
+  (list (parameter-var object)
+        (parameter-varp object)))
 
 (defun make-required-parameter (var)
   (check-type var symbol)
@@ -197,6 +208,7 @@
 (defgeneric keyword-parameters (parameters))
 (defgeneric positional-parameters-lower-bound (parameters))
 (defgeneric positional-parameters-upper-bound (parameters))
+;; (defgeneric parameter-vars (parameters))
 
 ;; Operations
 (defgeneric parameters-equal (parameters-1 parameters-2))
@@ -257,6 +269,11 @@
                              (list (parameter-var p))
                              (list (parameter-var p) (parameter-varp p))))))
     (filter-duplicates names)))
+
+(defmethod parameter-vars ((parameters parameters))
+  (loop
+    for parameter in (all-parameters parameters)
+    ))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
