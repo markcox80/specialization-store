@@ -93,12 +93,12 @@
 
 (defun completion-functions-required-p (store-parameters)
   (check-type store-parameters store-parameters)
-  (or (not (loop
-              for (nil init-form) in (optional-parameters store-parameters)
-              always (constantp init-form)))
-      (not (loop
-              for (nil nil init-form) in (keyword-parameters store-parameters)
-              always (constantp init-form)))))
+  (or (loop
+        for parameter in (optional-parameters store-parameters)
+          thereis (not (constantp (parameter-init-form parameter))))
+      (loop
+        for parameter in (keyword-parameters store-parameters)
+          thereis (not (constantp (parameter-init-form parameter))))))
 
 (defun make-default-value-completion-function (store-parameters)
   (compile nil (make-value-completion-lambda-form store-parameters)))
@@ -319,19 +319,23 @@
 ;;;; Standard Store (Syntax Layer)
 
 (defmethod defstore-using-class ((class (eql (find-class 'standard-store))) name store-lambda-list
-                                 &rest args &key environment &allow-other-keys)
+                                 &rest args
+                                 &key
+                                   environment
+                                   value-completion-function
+                                   type-completion-function
+                                 &allow-other-keys)
   (alexandria:remove-from-plistf args :environment)
-  (let* ((parameters (parse-store-lambda-list store-lambda-list))
-         (value-lambda-form (make-value-completion-lambda-form parameters))
-         (type-lambda-form (make-type-completion-lambda-form parameters environment)))
-    (destructuring-bind (form-lambda-form globals) (make-form-completion-lambda-form parameters environment)
+  (let* ((parameters (parse-store-lambda-list store-lambda-list)))
+    (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions parameters environment)
       `(progn
          ,@globals
          (ensure-store ',name ',store-lambda-list
                        ,@args
-                       :value-completion-function ,value-lambda-form
-                       :type-completion-function ,type-lambda-form
-                       :form-completion-function ,form-lambda-form)))))
+                       :value-completion-function ,(or value-completion-function
+                                                       (make-value-completion-lambda-form new-parameters))
+                       :type-completion-function ,(or type-completion-function
+                                                      (make-type-completion-lambda-form new-parameters environment)))))))
 
 (defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
