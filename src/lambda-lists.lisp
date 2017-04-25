@@ -1098,9 +1098,11 @@
                                var-form
                                `(the ,var-type ,var)))))
          (rest     form-args))
-    (list #'(lambda (body)
-              `(let* ,let-forms
-                 ,body))
+    (list #'(lambda (body env)
+              (if (constantp body env)
+                  body
+                  `(let* ,let-forms
+                     ,body)))
           (cond ((keyword-parameters-p store-parameters)
                  (append form-head required optional keywords rest))
                 ((rest-parameter-p store-parameters)

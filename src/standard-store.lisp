@@ -446,7 +446,7 @@
                          (let* ((new-form (funcall compile-time rewritten-form env completed-types)))
                            (if (eql new-form rewritten-form)
                                form
-                               (funcall lexical-fn new-form)))))))))
+                               (funcall lexical-fn new-form env)))))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
