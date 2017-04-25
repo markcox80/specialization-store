@@ -400,7 +400,8 @@
                          (lambda (&rest args)
                            args))))
         (is (equal '(1 nil nil) (funcall fn 1)))
-        (is (equal '(1 2 t) (funcall fn 1 2)))))))
+        (is (equal '(1 2 t) (funcall fn 1 2)))
+        (is (equal '(1 2 3) (funcall fn 1 2 3)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro let-type-completion-function ((name store-lambda-list) &body body &environment env)
