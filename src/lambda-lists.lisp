@@ -693,10 +693,77 @@
                                :test #'eql))))
 
 ;;;; Lambda list conversions
+(defgeneric parameter-init-forms-as-global-functions (parameters environment))
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
+
+(defmethod parameter-init-forms-as-global-functions ((parameters store-parameters) environment)
+  (let* ((globals nil))
+    (flet ((generate-init-form (parameter)
+             (let* ((function-name (specialization-store:generate-interned-symbol (parameter-var parameter)
+                                                                                  "INIT-FUNCTION"))
+                    (vars (reduce #'append (parameter-dependencies parameter)
+                                  :key #'parameter-vars
+                                  :initial-value nil))
+                    (function `(defun ,function-name ,vars
+                                 (declare (ignorable ,@vars))
+                                 ,(parameter-init-form parameter))))
+               (push function globals)
+               `(,function-name ,@vars))))
+      (let* ((required (required-parameters parameters))
+             (optional (loop
+                         with dependencies = required
+                         for parameter in (optional-parameters parameters)
+                         for init-form = (parameter-init-form parameter)
+                         for new-parameter = (cond ((constantp init-form environment)
+                                                    parameter)
+                                                   (t
+                                                    (make-optional-parameter dependencies
+                                                                             (parameter-var parameter)
+                                                                             (generate-init-form parameter)
+                                                                             (parameter-varp parameter))))
+                         do
+                            (alexandria:appendf dependencies (list new-parameter))
+                         collect
+                         new-parameter))
+             (rest (rest-parameter parameters))
+             (keywords (loop
+                         with dependencies = (append required optional (when rest (list rest)))
+                         for parameter in (keyword-parameters parameters)
+                         for init-form = (parameter-init-form parameter)
+                         for new-parameter = (cond ((constantp init-form environment)
+                                                    parameter)
+                                                   (t
+                                                    (make-keyword-parameter dependencies
+                                                                            (parameter-var parameter)
+                                                                            (generate-init-form parameter)
+                                                                            (parameter-varp parameter)
+                                                                            (parameter-keyword parameter))))
+                         do
+                            (alexandria:appendf dependencies (list new-parameter))
+                         collect
+                         new-parameter))
+             (new-lambda-list (append (mapcar #'parameter-lambda-list-specification required)
+                                      (when optional
+                                        (cons '&optional (mapcar #'parameter-lambda-list-specification optional)))
+                                      (when rest
+                                        (list '&rest (parameter-var rest)))
+                                      (when keywords
+                                        (list '&key (mapcar #'parameter-lambda-list-specification keywords)))
+                                      (when (allow-other-keys-p parameters)
+                                        '(&allow-other-keys)))))
+        (list (make-instance 'store-parameters
+                             :original-lambda-list new-lambda-list
+                             :all-parameters (append required optional (when rest (list rest)) keywords)
+                             :required-parameters required
+                             :optional-parameters optional
+                             :rest-parameter rest
+                             :keyword-parameters-p (keyword-parameters-p parameters)
+                             :keyword-parameters keywords
+                             :allow-other-keys-p (allow-other-keys-p parameters))
+              (nreverse globals))))))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (mapcar #'parameter-var (required-parameters specialization-parameters))
