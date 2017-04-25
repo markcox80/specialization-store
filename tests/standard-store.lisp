@@ -228,10 +228,10 @@
                           :function (lambda (a) (1+ a))
                           :expand-function (lambda (form env)
                                              (declare (ignore form env))
-                                             'here))))
+                                             :here))))
     (add-specialization store a)
     (is (= 3 (funcall-store store)))
-    (is (eql 'here (expand-store store '(test))))))
+    (is (eql :here (expand-store store '(test))))))
 
 (test default-completion-functions/argument-forms
   (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
