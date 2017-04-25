@@ -22,7 +22,7 @@
 
 (defun make-tree-for-set-X (set-X c)
   (let* ((set-X-tuples (loop
-                          for specialization-parameters in set-X                          
+                          for specialization-parameters in set-X
                           collect (fixed-arity-tuple specialization-parameters c))))
     (labels ((build-tree ()
                (specialization-store.dispatch.fixed-arity:build-tree
