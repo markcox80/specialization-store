@@ -360,11 +360,11 @@
                            `(function ,name)
                            `(lambda ,lambda-list
                               ,@body)))
-             (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
+             (expand-function (cond (name `(compiler-macro-lambda (&rest args)
+                                             (list* ',name args)))
+                                    (inline `(compiler-macro-lambda (&rest args)
                                                (list* ',function
-                                                      args)))
-                                    (name `(compiler-macro-lambda (&rest args)
-                                             (list* ',name args)))))
+                                                      args)))))
              (specialization-class-name (class-name (store-specialization-class store))))
         `(progn
            ,(when name
