@@ -754,7 +754,7 @@
                                       (when rest
                                         (list '&rest (parameter-var rest)))
                                       (when keywords
-                                        (list '&key (mapcar #'parameter-lambda-list-specification keywords)))
+                                        (cons '&key (mapcar #'parameter-lambda-list-specification keywords)))
                                       (when (allow-other-keys-p parameters)
                                         '(&allow-other-keys)))))
         (list (make-instance 'store-parameters
