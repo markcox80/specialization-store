@@ -273,7 +273,7 @@
 (defmethod parameter-vars ((parameters parameters))
   (loop
     for parameter in (all-parameters parameters)
-    ))
+    append (parameter-vars parameter)))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
