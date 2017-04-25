@@ -1038,16 +1038,17 @@
                      for var-formp = (not (null form-args))
                      for var-form = (pop form-args)
                      for var-type = (determine-form-value-type var-form env)
+                     for constantp = (constantp var-form env)
                      do
                         (unless var-formp
                           (warn "Insufficient arguments for function in form ~A." form))
-                        (cond ((constantp var-form env)
-                               (setf var var-form))
-                              (t
-                               (alexandria:appendf let-forms (list (list var var-form)))))
+                        (if constantp
+                            (setf var var-form)
+                            (alexandria:appendf let-forms (list (list var var-form))))
                         (alexandria:appendf dependencies (list var))
-                     collect
-                     `(the ,var-type ,var)))
+                     collect (if constantp
+                                 var-form
+                                 `(the ,var-type ,var))))
          (optional (loop
                      for parameter in (optional-parameters store-parameters)
                      for var = (gensym (symbol-name (parameter-var parameter)))
@@ -1055,8 +1056,9 @@
                      for var-form = (pop form-args)
                      for var-type = (determine-form-value-type var-form env)
                      for init-form = (parameter-init-form parameter)
+                     for constantp = (constantp var-form env)
                      do
-                        (cond ((and var-formp (constantp var-form env))
+                        (cond ((and var-formp constantp)
                                (setf var var-form))
                               (t
                                (alexandria:appendf let-forms (list (list var (cond (var-formp
@@ -1067,8 +1069,9 @@
                                                                                     (cons (first (parameter-init-form parameter))
                                                                                           dependencies))))))))
                         (alexandria:appendf dependencies (list var var-formp))
-                     collect
-                       `(the ,var-type ,var)))
+                     collect (if constantp
+                                 var-form
+                                 `(the ,var-type ,var))))
          (keywords (loop
                      with no-form = '#:no-form
                      for parameter in (keyword-parameters store-parameters)
@@ -1077,8 +1080,9 @@
                      for var-formp = (eql var-form no-form)
                      for var-type = (determine-form-value-type var-form env)
                      for init-form = (parameter-init-form parameter)
+                     for constantp = (constantp var-form env)
                      do
-                        (cond ((and var-formp (constantp var-form env))
+                        (cond ((and var-formp constantp)
                                (setf var var-form))
                               (t
                                (alexandria:appendf let-forms (list (list var (cond (var-formp
@@ -1090,7 +1094,10 @@
                                                                                           dependencies))))))))
                         (alexandria:appendf dependencies (list var var-formp))
                      append
-                     (list (parameter-keyword parameter) `(the ,var-type ,var))))
+                     (list (parameter-keyword parameter)
+                           (if constantp
+                               var-form
+                               `(the ,var-type ,var)))))
          (rest     form-args))
     (list #'(lambda (body)
               `(let* ,let-forms
