@@ -150,7 +150,7 @@
                        rv-Y set-Y)
               finally (return (list rv-rule rv-X rv-Y)))))
     (let* ((rules (fixed-arity-rules Z knowledge)))
-      (cond (rules             
+      (cond (rules
              (destructuring-bind (rule set-X set-Y) (best-split rules)
                (make-node rule
                           (build-tree set-X (append-knowledge knowledge
@@ -230,6 +230,6 @@
            (make-node (make-accepts-argument-count-rule (+ (length (required-parameters store-parameters))
                                                            (length (optional-parameters store-parameters))))
                       tree))
-          (t           
+          (t
            (make-node (make-fixed-argument-count-rule (set-arity set))
                       tree)))))
