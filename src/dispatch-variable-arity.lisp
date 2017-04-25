@@ -7,10 +7,10 @@
          (optional-count (length (optional-parameters specialization-parameters))))
     (assert (<= lower-bound c upper-bound))
     (let ((rv (append (loop
-                         for (nil type) in (required-parameters specialization-parameters)
-                         collect type)
+                         for parameter in (required-parameters specialization-parameters)
+                         collect (parameter-type parameter))
                       (loop
-                         for nil in (optional-parameters specialization-parameters)
+                         for parameter in (optional-parameters specialization-parameters)
                          for index from required-count below c
                          collect t)
                       (when (rest-parameter specialization-parameters)
