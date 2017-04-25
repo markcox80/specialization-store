@@ -393,7 +393,14 @@
                            args))))
         (is (equal '(0 1 :c 1) (funcall fn 0)))
         (is (equal '(0 2 :c 2) (funcall fn 0 2)))
-        (is (equal '(0 2 :c 4 :c 4) (funcall fn 0 2 :c 4)))))))
+        (is (equal '(0 2 :c 4 :c 4) (funcall fn 0 2 :c 4))))
+
+      ;; Supplied p vars
+      (let ((fn (funcall (def (a &optional (b nil bp) (c bp)))
+                         (lambda (&rest args)
+                           args))))
+        (is (equal '(1 nil nil) (funcall fn 1)))
+        (is (equal '(1 2 t) (funcall fn 1 2)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro let-type-completion-function ((name store-lambda-list) &body body &environment env)
