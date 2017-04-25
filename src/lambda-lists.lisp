@@ -869,12 +869,12 @@
           (rest
            `(lambda (,continuation)
               (lambda (,@positional &rest ,rest)
-                (declare (ignorable-vars ,@ignorable-vars))
+                (declare (ignorable ,@ignorable-vars))
                 (apply ,continuation ,@positional-forms ,rest))))
           (t
            `(lambda (,continuation)
               (lambda (,@positional)
-                (declare (ignorable-vars ,@ignorable-vars))
+                (declare (ignorable ,@ignorable-vars))
                 (funcall ,continuation ,@positional-forms)))))))
 
 (defmethod make-type-completion-lambda-form ((parameters store-parameters) environment)
