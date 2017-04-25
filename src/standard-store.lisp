@@ -217,18 +217,20 @@
            (compare #'eql #'null #'rest-parameter)
            (compare #'eql #'keyword-parameters-p)
            (loop
-              for (nil type-a) in (required-parameters parameters-a)
-              for (nil type-b) in (required-parameters parameters-b)
+              for a in (required-parameters parameters-a)
+              for b in (required-parameters parameters-b)
               always
-                (alexandria:type= type-a type-b))
+              (alexandria:type= (parameter-type a)
+                                (parameter-type b)))
            (loop
               with keys-a = (keyword-parameters parameters-a)
               with keys-b = (keyword-parameters parameters-b)
-              for (keyword nil) in (keyword-parameters parameters)
-              for key-a = (find keyword keys-a :key #'first)
-              for key-b = (find keyword keys-b :key #'first)
-              for type-a = (or (third key-a) t)
-              for type-b = (or (third key-b) t)
+              for st-keyword in (keyword-parameters parameters)
+              for keyword = (parameter-keyword st-keyword)
+              for key-a = (find keyword keys-a :key #'parameter-keyword)
+              for key-b = (find keyword keys-b :key #'parameter-keyword)
+              for type-a = (parameter-type key-a)
+              for type-b = (parameter-type key-b)
               do
                 (ensure-key key-a keyword a)
                 (ensure-key key-b keyword b)
