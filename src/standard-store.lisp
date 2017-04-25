@@ -439,12 +439,8 @@
                (cascade (compile-time)
                  (let ((type-fn (funcall type-completion-function #'third-argument)))
                    (lambda (form env)
-                     (let* ((completed-types (funcall type-fn form env)))
-                       (destructuring-bind (lexical-fn rewritten-form) (rewrite-store-function-form (store-parameters store) form env)
-                         (let* ((new-form (funcall compile-time rewritten-form env completed-types)))
-                           (if (eql new-form rewritten-form)
-                               form
-                               (funcall lexical-fn new-form)))))))))
+                     (let ((rewritten-form (rewrite-form form (store-parameters )))))
+                     (funcall compile-time form env (funcall type-fn form env))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
@@ -494,12 +490,13 @@
    :args (gensym "ARGS")))
 
 (defun make-destructuring-environment (store-parameters)
-  (let* ((required (required-parameters store-parameters))
-         (optional (optional-parameters store-parameters))
+  (let* ((required (mapcar #'parameter-var (required-parameters store-parameters)))
+         (optional (mapcar #'parameter-var (optional-parameters store-parameters)))
          (keywords (loop
-                      for (keyword name) in (keyword-parameters store-parameters)
-                      collect (cons keyword name)))
-         (positional (append required (mapcar #'first optional))))
+                      for parameter in (keyword-parameters store-parameters)
+                      collect (cons (parameter-keyword parameter)
+                                    (parameter-var parameter))))
+         (positional (append required optional)))
     (cond ((keyword-parameters-p store-parameters)
            (make-instance 'keywords-environment
                           :positional positional
