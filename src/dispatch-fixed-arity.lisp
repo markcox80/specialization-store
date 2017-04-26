@@ -150,7 +150,7 @@
                        rv-Y set-Y)
               finally (return (list rv-rule rv-X rv-Y)))))
     (let* ((rules (fixed-arity-rules Z knowledge)))
-      (cond (rules             
+      (cond (rules
              (destructuring-bind (rule set-X set-Y) (best-split rules)
                (make-node rule
                           (build-tree set-X (append-knowledge knowledge
@@ -166,14 +166,14 @@
 
 (defun fixed-arity-specialization-types (store-parameters specialization-parameters)
   (assert (congruent-parameters-p store-parameters specialization-parameters))
-  (let* ((keywords (mapcar #'first (keyword-parameters store-parameters))))
-    (append (loop
-               for (nil type) in (required-parameters specialization-parameters)
-               collect type)
-            (loop
-               for keyword in keywords
-               for (nil nil type) = (find keyword (keyword-parameters specialization-parameters) :key #'first)
-               collect (or type t)))))
+  (append (mapcar #'parameter-type (required-parameters specialization-parameters))
+          (loop
+            for st-parameter in (keyword-parameters store-parameters)
+            for keyword = (parameter-keyword st-parameter)
+            for sp-parameter = (find keyword (keyword-parameters specialization-parameters) :key #'parameter-keyword)
+            collect (if sp-parameter
+                        (parameter-type sp-parameter)
+                        t))))
 
 (defun map-to-problem (store-parameters all-specialization-parameters)
   (loop
@@ -195,8 +195,8 @@
                                                                             #'(lambda (type)
                                                                                 (make-positional-parameter-type-rule index type))))
                                                                (loop
-                                                                  for (keyword) in (keyword-parameters store-parameters)
-                                                                  collect (let ((keyword keyword))
+                                                                  for parameter in (keyword-parameters store-parameters)
+                                                                  collect (let ((keyword (parameter-keyword parameter)))
                                                                             #'(lambda (type)
                                                                                 (make-keyword-parameter-type-rule keyword type))))))))
     (labels ((process (node)
@@ -230,6 +230,6 @@
            (make-node (make-accepts-argument-count-rule (+ (length (required-parameters store-parameters))
                                                            (length (optional-parameters store-parameters))))
                       tree))
-          (t           
+          (t
            (make-node (make-fixed-argument-count-rule (set-arity set))
                       tree)))))

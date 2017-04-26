@@ -44,8 +44,6 @@
                               :reader store-value-completion-function)
    (type-completion-function :initarg :type-completion-function
                              :reader store-type-completion-function)
-   (form-completion-function :initarg :form-completion-function
-                             :reader store-form-completion-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
   (:metaclass specialization-store.mop:funcallable-standard-class)
@@ -55,8 +53,7 @@
    :specializations nil
    :specialization-class (find-class 'standard-specialization)
    :value-completion-function nil
-   :type-completion-function nil
-   :form-completion-function nil))
+   :type-completion-function nil))
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -96,12 +93,12 @@
 
 (defun completion-functions-required-p (store-parameters)
   (check-type store-parameters store-parameters)
-  (or (not (loop
-              for (nil init-form) in (optional-parameters store-parameters)
-              always (constantp init-form)))
-      (not (loop
-              for (nil nil init-form) in (keyword-parameters store-parameters)
-              always (constantp init-form)))))
+  (or (loop
+        for parameter in (optional-parameters store-parameters)
+          thereis (not (constantp (parameter-init-form parameter))))
+      (loop
+        for parameter in (keyword-parameters store-parameters)
+          thereis (not (constantp (parameter-init-form parameter))))))
 
 (defun make-default-value-completion-function (store-parameters)
   (compile nil (make-value-completion-lambda-form store-parameters)))
@@ -109,18 +106,11 @@
 (defun make-default-type-completion-function (store-parameters)
   (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
-(defun make-default-form-completion-function (store-parameters)
-  (destructuring-bind (lambda-form globals) (make-form-completion-lambda-form store-parameters nil)
-    (unless (null globals)
-      (error "Cannot create default form completion function as the store lambda list requires the introduction of global functions."))
-    (compile nil lambda-form)))
-
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
                                          (value-completion-function nil value-completion-function-p)
                                          (type-completion-function nil type-completion-function-p)
-                                         (form-completion-function nil form-completion-function-p)
                                          &allow-other-keys)
   (assert lambda-list-p)
   (let ((new-parameters (parse-store-lambda-list lambda-list)))
@@ -128,17 +118,13 @@
                (or (not (and value-completion-function-p
                              (functionp value-completion-function)))
                    (not (and type-completion-function-p
-                             (functionp type-completion-function)))
-                   (not (and form-completion-function-p
-                             (functionp form-completion-function)))))
+                             (functionp type-completion-function)))))
       (error 'missing-completion-functions-error :store instance))
     (setf (slot-value instance 'parameters) new-parameters
           (slot-value instance 'value-completion-function) (or value-completion-function
                                                                (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters))
-          (slot-value instance 'form-completion-function) (or form-completion-function
-                                                              (make-default-form-completion-function new-parameters))))
+                                                              (make-default-type-completion-function new-parameters))))
 
   (clear-dispatch-functions instance))
 
@@ -148,7 +134,6 @@
                                            ((:lambda-list new-lambda-list) nil new-lambda-list-p)
                                            (value-completion-function nil value-completion-function-p)
                                            (type-completion-function nil type-completion-function-p)
-                                           (form-completion-function nil form-completion-function-p)
                                            &allow-other-keys)
   (when new-name-p
     (unless (eql (store-name instance) new-name)
@@ -164,9 +149,7 @@
                         (or (not (and value-completion-function-p
                                       (functionp value-completion-function)))
                             (not (and type-completion-function-p
-                                      (functionp type-completion-function)))
-                            (not (and form-completion-function-p
-                                      (functionp form-completion-function)))))
+                                      (functionp type-completion-function)))))
                (error 'simple-store-error
                       :store instance
                       :message "New completion functions are required for the new store lambda list."))
@@ -234,18 +217,20 @@
            (compare #'eql #'null #'rest-parameter)
            (compare #'eql #'keyword-parameters-p)
            (loop
-              for (nil type-a) in (required-parameters parameters-a)
-              for (nil type-b) in (required-parameters parameters-b)
+              for a in (required-parameters parameters-a)
+              for b in (required-parameters parameters-b)
               always
-                (alexandria:type= type-a type-b))
+              (alexandria:type= (parameter-type a)
+                                (parameter-type b)))
            (loop
               with keys-a = (keyword-parameters parameters-a)
               with keys-b = (keyword-parameters parameters-b)
-              for (keyword nil) in (keyword-parameters parameters)
-              for key-a = (find keyword keys-a :key #'first)
-              for key-b = (find keyword keys-b :key #'first)
-              for type-a = (or (third key-a) t)
-              for type-b = (or (third key-b) t)
+              for st-keyword in (keyword-parameters parameters)
+              for keyword = (parameter-keyword st-keyword)
+              for key-a = (find keyword keys-a :key #'parameter-keyword)
+              for key-b = (find keyword keys-b :key #'parameter-keyword)
+              for type-a = (parameter-type key-a)
+              for type-b = (parameter-type key-b)
               do
                 (ensure-key key-a keyword a)
                 (ensure-key key-b keyword b)
@@ -285,11 +270,9 @@
                                         specialization-class documentation
                                         value-completion-function
                                         type-completion-function
-                                        form-completion-function
                                         &allow-other-keys)
   (declare (ignore specialization-class documentation
-                   value-completion-function type-completion-function
-                   form-completion-function))
+                   value-completion-function type-completion-function))
   (apply #'make-instance 'standard-store
          :name store-name
          :lambda-list store-lambda-list
@@ -338,19 +321,23 @@
 ;;;; Standard Store (Syntax Layer)
 
 (defmethod defstore-using-class ((class (eql (find-class 'standard-store))) name store-lambda-list
-                                 &rest args &key environment &allow-other-keys)
+                                 &rest args
+                                 &key
+                                   environment
+                                   value-completion-function
+                                   type-completion-function
+                                 &allow-other-keys)
   (alexandria:remove-from-plistf args :environment)
-  (let* ((parameters (parse-store-lambda-list store-lambda-list))
-         (value-lambda-form (make-value-completion-lambda-form parameters))
-         (type-lambda-form (make-type-completion-lambda-form parameters environment)))
-    (destructuring-bind (form-lambda-form globals) (make-form-completion-lambda-form parameters environment)
+  (let* ((parameters (parse-store-lambda-list store-lambda-list)))
+    (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions parameters environment)
       `(progn
          ,@globals
-         (ensure-store ',name ',store-lambda-list
+         (ensure-store ',name ',(original-lambda-list new-parameters)
                        ,@args
-                       :value-completion-function ,value-lambda-form
-                       :type-completion-function ,type-lambda-form
-                       :form-completion-function ,form-lambda-form)))))
+                       :value-completion-function ,(or value-completion-function
+                                                       (make-value-completion-lambda-form new-parameters))
+                       :type-completion-function ,(or type-completion-function
+                                                      (make-type-completion-lambda-form new-parameters environment)))))))
 
 (defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
@@ -373,11 +360,11 @@
                            `(function ,name)
                            `(lambda ,lambda-list
                               ,@body)))
-             (expand-function (cond (inline `(compiler-macro-lambda (&rest args)
+             (expand-function (cond (name `(compiler-macro-lambda (&rest args)
+                                             (list* ',name args)))
+                                    (inline `(compiler-macro-lambda (&rest args)
                                                (list* ',function
-                                                      args)))
-                                    (name `(compiler-macro-lambda (&rest args)
-                                             (list* ',name args)))))
+                                                      args)))))
              (specialization-class-name (class-name (store-specialization-class store))))
         `(progn
            ,(when name
@@ -452,12 +439,14 @@
                  (declare (ignore a b))
                  c)
                (cascade (compile-time)
-                 (let ((type-fn (funcall type-completion-function #'third-argument))
-                       (form-fn (funcall form-completion-function #'third-argument)))
+                 (let ((type-fn (funcall type-completion-function #'third-argument)))
                    (lambda (form env)
-                     (funcall compile-time form env
-                              (funcall type-fn form env)
-                              (funcall form-fn form env))))))
+                     (let* ((completed-types (funcall type-fn form env)))
+                       (destructuring-bind (lexical-fn rewritten-form) (rewrite-store-function-form (store-parameters store) form env)
+                         (let* ((new-form (funcall compile-time rewritten-form env completed-types)))
+                           (if (eql new-form rewritten-form)
+                               form
+                               (funcall lexical-fn new-form env)))))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
           (setf runtime-function (funcall value-completion-function runtime)
                 compile-time-function (cascade compile-time))
@@ -477,13 +466,11 @@
 (defclass type-function-environment (function-environment)
   ((form :initarg :form)
    (environment :initarg :environment)
-   (completed-types :initarg :completed-types)
-   (completed-form :initarg :completed-form))
+   (completed-types :initarg :completed-types))
   (:default-initargs
    :form (gensym "FORM")
    :environment (gensym "ENV")
-   :completed-types (gensym "COMPLETED-TYPES")
-   :completed-form (gensym "COMPLETED-FORM")))
+   :completed-types (gensym "COMPLETED-TYPES")))
 
 (defun make-function-environment (store code-type)
   (ecase code-type
@@ -509,12 +496,13 @@
    :args (gensym "ARGS")))
 
 (defun make-destructuring-environment (store-parameters)
-  (let* ((required (required-parameters store-parameters))
-         (optional (optional-parameters store-parameters))
+  (let* ((required (mapcar #'parameter-var (required-parameters store-parameters)))
+         (optional (mapcar #'parameter-var (optional-parameters store-parameters)))
          (keywords (loop
-                      for (keyword name) in (keyword-parameters store-parameters)
-                      collect (cons keyword name)))
-         (positional (append required (mapcar #'first optional))))
+                      for parameter in (keyword-parameters store-parameters)
+                      collect (cons (parameter-keyword parameter)
+                                    (parameter-var parameter))))
+         (positional (append required optional)))
     (cond ((keyword-parameters-p store-parameters)
            (make-instance 'keywords-environment
                           :positional positional
@@ -637,13 +625,13 @@
 
 (defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
   (declare (ignore d-env))
-  (with-slots (store form environment completed-form) f-env
+  (with-slots (store form environment) f-env
     (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
            (fn (gensym "FN")))
       (assert specialization)
       `(let ((,fn (specialization-expand-function ,specialization)))
          (if ,fn
-             (funcall ,fn ,completed-form ,environment)
+             (funcall ,fn ,form ,environment)
              ,form)))))
 
 (defmethod generate-code ((null null) (f-env function-environment) d-env)
@@ -691,10 +679,10 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env positional-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional) d-env
-      `(lambda (,form ,environment ,completed-types ,completed-form)
-         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+      `(lambda (,form ,environment ,completed-types)
+         (declare (ignorable ,form ,environment ,completed-types))
          (destructuring-bind ,positional ,completed-types
            (declare (ignorable ,@positional))
            (flet ((,fail ()
@@ -703,14 +691,14 @@
              ,(generate-code dispatch-tree f-env d-env)))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env keywords-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional keywords allow-others-p args) d-env
       (let ((allow-other-keys (when allow-others-p '(&allow-other-keys)))
             (keys (loop
                      for (keyword . name) in keywords
                      collect `((,keyword ,name)))))
-        `(lambda (,form ,environment ,completed-types ,completed-form)
-           (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+        `(lambda (,form ,environment ,completed-types)
+           (declare (ignorable ,form ,environment ,completed-types))
            (destructuring-bind (,@positional &rest ,args &key ,@keys ,@allow-other-keys) ,completed-types
              (declare (ignorable ,@positional ,args ,@(mapcar #'cdr keywords)))
              (flet ((,fail ()
@@ -719,10 +707,10 @@
                ,(generate-code dispatch-tree f-env d-env))))))))
 
 (defmethod compute-dispatch-lambda-form ((f-env type-function-environment) (d-env variable-environment) dispatch-tree)
-  (with-slots (store fail form environment completed-types completed-form) f-env
+  (with-slots (store fail form environment completed-types) f-env
     (with-slots (positional args argument-count) d-env
-      `(lambda (,form ,environment ,completed-types ,completed-form)
-         (declare (ignorable ,form ,environment ,completed-types ,completed-form))
+      `(lambda (,form ,environment ,completed-types)
+         (declare (ignorable ,form ,environment ,completed-types))
          (destructuring-bind (,@positional &rest ,args) ,completed-types
            (declare (ignorable ,@positional ,args))
            (flet ((,fail ()

@@ -46,7 +46,7 @@
       (is (= 2 (specialization-count store)))
       (add '(c (d float)))
       (is (= 3 (specialization-count store)))
-      (let ((s1 (add '((c integer) (d float)))))        
+      (let ((s1 (add '((c integer) (d float)))))
         (is (= 4 (specialization-count store)))
         (let ((s2 (add '((d integer) (c float)))))
           (is (= 4 (specialization-count store)))
@@ -228,10 +228,10 @@
                           :function (lambda (a) (1+ a))
                           :expand-function (lambda (form env)
                                              (declare (ignore form env))
-                                             'here))))
+                                             :here))))
     (add-specialization store a)
     (is (= 3 (funcall-store store)))
-    (is (eql 'here (expand-store store '(test))))))
+    (is (eql :here (expand-store store '(test))))))
 
 (test default-completion-functions/argument-forms
   (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
@@ -244,8 +244,7 @@
     (is (eql 2 (expand-store store '(test))))))
 
 (test completion-functions
-  (let ((b-value 1)
-        (init-b-name (gensym "INIT-B")))
+  (let ((b-value 1))
     (labels ((init-b ()
                (incf b-value)
                b-value)
@@ -258,16 +257,11 @@
                           (list (determine-form-value-type a env)
                                 (if bp
                                     (determine-form-value-type b env)
-                                    '(integer 0))))))
-             (form-function (continuation)
-               (compiler-macro-lambda (&whole form a &optional (b `(,init-b-name)) &environment env)
-                 (funcall continuation form env (list (first form) a b)))))
-      (setf (fdefinition init-b-name) #'init-b)
+                                    '(integer 0)))))))
       (let ((store (make-instance 'standard-store
                                   :lambda-list '(a &optional b)
                                   :value-completion-function #'value-function
-                                  :type-completion-function #'type-function
-                                  :form-completion-function #'form-function))
+                                  :type-completion-function #'type-function))
             (a (make-instance 'standard-specialization
                               :lambda-list '(a (b (integer 0)))
                               :function (lambda (a b)
@@ -280,11 +274,10 @@
         (is (equal (list "there" 3) (funcall-store store "there")))
         (is (equal (list "foobar" 10) (funcall-store store "foobar" 10)))
         (is (equal (list "hello" 4) (funcall-store store "hello")))
-        (is (equal `(,init-b-name) (expand-store store '(test "one"))))
+        (is (equal 2 (expand-store store '(example "hello" 2) nil)))
         ;; Doesn't match anything
         (let ((form '(test "hey" "there")))
-          (is (eq form (expand-store store form)))))
-      (fmakunbound init-b-name))))
+          (is (eq form (expand-store store form))))))))
 
 ;;;; Dispatching
 
@@ -390,7 +383,7 @@
            (type-count (length types)))
       (dotimes (a-offset type-count)
         (dotimes (b-offset type-count)
-          (dotimes (c-offset type-count)            
+          (dotimes (c-offset type-count)
             (let* ((argument-types (collate types (list a-offset b-offset c-offset)))
                    (argument-values (collate values (list a-offset b-offset c-offset)))
                    (store (make-instance 'standard-store :lambda-list '(a b &optional c)))
@@ -451,7 +444,7 @@
            (type-count (length types)))
       (dotimes (a-offset type-count)
         (dotimes (b-offset type-count)
-          (dotimes (c-offset type-count)            
+          (dotimes (c-offset type-count)
             (let* ((argument-types (collate types (list a-offset b-offset c-offset)))
                    (argument-values (collate values (list a-offset b-offset c-offset)))
                    (store (make-instance 'standard-store :lambda-list '(a &key b c)))

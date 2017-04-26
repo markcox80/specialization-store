@@ -7,10 +7,10 @@
          (optional-count (length (optional-parameters specialization-parameters))))
     (assert (<= lower-bound c upper-bound))
     (let ((rv (append (loop
-                         for (nil type) in (required-parameters specialization-parameters)
-                         collect type)
+                         for parameter in (required-parameters specialization-parameters)
+                         collect (parameter-type parameter))
                       (loop
-                         for nil in (optional-parameters specialization-parameters)
+                         for parameter in (optional-parameters specialization-parameters)
                          for index from required-count below c
                          collect t)
                       (when (rest-parameter specialization-parameters)
@@ -22,7 +22,7 @@
 
 (defun make-tree-for-set-X (set-X c)
   (let* ((set-X-tuples (loop
-                          for specialization-parameters in set-X                          
+                          for specialization-parameters in set-X
                           collect (fixed-arity-tuple specialization-parameters c))))
     (labels ((build-tree ()
                (specialization-store.dispatch.fixed-arity:build-tree

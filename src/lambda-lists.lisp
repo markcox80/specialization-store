@@ -18,19 +18,200 @@
              (t
               (push item processed)))
     finally (return duplicates)))
+
+
+;;;; Parameter Protocol
+
+(defgeneric parameter-var (parameter))
+(defgeneric parameterp (parameter))
+(defgeneric required-parameter-p (parameter))
+(defgeneric optional-parameter-p (parameter))
+(defgeneric rest-parameter-p (parameter))
+(defgeneric keyword-parameter-p (parameter))
+(defgeneric parameter-lambda-list-specification (parameter))
+
+;;; Non required parameter protocol
+(defgeneric parameter-init-form (parameter))
+(defgeneric parameter-varp (parameter))
+(defgeneric parameter-dependencies (parameter))
+(defgeneric parameter-vars (parameter))
+
+;; Keyword parameter protocol
+(defgeneric parameter-keyword (parameter))
+
+(defclass parameter ()
+  ((var :initarg :var
+        :reader parameter-var)))
+
+(defclass required-parameter (parameter)
+  ())
+
+(defclass voluntary-parameter (parameter)
+  ((dependencies :initarg :dependencies
+                 :reader parameter-dependencies)
+   (init-form :initarg :init-form
+              :reader parameter-init-form)
+   (varp :initarg :varp
+         :reader parameter-varp)))
+
+(defclass optional-parameter (voluntary-parameter)
+  ())
+
+(defclass keyword-parameter (voluntary-parameter)
+  ((keyword :initarg :keyword
+            :reader parameter-keyword)))
+
+(defclass rest-parameter (parameter)
+  ())
+
+(defmethod parameterp ((object t))
+  nil)
+
+(defmethod parameterp ((object parameter))
+  t)
+
+(defmethod required-parameter-p ((object parameter))
+  nil)
+
+(defmethod required-parameter-p ((object required-parameter))
+  t)
+
+(defmethod optional-parameter-p ((object parameter))
+  nil)
+
+(defmethod optional-parameter-p ((object optional-parameter))
+  t)
+
+(defmethod keyword-parameter-p ((object parameter))
+  nil)
+
+(defmethod keyword-parameter-p ((object keyword-parameter))
+  t)
+
+(defmethod rest-parameter-p ((object parameter))
+  nil)
+
+(defmethod rest-parameter-p ((object rest-parameter))
+  t)
+
+(defmethod parameter-dependencies ((object required-parameter))
+  nil)
+
+(defmethod parameter-dependencies ((object rest-parameter))
+  nil)
+
+(defmethod parameter-vars ((object required-parameter))
+  (list (parameter-var object)))
+
+(defmethod parameter-vars ((object rest-parameter))
+  (list (parameter-var object)))
+
+(defmethod parameter-vars ((object voluntary-parameter))
+  (let* ((var (parameter-var object))
+         (varp (parameter-varp object)))
+    (if varp
+        (list var varp)
+        (list var))))
+
+(defun make-required-parameter (var)
+  (check-type var symbol)
+  (make-instance 'required-parameter :var var))
+
+(defun %parameter-dependencies-p (object)
+  (and (listp object)
+       (every #'parameterp object)))
+
+(deftype parameter-dependencies ()
+  '(satisfies %parameter-dependencies-p))
+
+(defun make-optional-parameter (dependencies var &optional init-form varp)
+  (check-type var symbol)
+  (check-type dependencies parameter-dependencies)
+  (check-type varp symbol)
+  (make-instance 'optional-parameter :var var
+                                     :init-form init-form
+                                     :dependencies dependencies
+                                     :varp varp))
+
+(defun make-rest-parameter (var)
+  (make-instance 'rest-parameter :var var))
+
+(defun make-keyword-parameter (dependencies var &optional init-form varp (keyword nil keywordp))
+  (check-type var (and (not null) symbol))
+  (check-type dependencies parameter-dependencies)
+  (check-type varp symbol)
+  (let* ((keyword (if keywordp
+                      keyword
+                      (alexandria:make-keyword (symbol-name var)))))
+    (check-type keyword keyword)
+    (make-instance 'keyword-parameter :var var
+                                      :init-form init-form
+                                      :dependencies dependencies
+                                      :varp varp
+                                      :keyword keyword)))
+
+(defmethod print-object ((object required-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (parameter-var object) :stream stream)))
+
+(defmethod print-object ((object optional-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (var init-form varp) object
+      (write (list var init-form varp) :stream stream))))
+
+(defmethod print-object ((object rest-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (parameter-var object) :stream stream)))
+
+(defmethod print-object ((object keyword-parameter) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (with-slots (keyword var init-form varp) object
+      (write (list (list keyword var) init-form varp) :stream stream))))
+
+(defmethod parameter-lambda-list-specification ((p required-parameter))
+  (parameter-var p))
+
+(defmethod parameter-lambda-list-specification ((p optional-parameter))
+  (with-slots (var init-form varp) p
+    (cond ((and (null init-form) (null varp))
+           var)
+          ((and (null varp))
+           (list var init-form))
+          (t
+           (list var init-form varp)))))
+
+(defmethod parameter-lambda-list-specification ((p rest-parameter))
+  (parameter-var p))
+
+(defmethod parameter-lambda-list-specification ((p keyword-parameter))
+  (with-slots (keyword var init-form varp) p
+    (let* ((name (if (eql keyword (alexandria:make-keyword (symbol-name var)))
+                     var
+                     (list keyword var))))
+      (cond ((and (null init-form) (null varp))
+             name)
+            ((and (null varp))
+             (list name init-form))
+            (t
+             (list name init-form varp))))))
 
 ;;;; Parameters Protocol
 
 ;; Properties
+(defgeneric all-parameters (parameters))
 (defgeneric original-lambda-list (parameters))
 (defgeneric required-parameters (parameters))
 (defgeneric optional-parameters (parameters))
-(defgeneric rest-parameter (parameter))
+(defgeneric optional-parameters-p (parameters))
+;; These are defined above
+;; (defgeneric rest-parameter (parameters))
+;; (defgeneric rest-parameter-p (parameters))
 (defgeneric keyword-parameters-p (parameters))
 (defgeneric allow-other-keys-p (parameters))
 (defgeneric keyword-parameters (parameters))
 (defgeneric positional-parameters-lower-bound (parameters))
 (defgeneric positional-parameters-upper-bound (parameters))
+;; (defgeneric parameter-vars (parameters))
 
 ;; Operations
 (defgeneric parameters-equal (parameters-1 parameters-2))
@@ -40,6 +221,8 @@
 (defclass parameters ()
   ((original-lambda-list :initarg :original-lambda-list
                          :reader original-lambda-list)
+   (all-parameters :initarg :all-parameters
+                   :reader all-parameters)
    (required-parameters :initarg :required-parameters
                         :reader required-parameters)
    (optional-parameters :initarg :optional-parameters
@@ -67,6 +250,33 @@
     (t
      (+ (length (required-parameters parameters))
         (length (optional-parameters parameters))))))
+
+(defmethod optional-parameters-p ((parameters parameters))
+  (and (optional-parameters parameters)
+       t))
+
+(defmethod rest-parameter-p ((parameters parameters))
+  (and (rest-parameter parameters)
+       t))
+
+(defmethod duplicate-keywords-p ((parameters parameters))
+  (let ((keywords (mapcar #'parameter-keyword (keyword-parameters parameters))))
+    (filter-duplicates keywords)))
+
+(defmethod duplicate-variables-p ((parameters parameters))
+  (let* ((names (loop
+                  for p in (all-parameters parameters)
+                  append (if (or (required-parameter-p p)
+                                 (rest-parameter-p p)
+                                 (not (parameter-varp p)))
+                             (list (parameter-var p))
+                             (list (parameter-var p) (parameter-varp p))))))
+    (filter-duplicates names)))
+
+(defmethod parameter-vars ((parameters parameters))
+  (loop
+    for parameter in (all-parameters parameters)
+    append (parameter-vars parameter)))
 
 ;;;; Parsing an ordinary lambda list
 ;;;;
@@ -96,7 +306,7 @@
   (slot-value parse-lambda-list-error 'lambda-list))
 
 (defun signal-parse-lambda-list-error (control-string &rest args)
-  (signal *parse-lambda-list-error-class* :message (apply #'format nil control-string args)))
+  (error *parse-lambda-list-error-class* :message (apply #'format nil control-string args)))
 
 (defun invalid-ordinary-lambda-list-item (item)
   (signal-parse-lambda-list-error "Invalid item ~W in ~A lambda list." item *lambda-list-description*))
@@ -114,8 +324,8 @@
        (funcall fn :required item)
        (parse-ordinary-lambda-list/required fn (rest list))))))
 
-(defun parse-ordinary-lambda-list/optional (fn list)
-  (labels ((process (list)
+(defun parse-ordinary-lambda-list/optional (fn list dependencies)
+  (labels ((process (list dependencies)
              (let ((item (first list)))
                (cond
                  ((null list)
@@ -125,14 +335,15 @@
                  ((or (null item) (member item '(&optional &allow-other-keys)))
                   (invalid-ordinary-lambda-list-item item))
                  (t
-                  (funcall fn :optional item)
-                  (process (rest list)))))))
+                  (let* ((new-dependency (funcall fn :optional item dependencies)))
+                    (process (rest list)
+                             (append dependencies (list new-dependency)))))))))
     (let ((item (first list)))
       (cond
         ((null list)
          list)
         ((eql '&optional item)
-         (process (rest list)))
+         (process (rest list) dependencies))
         ((member item '(&rest &key))
          list)
         (t
@@ -160,8 +371,8 @@
         (t
          (invalid-ordinary-lambda-list-item item))))))
 
-(defun parse-ordinary-lambda-list/keys (fn list)
-  (labels ((process (list)
+(defun parse-ordinary-lambda-list/keys (fn list dependencies)
+  (labels ((process (list dependencies)
              (let ((item (first list)))
                (cond
                  ((or (null list) (eql '&allow-other-keys item))
@@ -169,13 +380,14 @@
                  ((or (null item) (member item '(&rest &optional &key)))
                   (invalid-ordinary-lambda-list-item item))
                  (t
-                  (funcall fn :keyword item)
-                  (process (rest list)))))))
+                  (let* ((new-dependency (funcall fn :keyword item dependencies)))
+                    (process (rest list)
+                             (append dependencies (list new-dependency)))))))))
     (let ((item (first list)))
       (cond
         ((eql '&key item)
          (funcall fn :keys? t)
-         (process (rest list)))
+         (process (rest list) dependencies))
         ((null list)
          list)
         (t
@@ -197,28 +409,41 @@
 (defun parse-ordinary-lambda-list (class-name function ordinary-lambda-list)
   (catch 'ordinary-lambda-list-error
     (let (required optional rest keys? keywords allow-other-keys?)
-      (flet ((process (what value)
-               (ecase what
-                 (:required (push (funcall function what value) required))
-                 (:optional (push (funcall function what value) optional))
-                 (:rest (setf rest value))
-                 (:keys? (setf keys? t))
-                 (:keyword (push (funcall function what value) keywords))
-                 (:allow-other-keys? (setf allow-other-keys? t)))))
-        (let* ((after-required (parse-ordinary-lambda-list/required #'process ordinary-lambda-list))
-               (after-optional (parse-ordinary-lambda-list/optional #'process after-required))
-               (after-rest (parse-ordinary-lambda-list/rest #'process after-optional))
-               (after-keys (parse-ordinary-lambda-list/keys #'process after-rest))
-               (after-allow-other-keys (parse-ordinary-lambda-list/allow-other-keys #'process after-keys)))
-          (assert (null after-allow-other-keys))
-          (make-instance class-name
-                         :original-lambda-list ordinary-lambda-list
-                         :required-parameters (nreverse required)
-                         :optional-parameters (nreverse optional)
-                         :rest-parameter rest
-                         :keyword-parameters-p keys?
-                         :keyword-parameters (nreverse keywords)
-                         :allow-other-keys-p allow-other-keys?))))))
+      (macrolet ((%appendf-value/return-value (place new-value)
+                   (alexandria:with-gensyms (tmp)
+                     `(let* ((,tmp ,new-value))
+                        (alexandria:appendf ,place (list ,tmp))
+                        ,tmp))))
+        (flet ((process (what value &optional dependencies)
+                 (ecase what
+                   (:required (%appendf-value/return-value required (funcall function what value dependencies)))
+                   (:optional (%appendf-value/return-value optional (funcall function what value dependencies)))
+                   (:rest (setf rest (funcall function what value)))
+                   (:keys? (setf keys? t))
+                   (:keyword (%appendf-value/return-value keywords (funcall function what value dependencies)))
+                   (:allow-other-keys? (setf allow-other-keys? t)))))
+          (let* ((after-required (parse-ordinary-lambda-list/required #'process ordinary-lambda-list))
+                 (after-optional (parse-ordinary-lambda-list/optional #'process after-required required))
+                 (after-rest (parse-ordinary-lambda-list/rest #'process after-optional))
+                 (after-keys (parse-ordinary-lambda-list/keys #'process after-rest (append required
+                                                                                           optional
+                                                                                           (when rest
+                                                                                             (list rest)))))
+                 (after-allow-other-keys (parse-ordinary-lambda-list/allow-other-keys #'process after-keys)))
+            (assert (null after-allow-other-keys))
+            (make-instance class-name
+                           :all-parameters (append required
+                                                   optional
+                                                   (when rest
+                                                     (list rest))
+                                                   keywords)
+                           :original-lambda-list ordinary-lambda-list
+                           :required-parameters required
+                           :optional-parameters optional
+                           :rest-parameter rest
+                           :keyword-parameters-p keys?
+                           :keyword-parameters keywords
+                           :allow-other-keys-p allow-other-keys?)))))))
 
 ;;;; Store Lambda Lists
 
@@ -230,57 +455,57 @@
 (defclass store-parameters (parameters)
   ())
 
-(defmethod duplicate-keywords-p ((parameters store-parameters))
-  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
-    (loop
-      with duplicates = nil
-      with processed = nil
-      for keyword in keywords
-      do
-         (cond ((find keyword processed)
-                (pushnew keyword duplicates))
-               (t
-                (push keyword processed)))
-      finally (return duplicates))))
-
 (defun parse-store-lambda-list (store-lambda-list)
-  (labels ((process (command value)
-             (case command
+  (labels ((process (command value &optional dependencies)
+             (ecase command
                (:required (if (symbolp value)
-                              value
+                              (make-required-parameter value)
                               (signal-parse-lambda-list-error "Invalid required parameter name ~W." value)))
-               (:optional (cond ((symbolp value)
-                                 (list value nil))
-                                ((and (listp value) (<= 1 (length value) 2))
-                                 (destructuring-bind (var &optional init-form) value
-                                   (cond ((null var)
-                                          (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
-                                         (t
-                                          (list var init-form)))))
-                                (t
-                                 (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))))
-               (:keyword (cond ((symbolp value)
-                                (list (intern (symbol-name value) "KEYWORD")
-                                      value
-                                      nil))
-                               ((and (listp value) (<= 1 (length value) 2))
-                                (destructuring-bind (name &optional init-form) value
-                                  (cond ((and name (symbolp name))
-                                         (list (intern (symbol-name name) "KEYWORD") name init-form))
-                                        ((and name (listp name))
-                                         (destructuring-bind (keyword var) name
-                                           (list keyword var init-form)))
-                                        (t
-                                         (signal-parse-lambda-list-error "Invalid keyword parameter specification." value)))))
-                               (t
-                                (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))))))
+               (:optional (flet ((signal-invalid ()
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))
+                            (cond ((symbolp value)
+                                   (make-optional-parameter dependencies value))
+                                  ((and (listp value) (<= 1 (length value) 3))
+                                   (destructuring-bind (var &optional init-form varp) value
+                                     (cond ((or (null var) (not (symbolp varp))
+                                                (not (symbolp varp)))
+                                            (signal-invalid))
+                                           (t
+                                            (make-optional-parameter dependencies var init-form varp)))))
+                                  (t
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))))
+               (:rest (if (and value (symbolp value))
+                          (make-rest-parameter value)
+                          (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value)))
+               (:keyword (flet ((signal-invalid ()
+                                  (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))
+                           (cond ((symbolp value)
+                                  (make-keyword-parameter dependencies value))
+                                 ((and (listp value) (<= 1 (length value) 3))
+                                  (destructuring-bind (name &optional init-form varp) value
+                                    (cond ((and name (symbolp name))
+                                           (make-keyword-parameter dependencies name init-form varp))
+                                          ((and name (listp name) (= 2 (length name)))
+                                           (destructuring-bind (keyword var) name
+                                             (cond ((and keyword (keywordp keyword)
+                                                         var (symbolp var))
+                                                    (make-keyword-parameter dependencies var init-form varp keyword))
+                                                   (t
+                                                    (signal-invalid)))))
+                                          (t
+                                           (signal-invalid)))))
+                                 (t
+                                  (signal-invalid))))))))
     (let* ((*lambda-list* store-lambda-list)
            (*lambda-list-description* "store-lambda-list")
            (*parse-lambda-list-error-class* 'parse-store-lambda-list-error)
            (rv (parse-ordinary-lambda-list 'store-parameters #'process store-lambda-list))
-           (duplicate-keywords (duplicate-keywords-p rv)))
+           (duplicate-keywords (duplicate-keywords-p rv))
+           (duplicate-variables (duplicate-variables-p rv)))
       (when duplicate-keywords
         (signal-parse-lambda-list-error "The keywords ~W are used more than once in the store lambda list." duplicate-keywords))
+      (when duplicate-variables
+        (signal-parse-lambda-list-error "The variables ~W are used more than once in the store lambda list." duplicate-variables))
       rv)))
 
 ;;;; Specialization Lambda Lists
@@ -288,58 +513,123 @@
 (define-condition parse-specialization-lambda-list-error (parse-lambda-list-error)
   ())
 
+(defgeneric parameter-type (object))
+
+(defclass specialized-required-parameter (required-parameter)
+  ((type :initarg :type)))
+
+(defclass specialized-optional-parameter (optional-parameter)
+  ())
+
+(defclass specialized-rest-parameter (rest-parameter)
+  ())
+
+(defclass specialized-keyword-parameter (keyword-parameter)
+  ())
+
+(defun make-specialized-required-parameter (var type)
+  (check-type var (and (not null) symbol))
+  (make-instance 'specialized-required-parameter :var var :type type))
+
+(defun make-specialized-optional-parameter (dependencies var &optional init-form-or-type varp)
+  (check-type dependencies parameter-dependencies)
+  (check-type var (and (not null) symbol))
+  (check-type varp symbol)
+  (make-instance 'specialized-optional-parameter :dependencies dependencies
+                                                 :var var
+                                                 :init-form init-form-or-type
+                                                 :varp varp))
+
+(defun make-specialized-rest-parameter (var)
+  (check-type var (and (not null) symbol))
+  (make-instance 'specialized-rest-parameter :var var))
+
+(defun make-specialized-keyword-parameter (dependencies var &optional init-form-or-type varp (keyword nil keywordp))
+  (check-type dependencies parameter-dependencies)
+  (check-type var (and (not null) symbol))
+  (check-type varp symbol)
+  (let* ((keyword (if keywordp
+                      keyword
+                      (alexandria:make-keyword (symbol-name var)))))
+    (check-type keyword keyword)
+    (make-instance 'specialized-keyword-parameter :dependencies dependencies
+                                                  :var var
+                                                  :init-form init-form-or-type
+                                                  :varp varp
+                                                  :keyword keyword)))
+
+(defmethod parameter-lambda-list-specification ((parameter specialized-required-parameter))
+  (list (parameter-var parameter)
+        (parameter-type parameter)))
+
+(defmethod parameter-type ((object specialized-required-parameter))
+  (slot-value object 'type))
+
+(defmethod parameter-type ((object specialized-optional-parameter))
+  (error "Specialized lambda lists are unable to specify the type of optional parameters."))
+
+(defmethod parameter-type ((object specialized-rest-parameter))
+  'list)
+
+(defmethod parameter-type ((object specialized-keyword-parameter))
+  (or (parameter-init-form object)
+      t))
+
 (defclass specialization-parameters (parameters)
   ())
 
-(defmethod duplicate-keywords-p ((parameters specialization-parameters))
-  (let ((keywords (mapcar #'first (keyword-parameters parameters))))
-    (filter-duplicates keywords)))
-
-(defmethod duplicate-variables-p ((parameters specialization-parameters))
-  (let ((variables (append (mapcar #'first (required-parameters parameters))
-                           (mapcar #'first (optional-parameters parameters))
-                           (mapcar #'third (optional-parameters parameters))
-                           (alexandria:when-let ((v (rest-parameter parameters)))
-                             (list v))
-                           (mapcar #'second (keyword-parameters parameters))
-                           (mapcar #'fourth (keyword-parameters parameters)))))
-    (filter-duplicates variables)))
-
 (defun parse-specialization-lambda-list (specialization-lambda-list)
-  (labels ((process (what value)
+  (labels ((process (what value &optional dependencies)
              (ecase what
                (:required (cond ((symbolp value)
-                                 (list value t))
+                                 (make-specialized-required-parameter value t))
                                 ((and (listp value) (<= 1 (length value) 2))
                                  (destructuring-bind (name &optional (type t)) value
-                                   (list name type)))
+                                   (make-specialized-required-parameter name type)))
                                 (t
                                  (signal-parse-lambda-list-error "Invalid required parameter specification ~W." value))))
-               (:optional (cond ((symbolp value)
-                                 (list value nil nil))
-                                ((and (listp value) (<= 1 (length value) 3))
-                                 (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
-                                   (when (not (and var
-                                                   (or (not supplied-p-var?)
-                                                       (and supplied-p-var supplied-p-var?))))
-                                     (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value))
-                                   (list var init-form supplied-p-var)))))
-               (:keyword (cond ((symbolp value)
-                                (list (intern (symbol-name value) "KEYWORD")
-                                      value nil nil))
-                               ((and (listp value) (<= 1 (length value) 3))
-                                (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
-                                  (when (not (and (or (and var (symbolp var))
-                                                      (and (listp var) (= 2 (length var))
-                                                           (first var) (second var)))
-                                                  (or (not supplied-p-var?)
-                                                      (and supplied-p-var supplied-p-var?))))
-                                    (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value))
-                                  (destructuring-bind (keyword var) (if (listp var)
-                                                                        var
-                                                                        (list (intern (symbol-name var) "KEYWORD")
-                                                                              var))
-                                    (list keyword var init-form supplied-p-var)))))))))
+               (:optional (flet ((signal-invalid ()
+                                   (signal-parse-lambda-list-error "Invalid optional parameter specification ~W." value)))
+                            (cond ((symbolp value)
+                                   (make-specialized-optional-parameter dependencies value))
+                                  ((and (listp value) (<= 1 (length value) 3))
+                                   (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
+                                     (cond ((not var)
+                                            (signal-invalid))
+                                           ((and supplied-p-var? (not supplied-p-var))
+                                            (signal-invalid))
+                                           (supplied-p-var?
+                                            (make-specialized-optional-parameter dependencies var init-form supplied-p-var))
+                                           (t
+                                            (make-specialized-optional-parameter dependencies var init-form)))))
+                                  (t
+                                   (signal-invalid)))))
+               (:rest (if value
+                          (make-specialized-rest-parameter value)
+                          (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value)))
+               (:keyword (flet ((signal-invalid ()
+                                  (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))
+                           (cond ((symbolp value)
+                                  (make-specialized-keyword-parameter dependencies value))
+                                 ((and (listp value) (<= 1 (length value) 3))
+                                  (destructuring-bind (var &optional init-form (supplied-p-var nil supplied-p-var?)) value
+                                    (cond ((not var)
+                                           (signal-invalid))
+                                          ((and supplied-p-var? (not supplied-p-var))
+                                           (signal-invalid))
+                                          ((and (listp var) (= (length var) 2))
+                                           (destructuring-bind (keyword name) var
+                                             (when (or (not (keywordp keyword))
+                                                       (null name)
+                                                       (not (symbolp keyword)))
+                                               (signal-invalid))
+                                             (make-specialized-keyword-parameter dependencies name init-form supplied-p-var keyword)))
+                                          ((and (not (null var)) (symbolp var))
+                                           (make-specialized-keyword-parameter dependencies var init-form supplied-p-var))
+                                          (t
+                                           (signal-invalid)))))
+                                 (t
+                                  (signal-invalid))))))))
     (let* ((*lambda-list* specialization-lambda-list)
            (*lambda-list-description* "specialization-lambda-list")
            (*parse-lambda-list-error-class* 'parse-specialization-lambda-list-error)
@@ -375,17 +665,17 @@
            (positional-parameters-upper-bound specialization)
            (positional-parameters-upper-bound store))
        (cond ((keyword-parameters-p store)
-              (and (keyword-parameters specialization)
+              (and (keyword-parameters-p specialization)
                    ;; All keyword parameters in the store must be
-                   ;; present in the specialization and must be in the
-                   ;; type form.
-                   (loop
-                     with st-keys = (keyword-parameters store)
-                     with sp-keys = (keyword-parameters specialization)
-                     for (st-key-name nil) in st-keys
-                     for sp-key = (find st-key-name sp-keys :key #'first)
-                     always
-                     sp-key)))
+                   ;; present in the specialization, they must be in
+                   ;; the same order and they must in type form.
+                   (<= (length (keyword-parameters store))
+                       (length (keyword-parameters specialization)))
+                   (every #'(lambda (store-keyword-parameter specialization-keyword-parameter)
+                              (eql (parameter-keyword store-keyword-parameter)
+                                   (parameter-keyword specialization-keyword-parameter)))
+                          (keyword-parameters store)
+                          (keyword-parameters specialization))))
              (t
               (not (keyword-parameters-p specialization))))
        t))
@@ -402,36 +692,108 @@
              t
              (compare #'eql #'not #'rest-parameter))
          (alexandria:set-equal (keyword-parameters store-a) (keyword-parameters store-b)
-                               :test #'(lambda (a b)
-                                         ;; (keyword var init-form)
-                                         (eql (first a) (first b)))))))
+                               :key #'parameter-keyword
+                               :test #'eql))))
 
 ;;;; Lambda list conversions
+(defgeneric parameter-init-forms-as-global-functions (parameters environment))
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
-(defgeneric make-form-completion-lambda-form (parameters environment))
+
+(defmethod parameter-init-forms-as-global-functions ((parameters store-parameters) environment)
+  (let* ((globals nil))
+    (flet ((generate-init-form (dependencies var init-form)
+             (let* ((function-name (specialization-store:generate-interned-symbol var "INIT-FUNCTION"))
+                    (vars (reduce #'append dependencies
+                                  :key #'parameter-vars
+                                  :initial-value nil))
+                    (function `(defun ,function-name ,vars
+                                 (declare (ignorable ,@vars))
+                                 ,init-form)))
+               (push function globals)
+               `(,function-name ,@vars)))
+           (generate-varp (var)
+             (gensym (concatenate 'string (string var) "?"))))
+      (let* ((required (required-parameters parameters))
+             (optional (loop
+                         with dependencies = required
+                         for parameter in (optional-parameters parameters)
+                         for var = (parameter-var parameter)
+                         for init-form = (parameter-init-form parameter)
+                         for new-parameter = (cond ((constantp init-form environment)
+                                                    (if (parameter-varp parameter)
+                                                        parameter
+                                                        (make-optional-parameter dependencies var init-form (generate-varp var))))
+                                                   (t
+                                                    (make-optional-parameter dependencies
+                                                                             var
+                                                                             (generate-init-form dependencies var init-form)
+                                                                             (or (parameter-varp parameter)
+                                                                                 (generate-varp var)))))
+                         do
+                            (alexandria:appendf dependencies (list new-parameter))
+                         collect
+                         new-parameter))
+             (rest (rest-parameter parameters))
+             (keywords (loop
+                         with dependencies = (append required optional (when rest (list rest)))
+                         for parameter in (keyword-parameters parameters)
+                         for keyword = (parameter-keyword parameter)
+                         for var = (parameter-var parameter)
+                         for init-form = (parameter-init-form parameter)
+                         for new-parameter = (cond ((constantp init-form environment)
+                                                    (if (parameter-varp parameter)
+                                                        parameter
+                                                        (make-keyword-parameter dependencies var init-form (generate-varp var) keyword)))
+                                                   (t
+                                                    (make-keyword-parameter dependencies
+                                                                            var
+                                                                            (generate-init-form dependencies var init-form)
+                                                                            (or (parameter-varp parameter)
+                                                                                (generate-varp var))
+                                                                            keyword)))
+                         do
+                            (alexandria:appendf dependencies (list new-parameter))
+                         collect
+                         new-parameter))
+             (new-lambda-list (append (mapcar #'parameter-lambda-list-specification required)
+                                      (when optional
+                                        (cons '&optional (mapcar #'parameter-lambda-list-specification optional)))
+                                      (when rest
+                                        (list '&rest (parameter-var rest)))
+                                      (when keywords
+                                        (cons '&key (mapcar #'parameter-lambda-list-specification keywords)))
+                                      (when (allow-other-keys-p parameters)
+                                        '(&allow-other-keys)))))
+        (list (make-instance 'store-parameters
+                             :original-lambda-list new-lambda-list
+                             :all-parameters (append required optional (when rest (list rest)) keywords)
+                             :required-parameters required
+                             :optional-parameters optional
+                             :rest-parameter rest
+                             :keyword-parameters-p (keyword-parameters-p parameters)
+                             :keyword-parameters keywords
+                             :allow-other-keys-p (allow-other-keys-p parameters))
+              (nreverse globals))))))
 
 (defmethod ordinary-lambda-list ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
-  (append (mapcar #'first (required-parameters specialization-parameters))
-          (when (optional-parameters specialization-parameters)
-            `(&optional ,@(loop
-                            for (var init-form supplied-p-var) in (optional-parameters specialization-parameters)
-                            collect (cond (supplied-p-var
-                                           `(,var ,init-form ,supplied-p-var))
-                                          (init-form
-                                           `(,var ,init-form))
-                                          (t
-                                           var)))))
+  (append (mapcar #'parameter-var (required-parameters specialization-parameters))
+          (when (optional-parameters-p specialization-parameters)
+            `(&optional ,@(mapcar #'parameter-lambda-list-specification (optional-parameters specialization-parameters))))
           (when (rest-parameter specialization-parameters)
-            `(&rest ,(rest-parameter specialization-parameters)))
+            `(&rest ,(parameter-lambda-list-specification (rest-parameter specialization-parameters))))
           (when (keyword-parameters-p specialization-parameters)
             `(&key ,@(loop
                        with store-keyword-parameters = (keyword-parameters store-parameters)
-                       for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
-                       for init-form = (if (find keyword store-keyword-parameters :key #'first)
-                                           nil
+                       for parameter in (keyword-parameters specialization-parameters)
+                       for keyword = (parameter-keyword parameter)
+                       for var = (parameter-var parameter)
+                       for form = (parameter-init-form parameter)
+                       for supplied-p-var = (parameter-varp parameter)
+                       for init-form = (if (find keyword store-keyword-parameters :key #'parameter-keyword)
+                                           nil ;; The value completion function takes care of this.
                                            form)
                        for first-form = (if (equal (symbol-name keyword) (symbol-name var))
                                             var
@@ -449,13 +811,19 @@
 
 (defmethod type-declarations ((store-parameters store-parameters) (specialization-parameters specialization-parameters))
   (append (loop
-            for (var type) in (required-parameters specialization-parameters)
+            for parameter in (required-parameters specialization-parameters)
+            for var = (parameter-var parameter)
+            for type = (parameter-type parameter)
             unless (eql type t)
               collect `(type ,type ,var))
           (loop
             with store-keyword-parameters = (keyword-parameters store-parameters)
-            for (keyword var form supplied-p-var) in (keyword-parameters specialization-parameters)
-            when (find keyword store-keyword-parameters :key #'first)
+            for parameter in (keyword-parameters specialization-parameters)
+            for keyword = (parameter-keyword parameter)
+            for var = (parameter-var parameter)
+            for form = (parameter-init-form parameter)
+            for supplied-p-var = (parameter-varp parameter)
+            when (find keyword store-keyword-parameters :key #'parameter-keyword)
               append (append (when form
                                `((type ,form ,var)))
                              (when supplied-p-var
@@ -467,7 +835,7 @@
          (keywordsp (keyword-parameters-p specialization-parameters))
          (keywords (keyword-parameters specialization-parameters))
          (rest (rest-parameter specialization-parameters))
-         (input-types (append (mapcar #'second required)
+         (input-types (append (mapcar #'parameter-type required)
                               (when optional
                                 (cons '&optional (mapcar (constantly t) optional)))
                               (when (and rest (not keywordsp))
@@ -476,95 +844,97 @@
                                 (cons '&key
                                       (loop
                                         with store-keyword-parameters = (keyword-parameters store-parameters)
-                                        for (keyword nil form) in keywords
-                                        when (find keyword store-keyword-parameters :key #'first)
-                                          append (list keyword form)))))))
+                                        for parameter in keywords
+                                        for keyword = (parameter-keyword parameter)
+                                        for form = (parameter-init-form parameter)
+                                        when (find keyword store-keyword-parameters :key #'parameter-keyword)
+                                          collect (list keyword form)))))))
     `(function ,input-types ,value-type)))
 
 (defmethod make-value-completion-lambda-form ((parameters store-parameters))
-  (let* ((required (required-parameters parameters))
-         (required-forms required)
-         (optional (optional-parameters parameters))
-         (optional-forms (loop for (var) in optional collect var))
+  (let* ((required (mapcar #'parameter-lambda-list-specification (required-parameters parameters)))
+         (optional (mapcar #'parameter-lambda-list-specification (optional-parameters parameters)))
          (positional (append required (when optional (append '(&optional) optional))))
-         (positional-forms (append required-forms optional-forms))
-         (rest (rest-parameter parameters))
+         (rest (when (rest-parameter-p parameters)
+                 (parameter-var (rest-parameter parameters))))
          (keywordsp (keyword-parameters-p parameters))
-         (keywords (loop
-                     for (keyword var init-form) in (keyword-parameters parameters)
-                     collect `((,keyword ,var) ,init-form)))
+         (keywords (mapcar #'parameter-lambda-list-specification (keyword-parameters parameters)))
+         (required-forms (mapcar #'parameter-var (required-parameters parameters)))
+         (optional-forms (mapcar #'parameter-var (optional-parameters parameters)))
+         (positional-forms (append required-forms optional-forms))
          (keyword-forms (loop
-                          for (keyword var) in (keyword-parameters parameters)
-                          append (list keyword var)))
+                          for parameter in (keyword-parameters parameters)
+                          append (list (parameter-keyword parameter)
+                                       (parameter-var parameter))))
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys)))
-         (continuation (gensym "CONTINUATION")))
+         (continuation (gensym "CONTINUATION"))
+         (ignorable-vars (parameter-vars parameters)))
     (cond (keywordsp
            (let* ((rest (or rest (gensym "REST"))))
              `(lambda (,continuation)
                 (lambda (,@positional &rest ,rest &key ,@keywords ,@allow-other-keys)
+                  (declare (ignorable ,@ignorable-vars))
                   (apply ,continuation ,@positional-forms ,@keyword-forms ,rest)))))
           (rest
            `(lambda (,continuation)
               (lambda (,@positional &rest ,rest)
+                (declare (ignorable ,@ignorable-vars))
                 (apply ,continuation ,@positional-forms ,rest))))
           (t
            `(lambda (,continuation)
               (lambda (,@positional)
+                (declare (ignorable ,@ignorable-vars))
                 (funcall ,continuation ,@positional-forms)))))))
 
 (defmethod make-type-completion-lambda-form ((parameters store-parameters) environment)
   (let* ((continuation (gensym "CONTINUATION"))
          (lambda-form (gensym "FORM"))
          (lambda-environment (gensym "ENVIRONMENT"))
-         (required (required-parameters parameters))
+         (required (mapcar #'parameter-var (required-parameters parameters)))
          (required-vars required)
          (required-let*-forms (loop
                                 for var in required
                                 collect `(,var (determine-form-value-type ,var ,lambda-environment))))
          (required-forms required-vars)
          (optional (loop
-                     for (var init-form) in (optional-parameters parameters)
-                     for init-form-type = (determine-form-value-type init-form environment)
-                     collect (list var `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
-         (optional-vars (mapcar #'first (optional-parameters parameters)))
+                     for parameter in (optional-parameters parameters)
+                     for var = (parameter-var parameter)
+                     for init-form = (parameter-init-form parameter)
+                     collect (list var nil (gensym "SUPPLIEDP"))))
+         (optional-vars (mapcar #'parameter-var (optional-parameters parameters)))
          (optional-let*-forms (loop
-                                with left-vars = required-vars
-                                for (nil init-form) in (optional-parameters parameters)
-                                for expanded-init-form = (macroexpand init-form environment)
-                                for (var init-form-type suppliedp) in optional
+                                for parameter in (optional-parameters parameters)
+                                for init-form = (parameter-init-form parameter)
+                                for init-form-type = (determine-form-value-type init-form environment)
+                                for (var nil suppliedp) in optional
                                 collect `(,var (if ,suppliedp
                                                    (determine-form-value-type ,var ,lambda-environment)
-                                                   ,(if (find expanded-init-form left-vars)
-                                                        expanded-init-form
-                                                        init-form-type)))
-                                do
-                                   (push var left-vars)))
+                                                   (quote ,init-form-type)))))
          (optional-forms optional-vars)
          (positional (append required (when optional (append '(&optional) optional))))
          (positional-let*-forms (append required-let*-forms optional-let*-forms))
          (positional-forms (append required-forms optional-forms))
-         (rest (rest-parameter parameters))
+         (rest (when (rest-parameter-p parameters)
+                 (parameter-var (rest-parameter parameters))))
          (keywordsp (keyword-parameters-p parameters))
          (keywords (loop
-                     for (keyword var init-form) in (keyword-parameters parameters)
-                     for init-form-type = (determine-form-value-type init-form environment)
-                     collect (list (list keyword var) `(quote ,init-form-type) (gensym "SUPPLIEDP"))))
+                     for parameter in (keyword-parameters parameters)
+                     for keyword = (parameter-keyword parameter)
+                     for var = (parameter-var parameter)
+                     collect (list (list keyword var) nil (gensym "SUPPLIEDP"))))
          (keyword-let*-forms (loop
-                               with left-vars = (append required-vars optional-vars)
-                               for (nil nil init-form) in (keyword-parameters parameters)
-                               for expanded-init-form = (macroexpand init-form environment)
-                               for ((nil var) init-form-type suppliedp) in keywords
+                               for parameter in (keyword-parameters parameters)
+                               for init-form = (parameter-init-form parameter)
+                               for init-form-type = (determine-form-value-type init-form environment)
+                               for ((nil var) nil suppliedp) in keywords
                                collect (list var `(if ,suppliedp
                                                       (determine-form-value-type ,var ,lambda-environment)
-                                                      ,(if (find expanded-init-form left-vars)
-                                                           expanded-init-form
-                                                           init-form-type)))
-                               do
-                                  (push var left-vars)))
+                                                      ',init-form-type))))
          (keyword-forms (loop
-                          for (keyword var) in (keyword-parameters parameters)
-                          append (list keyword var)))
+                          for parameter in (keyword-parameters parameters)
+                          append (list (parameter-keyword parameter)
+                                       (parameter-var parameter))))
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys))))
     (cond
@@ -590,79 +960,164 @@
             (let* (,@positional-let*-forms)
               (funcall ,continuation ,lambda-form ,lambda-environment
                        (list ,@required-forms ,@optional-forms)))))))))
+
+;;;; store-function-form-rewriter
 
-(defun compiler-macro-head (form)
-  (assert (listp form))
-  (if (eql 'funcall (first form))
-      (subseq form 0 2)
-      (subseq form 0 1)))
+;; When a function call is made, all of the arguments are evaluated
+;; first and then given to the function as a list. The arguments are
+;; then destructured according to the lambda list of the
+;; function.
+;;
+;; Thus, given the following function definition,
+;;
+;;   (defun example (a &key (b a))
+;;     ;; %example is a function.
+;;     (%example a b))
+;;
+;; and the following application
+;;
+;;   (example object)
+;;
+;; it can be concluded that the value of the variable B is EQL to A
+;; for any object.
+;;
+;; Associated with the EXAMPLE function is the compiler macro:
+;;
+;;   (define-compiler-macro example (a &key (b a))
+;;     `(%example ,a ,b))
+;;
+;; Unfortunately, this compiler macro changes how arguments are
+;; evaluated. Consider the following example:
+;;
+;;   (let ((x 0))
+;;     (defun generate ()
+;;       (incf x)
+;;       (list x)))
+;;
+;;   (example (generate))
+;;
+;; Applying the compiler macro to the EXAMPLE application
+;;
+;;   (compiler-macroexpand '(example (generate)))
+;;   => (%example (generate) (generate))
+;;
+;; we see that there are now two invocations of the GENERATE function
+;; and thus there exists cases where the object bound to B is not EQL
+;; to the object bound to A.
+;;
+;; The purpose of the FUNCTION-AND-MACRO component is to ensure that
+;; the function and the form generated by the compiler macro function
+;; are consistent in the way arguments are evaluated.
+;;
+;; Consistency can only be achieved if the function and compiler macro
+;; function are defined simultaneously. This is evident from the
+;; following function definition
+;;
+;;   (flet ((init-b (a)
+;;            ...))
+;;     (defun example (a &key (b (init-b a)))
+;;       ...))
+;;
+;; The lexical environment of the EXAMPLE function must be retained
+;; for use by the compiler macro in order for the initialisation forms
+;; to be equivalent.
+;;
+;; Care must also be taken to ensure to macroexpansion is consistent
+;; too
+;;
+;;   (defvar *count* 0)
+;;
+;;   (defun example (a &key (b (macrolet ((g ()
+;;                                           (incf *count*)))
+;;                               (g)))))
+;;
+;;
+;; The init form for the b argument should only be expanded once, when
+;; generating the lexical environment used by the function and the
+;; compiler macro function.
 
-(defun generate-init-form-function-name ()
-  (loop
-    for symbol = (gensym "%%INIT-FORM")
-    do
-       (multiple-value-bind (interned-symbol status) (intern (symbol-name symbol) *package*)
-         (unless status
-           (return-from generate-init-form-function-name interned-symbol)))))
-
-(defmethod make-form-completion-lambda-form ((parameters store-parameters) environment)
-  (let* ((function-definitions nil)
-         (symbols (reverse (required-parameters parameters))))
-    (flet ((process-init-form (var init-form)
-             (push var symbols)
-             (let ((init-form (macroexpand init-form environment)))
-               (cond ((member init-form (rest symbols))
-                      init-form)
-                     ((constantp init-form environment)
-                      init-form)
-                     (t
-                      (let* ((function-name (generate-init-form-function-name)))
-                        (push `(defun ,function-name ()
-                                 ,init-form)
-                              function-definitions)
-                        `'(the ,(determine-form-value-type init-form environment) (,function-name))))))))
-      (let* ((required (required-parameters parameters))
-             (optional (loop
-                         for (var init-form) in (optional-parameters parameters)
-                         collect
-                         (list var (process-init-form var init-form))))
-             (positional (append required
-                                 (when optional
-                                   (append '(&optional)
-                                           optional))))
-             (keywordsp (keyword-parameters-p parameters))
-             (allow-others-p (when (allow-other-keys-p parameters)
-                               '(&allow-other-keys)))
-             (keywords (loop
-                         for (keyword var init-form) in (keyword-parameters parameters)
-                         collect
-                         (list (list keyword var) (process-init-form var init-form))))
-             (rest (rest-parameter parameters))
-             (required-forms required)
-             (optional-forms (mapcar #'first optional))
-             (positional-forms (append required-forms optional-forms))
-             (keyword-forms (loop
-                              for (keyword var) in (keyword-parameters parameters)
-                              append
-                              (list keyword var)))
-             (lambda-form (cond (keywordsp
-                                 (let ((rest (or rest (gensym "REST"))))
-                                   `(compiler-macro-lambda (,@positional &rest ,rest &key ,@keywords ,@allow-others-p)
-                                      (append (list ,@positional-forms ,@keyword-forms)
-                                              ,rest))))
-                                (rest
-                                 `(compiler-macro-lambda (,@positional &rest ,rest)
-                                    (append (list ,@positional-forms)
-                                            ,rest)))
-                                (t
-                                 `(compiler-macro-lambda (,@positional)
-                                    (list ,@positional-forms)))))
-             (continuation (gensym "CONTINUATION"))
-             (form (gensym "FORM"))
-             (env (gensym "ENV")))
-        (list `(lambda (,continuation)
-                 (lambda (,form ,env)
-                   (funcall ,continuation ,form ,env
-                            (append (compiler-macro-head ,form)
-                                    (funcall ,lambda-form ,form ,env)))))
-              function-definitions)))))
+(defun rewrite-store-function-form (store-parameters form env)
+  (check-type store-parameters store-parameters)
+  (let* ((form-head (specialization-store:compiler-macro-form-head form))
+         (form-args (specialization-store:compiler-macro-form-arguments form))
+         (dependencies nil)
+         (let-forms nil)
+         (required (loop
+                     for parameter in (required-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for var-formp = (not (null form-args))
+                     for var-form = (pop form-args)
+                     for var-type = (determine-form-value-type var-form env)
+                     for constantp = (constantp var-form env)
+                     do
+                        (unless var-formp
+                          (warn "Insufficient arguments for function in form ~A." form))
+                        (if constantp
+                            (setf var var-form)
+                            (alexandria:appendf let-forms (list (list var var-form))))
+                        (alexandria:appendf dependencies (list var))
+                     collect (if constantp
+                                 var-form
+                                 `(the ,var-type ,var))))
+         (optional (loop
+                     for parameter in (optional-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for var-formp = (not (null form-args))
+                     for init-form = (parameter-init-form parameter)
+                     for var-form = (cond (var-formp
+                                           (pop form-args))
+                                          ((constantp init-form nil)
+                                           init-form)
+                                          (t
+                                           (cons (first init-form) dependencies)))
+                     for var-type = (determine-form-value-type var-form env)
+                     for constantp = (constantp var-form env)
+                     do
+                        (cond ((and var-formp constantp)
+                               (setf var var-form))
+                              (t
+                               (alexandria:appendf let-forms (list (list var var-form)))))
+                        (alexandria:appendf dependencies (list var var-formp))
+                     collect (if constantp
+                                 var-form
+                                 `(the ,var-type ,var))))
+         (keywords (loop
+                     with no-form = '#:no-form
+                     for parameter in (keyword-parameters store-parameters)
+                     for var = (gensym (symbol-name (parameter-var parameter)))
+                     for %var-form = (getf form-args (parameter-keyword parameter) no-form)
+                     for var-formp = (not (eql %var-form no-form))
+                     for init-form = (parameter-init-form parameter)
+                     for var-form = (cond (var-formp
+                                           %var-form)
+                                          ((constantp init-form nil)
+                                           init-form)
+                                          (t
+                                           (cons (first init-form) dependencies)))
+                     for var-type = (determine-form-value-type var-form env)
+                     for constantp = (constantp var-form env)
+                     do
+                        (cond ((and var-formp constantp)
+                               (setf var var-form))
+                              (t
+                               (alexandria:appendf let-forms (list (list var var-form)))))
+                        (alexandria:appendf dependencies (list var var-formp))
+                     append
+                     (list (parameter-keyword parameter)
+                           (if constantp
+                               var-form
+                               `(the ,var-type ,var)))))
+         (rest     form-args))
+    (list #'(lambda (body env)
+              (cond ((or (constantp body env)
+                         (null let-forms))
+                     body)
+                    (t
+                     `(let* ,let-forms
+                        ,body))))
+          (cond ((keyword-parameters-p store-parameters)
+                 (append form-head required optional keywords rest))
+                ((rest-parameter-p store-parameters)
+                 (append form-head required optional rest))
+                (t
+                 (append form-head required optional))))))
