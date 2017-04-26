@@ -1,21 +1,4 @@
 (in-package "SPECIALIZATION-STORE.STANDARD-STORE")
-
-;;;; Notes
-;;
-;; Store Function Invocation (Runtime)
-;;
-;; 1. Complete optional and keyword arguments according to the store
-;;    lambda list.
-;; 2. Compute the most specific specialization using the type of each argument.
-;; 3. Invoke the specialization function with the completed arguments.
-;;
-;; Store Function Invocation (Compile Time)
-;;
-;; 1. Compute the types of all arguments, including completeing all of
-;;    the optional and keyword argument types (using information from
-;;    the store lambda list).
-;; 2. Compute the most specific specialization.
-;; 3. Invoke the specialization expander function with the
 
 ;;;; Standard Store Class
 
