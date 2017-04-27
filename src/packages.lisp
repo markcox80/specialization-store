@@ -70,7 +70,10 @@
 
   ;; Standard Implementation
   (:export "STANDARD-STORE"
-           "STANDARD-SPECIALIZATION")
+           "STANDARD-SPECIALIZATION"
+
+           "STANDARD-STORE-CLASS"
+           "STANDARD-SPECIALIZATION-CLASS")
 
   ;; Helpers
   (:export "COMPILER-MACRO-LAMBDA"
@@ -253,9 +256,11 @@
 
 (defpackage "SPECIALIZATION-STORE.MOP"
   (:export "FUNCALLABLE-STANDARD-CLASS"
-           "SET-FUNCALLABLE-INSTANCE-FUNCTION")
+           "SET-FUNCALLABLE-INSTANCE-FUNCTION"
+           "VALIDATE-SUPERCLASS")
   (:import-from #+sbcl "SB-MOP"
                 #+ccl "CCL"
                 #+cmucl "PCL"
                 "FUNCALLABLE-STANDARD-CLASS"
-                "SET-FUNCALLABLE-INSTANCE-FUNCTION"))
+                "SET-FUNCALLABLE-INSTANCE-FUNCTION"
+                "VALIDATE-SUPERCLASS"))

@@ -1,6 +1,23 @@
 (in-package "SPECIALIZATION-STORE.STANDARD-STORE")
+
 
 ;;;; Standard Store Class
+
+(defclass standard-store-class (specialization-store.mop:funcallable-standard-class)
+  ())
+
+(defmethod specialization-store.mop:validate-superclass ((class standard-store-class) (superclass specialization-store.mop:funcallable-standard-class))
+  t)
+
+;;;; Standard Specialization Class
+
+(defclass standard-specialization-class (specialization-store.mop:funcallable-standard-class)
+  ())
+
+(defmethod specialization-store.mop:validate-superclass ((class standard-specialization-class) (superclass specialization-store.mop:funcallable-standard-class))
+  t)
+
+;;;; Standard Store
 
 (defgeneric store-parameters (standard-store))
 
@@ -29,7 +46,7 @@
                              :reader store-type-completion-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
-  (:metaclass specialization-store.mop:funcallable-standard-class)
+  (:metaclass standard-store-class)
   (:default-initargs
    :name nil
    :documentation nil
@@ -62,7 +79,7 @@
              :reader specialization-function)
    (expand-function :initarg :expand-function
                     :reader specialization-expand-function))
-  (:metaclass specialization-store.mop:funcallable-standard-class)
+  (:metaclass standard-specialization-class)
   (:default-initargs
    :name nil
    :expand-function nil
