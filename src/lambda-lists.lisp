@@ -737,6 +737,7 @@
                          collect
                          new-parameter))
              (rest (rest-parameter parameters))
+             (keywordsp (keyword-parameters-p parameters))
              (keywords (loop
                          with dependencies = (append required optional (when rest (list rest)))
                          for parameter in (keyword-parameters parameters)
@@ -763,7 +764,7 @@
                                         (cons '&optional (mapcar #'parameter-lambda-list-specification optional)))
                                       (when rest
                                         (list '&rest (parameter-var rest)))
-                                      (when keywords
+                                      (when keywordsp
                                         (cons '&key (mapcar #'parameter-lambda-list-specification keywords)))
                                       (when (allow-other-keys-p parameters)
                                         '(&allow-other-keys)))))
