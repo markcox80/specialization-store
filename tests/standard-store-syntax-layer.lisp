@@ -246,6 +246,19 @@
     (is (equal '(1 2 3 2 3 4) (example '(1 2 3))))
     (is (equal '(1 2 3 1) (example '(1 2 3) '(1))))))
 
+(syntax-layer-test example/key/other-lexical-environment
+  (defstore example (object &key &allow-other-keys))
+
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (object)
+             (mapcar #'1+ object)))
+      (defspecialization example ((object list) &key (next (init-b object))) list
+        (append object next))))
+
+  (test lexical-environment
+    (is (equal '(1 2 3 2 3 4) (example '(1 2 3))))
+    (is (equal '(1 2 3 1) (example '(1 2 3) :next '(1))))))
+
 (syntax-layer-test make-store-unbound
   (defstore example (object))
 
