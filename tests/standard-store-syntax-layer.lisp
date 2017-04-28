@@ -233,6 +233,19 @@
       (is (= 1d0 (example v1 0)))
       (is (= 1 (example v2 0))))))
 
+(syntax-layer-test example/rest/optional-lexical-environment
+  (defstore example (object &rest args))
+
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (object)
+             (mapcar #'1+ object)))
+      (defspecialization example ((object list) &optional (next (init-b object))) list
+        (append object next))))
+
+  (test lexical-environment
+    (is (equal '(1 2 3 2 3 4) (example '(1 2 3))))
+    (is (equal '(1 2 3 1) (example '(1 2 3) '(1))))))
+
 (syntax-layer-test make-store-unbound
   (defstore example (object))
 
