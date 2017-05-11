@@ -6,12 +6,12 @@
   (values (+ a 1) (+ a 2)))
 
 #+specialization-store.features:function-declarations
-(test determine-form-multiple-value-type/with-function-declarations-feature  
+(test determine-form-multiple-value-type/with-function-declarations-feature
   (flet ((local-function (a)
            (concatenate 'string "Hello" a))
          (imperative (a)
            (declare (ignore a))
-           (values)))    
+           (values)))
     (declare (ftype (function (string) string) local-function)
              (ftype (function (integer) (values)) imperative)
              (ignorable (function local-function) (function imperative)))
@@ -36,7 +36,7 @@
           (is (or (equal '* result)
                   (equal 't result)
                   (equal '(values) result)
-                  (equal '(values &rest t) result))))        
+                  (equal '(values &rest t) result))))
         ;; Symbol macrolet
         (let ((result (compute my-symbol)))
           (is (or (equal 'string result)
@@ -89,16 +89,26 @@
           (declare (type (integer 5 5) a)
                    (ignorable a))
           (is (equal '(integer 5 5) (compute a))))
-        
+
         ;; Constants
+        (is (equal 'null (compute nil)))
+        (is (equal '(eql hey) (compute 'hey)))
         (is (equal '(eql 1) (compute 1)))
-        (is (equal (type-of "hey") (compute "hey")))
-        
+        (is (equal '(eql #\c) (compute #\c)))
+        (is (not (equal '(eql "hey") (compute (copy-seq "hey")))))
+        (is (subtypep (compute "hey") (type-of "hey")))
+        (let ((object my-symbol))
+          (is (equal `(eql ,object) (compute my-symbol))))
+
+        ;; Constants (non eql types)
+
+
         ;; Forms like (the type form)
         (is (equal 'integer (compute (the integer a))))
 
         ;; Symbol macrolet
-        (is (equal (type-of "Blah blah") (compute my-symbol)))
+        (let ((object my-symbol))
+          (is (equal `(eql ,object) (compute my-symbol))))
 
         ;; Functions
         #+specialization-store.features:function-declarations

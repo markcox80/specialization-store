@@ -29,7 +29,10 @@
            (characterp form))
        `(eql ,form))
       ((constantp form env)
-       (type-of (introspect-environment:constant-form-value form env)))
+       (let ((object (introspect-environment:constant-form-value form env)))
+         (if (null object)
+             'null
+             `(eql ,object))))
       ((the-form-p form)
        (second form))
       ((symbolp form)
