@@ -1,0 +1,103 @@
+#+TITLE: Store Function Initialization Forms
+#+AUTHOR: Mark Cox
+
+As of [2017-05-08], a major difference between store functions and
+generic functions is that users can specify initialization forms for
+optional and keyword parameters in a store function lambda list. This
+feature requires the store function to:
+1. Compute a closure which can evaluate a parameter's initialization
+   form in the lexical environment of the store function.
+2. Evaluate the parameter's closure when no argument is given at
+   run-time. The invocation of the closure must also occur when a
+   specialization is selected at compile time.
+3. Pass the completed argument list (or form) to a selected
+   specialization.
+
+This document reviews this decision based on experience gained during
+the implementation of the specialization store and template store
+systems.
+
+* Specializing absent keyword arguments
+The following code can be used to determine if an argument was
+supplied:
+#+begin_src lisp
+  (defstore example (&key (a nil %ap) (ap %ap)))
+
+  (defspecialization example (&key a (ap null)) string
+    "missing")
+
+  (defspecialization example (&key a (ap (eql t))) string
+    "present")
+#+end_src
+I admit that it is not a very elegant solution. Changing the current
+approach would be rash given the uncertainty surrounding the need for
+such functionality.
+
+Unfortunately, this approach does not work at compile time as there is
+no portable and fully functional way to infer the type of an
+intialization form that is a function of other parameters and/or
+values in the lexical environment.
+
+An alternative would be to change the initialization form to a
+hidden constant.
+#+begin_src lisp
+  (defstore example (&key (a 'hey)))
+
+  (defspecialization (example :inline t) (&key a) string
+    "present")
+
+  (defspecialization (example :inline t) (&key (a (eql hey))) string
+    "missing")
+#+end_src
+
+One solution to this problem would be to use ~NIL~ as the object type
+to indicate that this specialization should be invoked when no keyword
+argument was supplied.
+#+begin_src lisp
+  (defspecialization example (&key (a nil)) string
+    ...)
+#+end_src
+The problem with this approach is that it complicates the dispatching
+process with respect to initialization forms. A store function would
+have to first find a specialization applicable to the type ~NIL~, then
+if no specialization exists, evaluate the initialization forms and
+conduct another search using the type of the computed value.
+
+* Very general operators (or loosely coupled type hierarchies)
+This section considers very general operators where the initialization
+form is a function of the input arguments.
+
+#+begin_src lisp
+  (defstore dispatch (object &optional (destination (default-dispatch-destination object))))
+#+end_src
+
+The only reason the function ~default-dispatch-destination~ exists is
+to overcome the fact that initialization forms are part of the store
+function. Generic functions don't have this problem because it does
+not dispatch on optional and/or keyword parameters.
+
+A simple solution to this problem is to avoid introducing the
+generic/store function ~default-dispatch-destination~.
+
+#+begin_src lisp
+  (defstore dispatch (object &optional destination))
+
+  (defspecialization dispatch ((object my-object) (destination my-object-destination))
+    ...)
+
+  (defspecialization (dispatch :inline t) ((object my-object) (destination null))
+    (dispatch object (make-my-object-destination)))
+#+end_src
+or alternatively
+#+begin_src lisp
+  (defstore dispatch (object &optional destination))
+
+  (defspecialization dispatch ((object my-object) destination)
+    (let* ((destination (or destination (make-my-object-destination))))
+      ))
+#+end_src
+
+* Decision [2017-05-11]
+The current mechanism for specifying initialization forms seems
+reasonable. The ability to dispatch on optional and keyword arguments
+outweighs any inconveniences described in this document.
