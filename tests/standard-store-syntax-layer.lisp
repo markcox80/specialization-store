@@ -146,7 +146,7 @@
     (+ a b))
 
   (test lexical-environment
-    (is (= 3 (print (example))))
+    (is (= 3 (example)))
     (is (= 5 (example :a 2 :b 3)))
     (is (= 3 (funcall (compile nil `(lambda ()
                                       ,(introspect-environment:compiler-macroexpand '(example)))))))))
