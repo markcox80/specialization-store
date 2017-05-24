@@ -284,11 +284,9 @@
                                         specialization-class documentation
                                         value-completion-function
                                         type-completion-function
-                                        form-completion-function
                                       &allow-other-keys)
   (declare (ignore specialization-class documentation
-                   value-completion-function type-completion-function
-                   form-completion-function))
+                   value-completion-function type-completion-function))
   (apply #'reinitialize-instance instance
          :name store-name
          :lambda-list store-lambda-list
@@ -434,7 +432,7 @@
 
 (defmethod update-dispatch-functions ((store standard-store))
   (with-slots (runtime-function compile-time-function) store
-    (with-slots (value-completion-function type-completion-function form-completion-function) store
+    (with-slots (value-completion-function type-completion-function) store
       (labels ((third-argument (a b c)
                  (declare (ignore a b))
                  c)

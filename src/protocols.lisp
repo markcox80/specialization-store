@@ -108,7 +108,6 @@
 (defgeneric store-name (store))
 (defgeneric store-value-completion-function (store))
 (defgeneric store-type-completion-function (store))
-(defgeneric store-form-completion-function (store))
 (defgeneric specialization-name (specialization))
 
 (defun %find-store-helper (name)
@@ -144,7 +143,6 @@
                                          specialization-class documentation
                                          value-completion-function
                                          type-completion-function
-                                         form-completion-function
                                          &allow-other-keys))
 
 (defun ensure-store (name store-lambda-list &rest args
@@ -152,13 +150,11 @@
                        store-class specialization-class documentation
                        value-completion-function
                        type-completion-function
-                       form-completion-function
                        &allow-other-keys)
   (declare (ignore specialization-class
                    documentation
                    value-completion-function
-                   type-completion-function
-                   form-completion-function))
+                   type-completion-function))
   (let* ((store-class (typecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
