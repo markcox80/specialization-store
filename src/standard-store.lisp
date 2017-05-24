@@ -264,7 +264,7 @@
        (store-specializations store))
   (values))
 
-(defmethod ensure-store-using-object ((class (eql (find-class 'standard-store))) store-name store-lambda-list
+(defmethod ensure-store-using-object ((class standard-store-class) store-name store-lambda-list
                                       &rest args
                                       &key
                                         specialization-class documentation
