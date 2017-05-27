@@ -184,25 +184,36 @@ applies its arguments to the function returned by {dictionary :ss
 {dictionary-section :function (setf specialization-documentation)}
 
 {section section/syntax-layer "Syntax Layer"}
-This section outlines a convenient syntax for creating store functions
-and adding specializations to them.
-
-The syntax layer is not required to invoke the functions provided in
-the glue layer. It is however, required to perform the same actions.
+This section outlines a convenient syntax for defining store functions
+and specializations.
 
 The {dictionary :ss :function defstore} macro is used to define new
-store functions in the global environment.
+store functions in the global environment. Say something about the
+lexical environment.
 
 The {dictionary :ss :function defspecialization} macro provides a
-simple syntax for defining specializations.
+simple syntax for adding specializations to store functions.
 
 The {dictionary :ss :function define-specialization} macro performs
-the same task as {dictionary :ss :function defspecialization}, except
-that it is possible to specify the run-time behavior and compile time
-behavior separately.
+the same task as {dictionary :ss :function defspecialization} but
+gives the user complete freedom over the run-time behavior and compile
+time behavior of a specialization.
+
+The above macros delegate to the syntax layer protocol. This protocol
+consists of the following generic functions:
+{begin-list}
+{item}{dictionary :ss :function defstore-using-class}
+{item}{dictionary :ss :function defspecialization-using-object}
+{item}{dictionary :ss :function define-specialization-using-object}
+{end-list}
 
 The {ref :section section/syntax-layer/dictionary :text "syntax layer
 dictionary"} contains all of the requirements for the syntax layer.
+
+There are specific requirements with respect to initialization forms
+for optional and keyword arguments. ~defstore-using-class~ must close
+over the initialization forms so that they can be evaluated by
+compiler macros and specializations.
 
 {subsection section/syntax-layer/dictionary "Dictionary"}
 {dictionary-section :function defstore}
@@ -214,60 +225,40 @@ dictionary"} contains all of the requirements for the syntax layer.
 
 {section section/glue-layer "Glue Layer"}
 
-The glue layer forms a bridge between the {ref :section
-section/syntax-layer} and the {ref :section section/object-layer}. Its
-purpose is to model the behavior of defining store functions in the
-global environment.
+The glue layer connects the {ref :section section/syntax-layer :text
+"syntax layer"} and the {ref :section section/object-layer :text
+"object layer"} and is responsible for modifying the global
+environment.
 
-The processes encapsulated by the glue layer are:
-{begin-list}
-{item}Defining a new store function.
-{item}Redefining an existing store function.
-{item}Defining a new specialization.
-{item}Redefining an exist specialization.
-{item}Capturing the lexical environment.
-{end-list}
+A major component of the bridge between the syntax and object layers
+is the processing of arguments given to the store function.
 
-The ability to capture the lexical environment where the {dictionary
-:ss :function defstore} macro is evaluated is required when optional
-and keyword arguments are present in the store lambda list.
+Unlike CLOS' generic functions, the values of optional and keyword
+arguments are used to select a specialization. The {dictionary :ss
+:function defstore} macro allows initialization forms to be specified
+for optional and keyword arguments. Argument initialization forms are
+evaluated when an application contains no value for the respective
+argument.
 
-Unlike CLOS' generic functions, initialization of optional and keyword
-arguments is defined by the store function. This choice was made as
-dispatch can be performed in these scenarios by delegating to a helper
-generic function or a store function containing all required
-arguments. The following example shows the one-to-one mapping between
-arguments in the function ~my-function~ to required arguments in the
-delegate function ~%my-function~.
+Because store functions support compile time support, a store function
+must /complete/...
 
-{begin-example}
-(defgeneric %my-function (a b c d))
+The glue layer specifies two kinds of completion functions, a function
+which computes values when the store function is invoked at run-time
+(e.g. using {dictionary :ss :function funcall-store}) and a function
+which computes types when the store function is invoked at compile
+time (e.g. using {dictionary :ss :function expand-store}).
 
-(defun my-function (a b &optional (c (default-c-value))
-                        &key d)
-  (%my-function a b c d))
-{end-example}
-
-Closing over the lexical environment of the {dictionary :ss :function
-defstore} macro is achieved using completion functions. A completion
-function is responsible for computing the default values of optional
-and keyword arguments and communicating them to the next stage of the
-store function dispatch procedure.
-
-There are two types of completion functions, a function that computes
-values at run-time and a function that computes types at compile time.
-
-The run-time completion function is specified by the following lambda
-expression which is processed in the lexical environment in which the
-{dictionary :ss :function defstore} form was executed.
-
+An example run-time completion function is as follows:
 {begin-example}
 (lambda (continuation)
-  (lambda store-lambda-list
-    (funcall continuation [[completed-arguments]]*)))
+  (lambda (a b &optional c)
+    (funcall continuation a b c)))
 {end-example}
 
-The compile-time completion function deduces the type of the value
+Fix this..
+
+An example compile-time completion function deduces the type of the value
 returned by the initialization forms.
 
 {begin-example}
@@ -326,9 +317,18 @@ Glue layer delegates.
 
 {subsection section/lambda-lists/store-lambda-list "Store Lambda List"}
 
+Allow supplied-p-vars.
+
 {subsection section/lambda-lists/specialized-lambda-list "Specialized Lambda List"}
 
+Allow supplied-p-vars.
+
 {subsection section/lambda-lists/congruence "Congruence"}
+
+The keyword section of a specialized lambda list must include all of
+the keywords in the store lambda list and be specified in the same
+order. The order of keywords is required to ensure that there is no
+difference in the order in which arguments are initialized.
 
 {section section/standard-classes "Standard Classes"}
 
