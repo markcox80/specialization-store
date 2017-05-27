@@ -1,0 +1,243 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\title{Specialization Store Working}
+\author{Mark Cox}
+
+\newcommand{\true}{\textrm{true}}
+\newcommand{\false}{\textrm{false}}
+
+\begin{document}
+\maketitle
+
+TODO
+\begin{enumerate}
+\item Improve the terminology. Precedence, applicability, most
+  applicable.
+\item Add proofs.
+\end{enumerate}
+
+\section{Introduction}
+
+The specialization store system defines a new style of generic
+function which can i) dispatch according to optional, keyword or rest
+arguments and ii) the operation is determined using argument types
+rather than classes.
+
+This document outlines an ordering of specializations for a given set
+of input types and that there exists a set of projections which
+partition a set of specializations in to disjoint regions.
+
+The operators used in this document are defined as follows
+\begin{itemize}
+\item $ x \preceq y $ denotes that the set $x$ is a subset of the set $y$.
+\item $ x \prec y$ denotes that the set $x$ is a strict subset of the set $y$.
+\item $\lnot x $ is logical negation operator.
+\item $x \lor y$ is an operator performing the \emph{or} operation.
+\item $x \land y$ is an operator performing the \emph{and} operation.
+\item $\Pi_{i=1}^n x_i $ is equivalent to $ x_i \land \dots \land x_n $.
+\end{itemize}
+The standard numerical operators $=$, $<$, $>$, $\leq$ and $\geq$ are
+also used.
+
+A symbol $x$ may refer to a tuple containing an arbitrary number of
+values, written $x = (x_1, \dots, x_n)$, or may represent a type. The
+context of the symbol should make it clear what it represents. Note
+that \emph{none} of the above operators are defined for tuples.
+
+The operators defined for tuples are
+\begin{itemize}
+\item $|x|$ is the number of elements in the typle. e.g. $|x| = n$
+  when $ x = ( x_i, \dots, x_n ) $ .
+\end{itemize}
+
+\section{Specializations}
+There are two different types of specializations defined in
+specialization store.
+\begin{description}
+\item[Fixed arity] These are specializations which can be added to
+  store functions which accept a fixed number of required arguments
+  and possibly optional arguments and/or keyword
+  arguments. Specializations belonging to these functions are
+  represented by $ t \equiv (t_1, \dots, t_n) $.
+\item[Variable arity] These specialization belong to store functions
+  which define a \texttt{\&rest} argument without using
+  \texttt{\&key}. These specializations are represented by
+  $ x \equiv (t_{1}, \dots, t_{n_x}, \sigma_x) $ where $n_x$
+  represents the number of required arguments for the specialization,
+  and $\sigma_x$ is a non negative integer indicating how many other
+  arguments the specialization accepts.
+\end{description}
+
+\section{Ordering}
+\label{sec:ordering}
+\subsection{Fixed arity}
+In this section we show how a specialization is selected for an
+invocation with the argument types $t \equiv (t_1, \dots, t_n)$.
+
+A specialization is selected by sorting the specializations using a
+predicate $h(x,y;t)$ where $x$ and $y$ denote a specialization tuple
+and $t$ is the tuple containing the argument types. The function $h$
+is true if $x$ is applicable to the argument types $t$ and is a more
+suitable specialization than $y$. Its definition is as follows
+\begin{align}
+  h(x,y;t) &\equiv g(x;t) \land (\lnot g(y;t) \lor f(x,y) )
+\end{align}
+where $g$ is the applicability function
+\begin{align}
+  g(x;t) &\equiv \Pi_{i=1}^n (t_i \preceq x_i)
+\end{align}
+and $f$ is the precedence function
+\begin{align}
+  f(x,y) &\equiv \Pi_{i=1}^n (x_i \preceq y_i)
+\end{align}
+
+\subsection{Variable arity}
+The functions $g$, $f$ and $h$ for specializations with variable arity
+are
+\begin{align}
+  g(x;t) &\equiv (n_x \leq |t| \leq n_x + \sigma_x) \land \Pi_{i=1}^{n_x} (t_i \preceq x_i) \\
+  f(x,y) &\equiv (n_x \geq n_y) \land \Pi_{i=1}^{n_y}(x_i \preceq y_i) \\
+  h(x,y;t) &\equiv g(x;t) \land (\lnot g(y;t) \lor f(x,y) )
+\end{align}
+
+\section{Dispatch Tree}
+An applicability $g$ and discrimination function $f$ provide a method
+of selecting a specialization from a set $Z$ which has the highest
+precedence for a set of arguments. This method of selection is not
+very efficient as it requires sorting the set of
+specializations.
+
+In this section we explore the creation of an efficient method of
+performing this task by constructing a function $d : t \rightarrow x$
+which computes a specialization $x \in Z$ which has the highest
+precedence for input arguments of type $t$.
+
+The key property of the function $d$ is that its computational
+complexity is less than $\mathcal{O}(|Z|)$.
+
+\subsection{Criteria}
+The following cases need to proven in order to show that the function
+$d$ is equivalent to the sorting method.
+\begin{align}
+  \begin{cases}
+    g(d(t); t) \equiv \true & h(d(t),y;t) \equiv \true \;\; \forall y \in Z \\
+    g(d(t); t) \equiv \false & g(y;t) \equiv \false \;\; \forall y \in Z
+  \end{cases}
+\end{align}
+
+\noindent The sorting function $h(x,y;t)$ is defined as
+\begin{align}
+  h(x,y;t) &\equiv g(x;t) \land (\lnot g(y;t) \lor f(x,y) )
+\end{align}
+which has the following truth table
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c||c|}
+\hline
+$g(x;t)$ & $g(y;t)$ & $f(x,y)$ & $h(x,y;t)$ \\
+\hline
+F & F & F & F \\
+F & F & T & F \\
+F & T & F & F \\
+F & T & T & F \\
+T & F & F & T \\
+T & F & T & T \\
+T & T & F & F \\
+T & T & T & T \\
+\hline
+\end{tabular}
+\end{table}
+
+The precedence function for the fixed arity and variable arity case
+both share the term
+\begin{align}
+  \Pi_{i=1}^{\min(n_x,n_y)} x_i \preceq y_i
+\end{align}
+which requires that a given input argument type $t_i$ to satisfy
+\begin{align}
+  (t_i \preceq x_i) \land [\lnot (t_i \preceq y_i) \lor (x_i \preceq y_i)]
+\end{align}
+
+
+\subsection{Fixed Arity}
+Assume that we have a set of specializations $Z$ for an arity $n$
+store function which are partially applicable.
+\begin{align}
+  x_1 & \equiv (x_{11}, \dots, x_{1n}) \nonumber \\
+  x_2 & \equiv (x_{21}, \dots, x_{2n}) \nonumber \\
+  \vdots & \vdots                     \nonumber \\
+  x_k & \equiv (x_{k1}, \dots, x_{kn}) \nonumber
+\end{align}
+It is assumed that no two specializations are the same.
+
+Partial applicability is defined by the set $P$ which represents
+knowledge about any of the input argument types $t_j$. Specifically
+\begin{align}
+  (p_j \in P) \rightarrow (t_j \preceq p_j)
+.
+\end{align}
+
+A specialization $x_i$ is said to be partially applicable if
+\begin{align}
+  \exists_j \left[(p_j \preceq x_{ij}) \land (p_j \in P) \right]
+.
+\end{align}
+
+A specialization $x_i$ is said to be applicable if
+\begin{align}
+  \forall_j \left[(p_j \preceq x_{ij}) \land (p_j \in P) \right]
+\end{align}
+
+The function $d$ created for the fixed arity case is a decision tree
+which involves selecting a type $p_j$ to use as a test for a specific
+input argument type $t_j$.
+
+The type $p_j$ is selected from the $x_{ij}$ such that
+\begin{enumerate}
+\item $\exists_i (p_j \equiv x_{ij})$
+\item $\{x_{ij} | p_j \preceq x_{ij} \} \equiv \{x_{ij} | p_j \equiv x_{ij}\}$
+\item $p_j \notin P$
+\end{enumerate}
+
+The type $p_j$ is then used to partition the specializations $Z$ in to
+a set $X$ and $Y$ such that
+\begin{align}
+  X & \equiv \{ x_i | p_j \preceq x_{ij} \} & Y & \equiv (Z - X) \cup \{ x_i | p_j \prec x_{ij} \}
+\end{align}
+
+This process continues by splitting the set $X$ with
+$P = P \cup \{ p_j \}$ and splitting the set $Y$ with $P =
+P$. Splitting stops until $P$ is full.
+
+There may be more than one specialization in $X$ when $P$ is
+full. This can be resolved by sorting the specializations using $h()$.
+
+\subsection{Variable Arity}
+The tree building process for the variable arity case proceeds by
+partitioning the specializations using the first $\min_i n_{x_i}$
+arguments as if it were a fixed arity problem.
+
+A leaf in the resulting tree will contain a set of specializations
+$Z$. These specializations can be split in to two categories, those
+which can be invoked with $c$ arguments and those that can be invoked
+with more than $c$
+\begin{align}
+  X & = \{ x_i | n_{x_i} \leq c \leq n_{x_i} + \sigma_{x_i} \} & Y &= \{ x_i | n_{x_i} + \sigma_{x_i} > c \}
+\end{align}
+where $c$ is defined as
+\begin{align}
+  c = \min(\min_i n_{x_i}, \min_i (n_{x_i} + \sigma_{x_i}) ) \textrm{ s.t. } x_i \in Z
+\end{align}
+
+The set $X$ represents a fixed arity problem and thus can be
+partitioned using the strategy outlined in the previous section. The
+process is recursively applied to set $Y$.
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: LaTeX
+%%% mode: TeX-PDF
+%%% End:
