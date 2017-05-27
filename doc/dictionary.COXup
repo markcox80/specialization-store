@@ -78,11 +78,14 @@ arguments for which there is no applicable specialization for.
 {condition-type incongruent-specialization-error :parent-classes (store-error)}
 {description}
 
-{function inapplicable-arguments}
+{function inapplicable-arguments :arguments (inapplicable-arguments-error) :values list}
+{definition inapplicable-arguments-error}
+A {ref :type inapplicable-arguments-error} instance.
+{definition list}
+A list of objects or type specifiers.
 {description}
-Return the arguments used to initialize an instance of the condition
-type {ref :type inapplicable-arguments-error}.
-
+This function returns the arguments used to initialize an instance of
+the condition type {ref :type inapplicable-arguments-error}.
 
 {condition-type duplicate-specialization-error :parent-classes (store-error)}
 {description}
@@ -133,7 +136,6 @@ proceed due to the given specialization class.
 
 The function {ref :function invalid-specialization-class} can be used
 to retrieve the invalid specialization class.
-
 
 {function invalid-specialization-class :arguments (condition) :values class}
 {definition condition}
@@ -826,7 +828,7 @@ An error of type {ref :type invalid-store-name-error} is signalled if
 no store object is bound to the given ~store-name~.
 
 
-{macro defspecialization-using-object :arguments (store specialized-lambda-list value-type body
+{generic-function defspecialization-using-object :arguments (store specialized-lambda-list value-type body
                                                   &key name environment &allow-other-keys)
                                       :values specialization}
 {additional-syntax}
