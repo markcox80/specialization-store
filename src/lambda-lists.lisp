@@ -701,6 +701,7 @@
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
+(defgeneric make-form-types-lambda-form (parameters))
 
 (defmethod parameter-init-forms-as-global-functions ((parameters store-parameters) environment)
   (let* ((globals nil))
@@ -923,44 +924,41 @@
                      for parameter in (keyword-parameters parameters)
                      for keyword = (parameter-keyword parameter)
                      for var = (parameter-var parameter)
-                     collect (list (list keyword var) nil (gensym "SUPPLIEDP"))))
-         (keyword-let*-forms (loop
-                               for parameter in (keyword-parameters parameters)
-                               for init-form = (parameter-init-form parameter)
-                               for init-form-type = (determine-form-value-type init-form environment)
-                               for ((nil var) nil suppliedp) in keywords
-                               collect (list var `(if ,suppliedp
-                                                      (determine-form-value-type ,var ,lambda-environment)
-                                                      ',init-form-type))))
+                     for varp = (gensym (concatenate 'string (symbol-name var) "P"))
+                     collect (list (list keyword var) nil varp)))
          (keyword-forms (loop
-                          for parameter in (keyword-parameters parameters)
-                          append (list (parameter-keyword parameter)
-                                       (parameter-var parameter))))
+                          for ((keyword var) nil varp) in keywords
+                          collect `(when ,varp
+                                     (push ,keyword ,form-types)
+                                     (push (determine-form-value-type ,var ,lambda-environment)
+                                           ,form-types))))
          (allow-other-keys (when (allow-other-keys-p parameters)
                              '(&allow-other-keys))))
     (cond
       (keywordsp
        `(lambda (,continuation)
-          (compiler-macro-lambda (&whole ,lambda-form ,@positional &key ,@keywords ,@allow-other-keys &environment ,lambda-environment)
-            (let* (,@positional-let*-forms ,@keyword-let*-forms)
-              (funcall ,continuation ,lambda-form ,lambda-environment
-                       (list ,@positional-forms ,@keyword-forms))))))
+          (compiler-macro-lambda (,@positional &key ,@keywords ,@allow-other-keys &environment ,lambda-environment)
+            (let* (,form-types)
+              ,@positional-forms
+              ,@keyword-forms
+              (apply ,continuation (nreverse ,form-types))))))
       (rest
        (let ((rest-form (gensym "REST-FORM")))
          `(lambda (,continuation)
-            (compiler-macro-lambda (&whole ,lambda-form ,@positional &rest ,rest &environment ,lambda-environment)
-              (let* (,@positional-let*-forms)
-                (funcall ,continuation ,lambda-form ,lambda-environment
-                         (append (list ,@positional-forms)
-                                 (mapcar #'(lambda (,rest-form)
-                                             (determine-form-value-type ,rest-form ,lambda-environment))
-                                         ,rest))))))))
+            (compiler-macro-lambda (,@positional &rest ,rest &environment ,lambda-environment)
+              (let* (,form-types)
+                ,@positional-forms
+                (apply ,continuation
+                       (append (nreverse ,form-types)
+                               (mapcar #'(lambda (,rest-form)
+                                           (determine-form-value-type ,rest-form ,lambda-environment))
+                                       ,rest))))))))
       (t
        `(lambda (,continuation)
-          (compiler-macro-lambda (&whole ,lambda-form ,@positional &environment ,lambda-environment)
-            (let* (,@positional-let*-forms)
-              (funcall ,continuation ,lambda-form ,lambda-environment
-                       (list ,@required-forms ,@optional-forms)))))))))
+          (compiler-macro-lambda (,@positional &environment ,lambda-environment)
+            (let* (,form-types)
+              ,@positional-forms
+              (apply ,continuation (nreverse ,form-types)))))))))
 
 ;;;; store-function-form-rewriter
 
