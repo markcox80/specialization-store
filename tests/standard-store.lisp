@@ -252,12 +252,8 @@
                (lambda (a &optional (b (init-b)))
                  (funcall continuation a b)))
              (type-function (continuation)
-               (compiler-macro-lambda (&whole form a &optional (b nil bp) &environment env)
-                 (funcall continuation form env
-                          (list (determine-form-value-type a env)
-                                (if bp
-                                    (determine-form-value-type b env)
-                                    '(integer 0)))))))
+               (lambda (a &optional (b '(integer 0)))
+                 (funcall continuation a b))))
       (let ((store (make-instance 'standard-store
                                   :lambda-list '(a &optional b)
                                   :value-completion-function #'value-function
