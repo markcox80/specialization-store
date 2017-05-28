@@ -44,6 +44,7 @@
                               :reader store-value-completion-function)
    (type-completion-function :initarg :type-completion-function
                              :reader store-type-completion-function)
+   (form-types-function :initarg :form-types-function)
    (runtime-function :initarg :runtime-function)
    (compile-time-function :initarg :compile-time-function))
   (:metaclass standard-store-class)
@@ -106,6 +107,9 @@
 (defun make-default-type-completion-function (store-parameters)
   (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
+(defun make-form-types-function (store-parameters)
+  (compile nil (make-form-types-lambda-form store-parameters)))
+
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
@@ -124,7 +128,8 @@
           (slot-value instance 'value-completion-function) (or value-completion-function
                                                                (make-default-value-completion-function new-parameters))
           (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters))))
+                                                              (make-default-type-completion-function new-parameters))
+          (slot-value instance 'form-types-function) (make-form-types-function new-parameters)))
 
   (clear-dispatch-functions instance))
 
@@ -432,12 +437,12 @@
 
 (defmethod update-dispatch-functions ((store standard-store))
   (with-slots (runtime-function compile-time-function) store
-    (with-slots (value-completion-function type-completion-function) store
-      (labels ((third-argument (a b c)
-                 (declare (ignore a b))
-                 c)
-               (cascade (compile-time)
-                 (let ((type-fn (funcall type-completion-function #'third-argument)))
+    (with-slots (value-completion-function type-completion-function form-types-function) store
+      (labels ((cascade (compile-time)
+                 (let* ((type-fn (funcall form-types-function
+                                          (funcall type-completion-function
+                                                   (lambda (&rest args)
+                                                     args)))))
                    (lambda (form env)
                      (let* ((completed-types (funcall type-fn form env)))
                        (destructuring-bind (lexical-fn rewritten-form) (rewrite-store-function-form (store-parameters store) form env)
