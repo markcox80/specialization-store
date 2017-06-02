@@ -257,11 +257,13 @@
 
 (defpackage "SPECIALIZATION-STORE.MOP"
   (:export "FUNCALLABLE-STANDARD-CLASS"
+           "FUNCALLABLE-STANDARD-OBJECT"
            "SET-FUNCALLABLE-INSTANCE-FUNCTION"
            "VALIDATE-SUPERCLASS")
   (:import-from #+sbcl "SB-MOP"
                 #+ccl "CCL"
                 #+cmucl "PCL"
                 "FUNCALLABLE-STANDARD-CLASS"
+                "FUNCALLABLE-STANDARD-OBJECT"
                 "SET-FUNCALLABLE-INSTANCE-FUNCTION"
                 "VALIDATE-SUPERCLASS"))
