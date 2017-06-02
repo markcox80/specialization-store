@@ -1110,7 +1110,7 @@
                      for var-type = (determine-form-value-type var-form env)
                      for constantp = (constantp var-form env)
                      do
-                        (cond ((and var-formp constantp)
+                        (cond (constantp
                                (setf var var-form))
                               (t
                                (alexandria:appendf let-forms (list (list var var-form)))))
@@ -1134,7 +1134,7 @@
                      for var-type = (determine-form-value-type var-form env)
                      for constantp = (constantp var-form env)
                      do
-                        (cond ((and var-formp constantp)
+                        (cond (constantp
                                (setf var var-form))
                               (t
                                (alexandria:appendf let-forms (list (list var var-form)))))
