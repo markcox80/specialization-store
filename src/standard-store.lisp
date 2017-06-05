@@ -739,5 +739,12 @@
 (defmethod compute-dispatch-functions ((store standard-store))
   (destructuring-bind (value-lambda-form type-lambda-form)
       (compute-dispatch-lambda-forms store)
-    (list (compile nil value-lambda-form)
-          (compile nil type-lambda-form))))
+    (multiple-value-bind (value-fn value-warnings value-failure) (compile nil value-lambda-form)
+      (declare (ignore value-warnings))
+      (multiple-value-bind (type-fn type-warnings type-failure) (compile nil type-lambda-form)
+        (declare (ignore type-warnings))
+        (when value-failure
+          (error "Unable to compile value dispatch function for store ~A." store))
+        (when type-failure
+          (error "Unable to compile type dispatch function for store ~A." store))
+        (list value-fn type-fn)))))
