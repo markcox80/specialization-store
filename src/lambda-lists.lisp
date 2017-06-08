@@ -355,11 +355,14 @@
              (cond
                ((null list)
                 (signal-parse-lambda-list-error "&rest marker requires a symbol."))
-               ((or (null item) (listp item) (member item '(&optional &rest &key &allow-other-keys)))
-                (invalid-ordinary-lambda-list-item item))
-               (t
+               ((and item (symbolp item) (not (member item '(&rest &optional &key &allow-other-keys))))
                 (funcall fn :rest item)
-                (rest list))))))
+                (rest list))
+               ((and (listp item) (= 2 (length item)) (first item) (symbolp (first item)))
+                (funcall fn :rest item)
+                (rest list))
+               (t
+                (invalid-ordinary-lambda-list-item item))))))
     (let ((item (first list)))
       (cond
         ((null list)
@@ -514,15 +517,18 @@
   ())
 
 (defgeneric parameter-type (object))
+(defgeneric parameter-each-type (object))
 
 (defclass specialized-required-parameter (required-parameter)
-  ((type :initarg :type)))
+  ((type :initarg :type
+         :reader parameter-type)))
 
 (defclass specialized-optional-parameter (optional-parameter)
   ())
 
 (defclass specialized-rest-parameter (rest-parameter)
-  ())
+  ((each-type :initarg :each-type
+              :reader parameter-each-type))) ; The type of every object in the list.
 
 (defclass specialized-keyword-parameter (keyword-parameter)
   ())
@@ -540,9 +546,9 @@
                                                  :init-form init-form-or-type
                                                  :varp varp))
 
-(defun make-specialized-rest-parameter (var)
+(defun make-specialized-rest-parameter (var each-type)
   (check-type var (and (not null) symbol))
-  (make-instance 'specialized-rest-parameter :var var))
+  (make-instance 'specialized-rest-parameter :var var :each-type each-type))
 
 (defun make-specialized-keyword-parameter (dependencies var &optional init-form-or-type varp (keyword nil keywordp))
   (check-type dependencies parameter-dependencies)
@@ -561,6 +567,12 @@
 (defmethod parameter-lambda-list-specification ((parameter specialized-required-parameter))
   (list (parameter-var parameter)
         (parameter-type parameter)))
+
+(defmethod parameter-lambda-list-specification ((parameter specialized-rest-parameter))
+  (let* ((each-type (parameter-each-type parameter)))
+    (if (eql each-type t)
+        (parameter-var parameter)
+        (list (parameter-var parameter) (parameter-each-type parameter)))))
 
 (defmethod parameter-type ((object specialized-required-parameter))
   (slot-value object 'type))
@@ -604,9 +616,15 @@
                                             (make-specialized-optional-parameter dependencies var init-form)))))
                                   (t
                                    (signal-invalid)))))
-               (:rest (if value
-                          (make-specialized-rest-parameter value)
-                          (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value)))
+               (:rest (cond ((and value (symbolp value))
+                             (make-specialized-rest-parameter value t))
+                            ((and (listp value)
+                                  (= 2 (length value))
+                                  (first value)
+                                  (symbolp (first value)))
+                             (make-specialized-rest-parameter (first value) (second value)))
+                            (t
+                             (signal-parse-lambda-list-error "Invalid rest parameter specification ~W." value))))
                (:keyword (flet ((signal-invalid ()
                                   (signal-parse-lambda-list-error "Invalid keyword parameter specification ~W." value)))
                            (cond ((symbolp value)
@@ -785,7 +803,7 @@
           (when (optional-parameters-p specialization-parameters)
             `(&optional ,@(mapcar #'parameter-lambda-list-specification (optional-parameters specialization-parameters))))
           (when (rest-parameter specialization-parameters)
-            `(&rest ,(parameter-lambda-list-specification (rest-parameter specialization-parameters))))
+            `(&rest ,(parameter-var (rest-parameter specialization-parameters))))
           (when (keyword-parameters-p specialization-parameters)
             `(&key ,@(loop
                        with store-keyword-parameters = (keyword-parameters store-parameters)
