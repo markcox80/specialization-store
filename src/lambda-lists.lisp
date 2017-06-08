@@ -658,6 +658,11 @@
         (signal-parse-lambda-list-error "The keywords ~W are used more than once in the specialization lambda list." duplicate-keywords))
       (when duplicate-variables
         (signal-parse-lambda-list-error "The variables ~W appear more than once in the specialization lambda list." duplicate-variables))
+      (when (and (rest-parameter rv)
+                 (keyword-parameters-p rv)
+                 (not (subtypep t (parameter-each-type (rest-parameter rv)))))
+        (signal-parse-lambda-list-error "The specialization lambda list ~W has a typed rest parameter alongside keyword parameters."
+                                        specialization-lambda-list))
       rv)))
 
 ;;;; Congruency

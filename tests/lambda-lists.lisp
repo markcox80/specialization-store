@@ -119,11 +119,15 @@
                   ((&key (m 10 m-p)) ((m 10 m-p)) t nil)
                   ((&key ((:k m) 10 m-p) &allow-other-keys) (((:k m) 10 m-p)) t t))))
       (loop for (r-list . r) in required do
-           (loop for (o-list . o) in optional do
-                (loop for (rest-list . rest-var) in rest do
-                     (loop for (keys-list k keys? allow-other-keys?) in keys do
-                          (let ((lambda-list (append r-list o-list rest-list keys-list)))
-                            (do-trial lambda-list r o rest-var keys? k allow-other-keys?)))))))))
+        (loop for (o-list . o) in optional do
+          (loop for (rest-list . rest-var) in rest do
+            (cond ((and rest-var (listp rest-var))
+                   (let ((lambda-list (append r-list o-list rest-list)))
+                     (do-trial lambda-list r o rest-var nil nil nil)))
+                  (t
+                   (loop for (keys-list k keys? allow-other-keys?) in keys do
+                     (let ((lambda-list (append r-list o-list rest-list keys-list)))
+                       (do-trial lambda-list r o rest-var keys? k allow-other-keys?)))))))))))
 
 (test parse-specialization-lambda-list/invalid-specialization-lambda-lists
   (flet ((trial (specialization-lambda-list)
@@ -152,6 +156,7 @@
     (trial '(&rest nil))
     (trial '(&rest (args)))
     (trial '(&rest (args t integer)))
+    (trial '(&rest (args integer) &key blah))
     (trial '(&key nil))
     (trial '(&key (nil nil)))
     ;; Duplicate keywords
