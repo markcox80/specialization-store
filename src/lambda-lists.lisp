@@ -864,7 +864,7 @@
                               (when optional
                                 (cons '&optional (mapcar (constantly t) optional)))
                               (when (and rest (not keywordsp))
-                                '(&rest t))
+                                `(&rest ,(parameter-each-type rest)))
                               (when keywordsp
                                 (cons '&key
                                       (loop
