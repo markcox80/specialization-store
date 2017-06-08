@@ -92,8 +92,8 @@
              (is (and (equal req (mapcar #'parameter-lambda-list-specification (required-parameters specialization-parameters)))
                       (equal opt (when (optional-parameters-p specialization-parameters)
                                    (mapcar #'parameter-lambda-list-specification (optional-parameters specialization-parameters))))
-                      (eql rest (when (rest-parameter-p specialization-parameters)
-                                  (parameter-lambda-list-specification (rest-parameter specialization-parameters))))
+                      (equal rest (when (rest-parameter-p specialization-parameters)
+                                    (parameter-lambda-list-specification (rest-parameter specialization-parameters))))
                       (eql key? (keyword-parameters-p specialization-parameters))
                       (equal keys (when (keyword-parameters-p specialization-parameters)
                                     (mapcar #'parameter-lambda-list-specification (keyword-parameters specialization-parameters))))
@@ -109,7 +109,8 @@
                       ((&optional (e 5) d) . ((e 5) d))
                       ((&optional (e 6 e-p)) . ((e 6 e-p)))))
           (rest '((nil . nil)
-                  ((&rest args) . args)))
+                  ((&rest args) . args)
+                  ((&rest (args integer)) . (args integer))))
           (keys '((nil nil nil nil)
                   ((&key) nil t nil)
                   ((&key m) (m) t nil)
@@ -118,15 +119,21 @@
                   ((&key (m 10 m-p)) ((m 10 m-p)) t nil)
                   ((&key ((:k m) 10 m-p) &allow-other-keys) (((:k m) 10 m-p)) t t))))
       (loop for (r-list . r) in required do
-           (loop for (o-list . o) in optional do
-                (loop for (rest-list . rest-var) in rest do
-                     (loop for (keys-list k keys? allow-other-keys?) in keys do
-                          (let ((lambda-list (append r-list o-list rest-list keys-list)))
-                            (do-trial lambda-list r o rest-var keys? k allow-other-keys?)))))))))
+        (loop for (o-list . o) in optional do
+          (loop for (rest-list . rest-var) in rest do
+            (cond ((and rest-var (listp rest-var))
+                   (let ((lambda-list (append r-list o-list rest-list)))
+                     (do-trial lambda-list r o rest-var nil nil nil)))
+                  (t
+                   (loop for (keys-list k keys? allow-other-keys?) in keys do
+                     (let ((lambda-list (append r-list o-list rest-list keys-list)))
+                       (do-trial lambda-list r o rest-var keys? k allow-other-keys?)))))))))))
 
 (test parse-specialization-lambda-list/invalid-specialization-lambda-lists
   (flet ((trial (specialization-lambda-list)
-           (signals parse-specialization-lambda-list-error (parse-specialization-lambda-list specialization-lambda-list))))
+           (signals (parse-specialization-lambda-list-error
+                     "Failed to signal ~A for lambda list ~A." ('parse-specialization-lambda-list-error specialization-lambda-list))
+             (parse-specialization-lambda-list specialization-lambda-list))))
     ;; Invalid markers
     (trial '(&rest))
     (trial '(&rest &rest))
@@ -147,7 +154,9 @@
     (trial '(&optional nil))
     (trial '(&optional (nil nil)))
     (trial '(&rest nil))
-    (trial '(&rest (args 1)))
+    (trial '(&rest (args)))
+    (trial '(&rest (args t integer)))
+    (trial '(&rest (args integer) &key blah))
     (trial '(&key nil))
     (trial '(&key (nil nil)))
     ;; Duplicate keywords
@@ -162,6 +171,7 @@
     (trial '(a &optional b a))
     (trial '(a &optional b (c nil a)))
     (trial '(a &rest a))
+    (trial '(a &rest (a t)))
     (trial '(a &key a))
     (trial '(a &key b a))
     (trial '(a &key b (c nil a)))
