@@ -63,10 +63,14 @@ specialization store.
 \item[Variable arity] These specialization belong to store functions
   which define a \texttt{\&rest} argument without using
   \texttt{\&key}. These specializations are represented by
-  $ x \equiv (t_{1}, \dots, t_{n_x}, \sigma_x) $ where $n_x$
+  $ x \equiv (t_{1}, \dots, t_{n_x}, \sigma_x, \mu_x) $ where $n_x$
   represents the number of required arguments for the specialization,
-  and $\sigma_x$ is a non negative integer indicating how many other
-  arguments the specialization accepts.
+  $\sigma_x$ is a non negative integer indicating how many other
+  arguments the specialization accepts and $\mu_x$ is the type of each
+  of the other $\sigma_x$ arguments. In the context of argument types
+  $t$, the value $\sigma_t = |t| - n_x$ is the number of non required
+  arguments in the tuple $t$ and $\mu_t$ is the most specific type for
+  which each non required argument.
 \end{description}
 
 \section{Ordering}
@@ -96,25 +100,28 @@ and $f$ is the precedence function
 The functions $g$, $f$ and $h$ for specializations with variable arity
 are
 \begin{align}
-  g(x;t) &\equiv (n_x \leq |t| \leq n_x + \sigma_x) \land \Pi_{i=1}^{n_x} (t_i \preceq x_i) \\
-  f(x,y) &\equiv (n_x \geq n_y) \land \Pi_{i=1}^{n_y}(x_i \preceq y_i) \\
+  g(x;t) &\equiv (n_x \leq |t| \leq n_x + \sigma_x)
+                 \land \Pi_{i=1}^{n_x} (t_i \preceq x_i)
+                 \land ( \mu_t \preceq \mu_x ) \\
+  f(x,y) &\equiv (n_x \geq n_y)
+                 \land \Pi_{i=1}^{n_y}(x_i \preceq y_i)
+                 \land ( \mu_x \preceq \mu_y )\\
   h(x,y;t) &\equiv g(x;t) \land (\lnot g(y;t) \lor f(x,y) )
 \end{align}
 
 \section{Dispatch Tree}
-An applicability $g$ and discrimination function $f$ provide a method
-of selecting a specialization from a set $Z$ which has the highest
-precedence for a set of arguments. This method of selection is not
-very efficient as it requires sorting the set of
+An applicability function $g$ and a discrimination function $f$
+provide a method of selecting a specialization from a set $Z$ which
+has the highest precedence for a set of arguments. This method of
+selection is not very efficient as it requires sorting the set of
 specializations.
 
-In this section we explore the creation of an efficient method of
-performing this task by constructing a function $d : t \rightarrow x$
-which computes a specialization $x \in Z$ which has the highest
-precedence for input arguments of type $t$.
+In this section we seek to find a function $d : t \rightarrow x$ which
+computes a specialization $x \in Z$ which has the highest precedence
+for input arguments of type $t$.
 
 The key property of the function $d$ is that its computational
-complexity is less than $\mathcal{O}(|Z|)$.
+complexity is no greater than the $\max_i |x_i|$ where $x_i \in Z$.
 
 \subsection{Criteria}
 The following cases need to proven in order to show that the function
@@ -155,11 +162,11 @@ both share the term
 \begin{align}
   \Pi_{i=1}^{\min(n_x,n_y)} x_i \preceq y_i
 \end{align}
-which requires that a given input argument type $t_i$ to satisfy
+which, according to the function $h$, requires an input argument type
+$t_i$ to satisfy
 \begin{align}
-  (t_i \preceq x_i) \land [\lnot (t_i \preceq y_i) \lor (x_i \preceq y_i)]
+  (t_i \preceq x_i) \land [\lnot (t_i \preceq y_i) \lor (x_i \preceq y_i)].
 \end{align}
-
 
 \subsection{Fixed Arity}
 Assume that we have a set of specializations $Z$ for an arity $n$
@@ -197,7 +204,7 @@ input argument type $t_j$.
 The type $p_j$ is selected from the $x_{ij}$ such that
 \begin{enumerate}
 \item $\exists_i (p_j \equiv x_{ij})$
-\item $\{x_{ij} | p_j \preceq x_{ij} \} \equiv \{x_{ij} | p_j \equiv x_{ij}\}$
+\item $\{ x_{ij} | x_{ij} \prec p_j \} \equiv \emptyset$
 \item $p_j \notin P$
 \end{enumerate}
 
@@ -209,10 +216,11 @@ a set $X$ and $Y$ such that
 
 This process continues by splitting the set $X$ with
 $P = P \cup \{ p_j \}$ and splitting the set $Y$ with $P =
-P$. Splitting stops until $P$ is full.
+P$. Splitting stops when no $p_j$ can be obtained.
 
-There may be more than one specialization in $X$ when $P$ is
-full. This can be resolved by sorting the specializations using $h()$.
+There may be more than one specialization in $X$ when $P$ is full
+e.g. the tuples $x_1 = (\alpha)$ and $x_2 = (\alpha \lor \beta)$. This
+can be resolved by sorting the specializations using $h()$.
 
 \subsection{Variable Arity}
 The tree building process for the variable arity case proceeds by
@@ -224,16 +232,16 @@ $Z$. These specializations can be split in to two categories, those
 which can be invoked with $c$ arguments and those that can be invoked
 with more than $c$
 \begin{align}
-  X & = \{ x_i | n_{x_i} \leq c \leq n_{x_i} + \sigma_{x_i} \} & Y &= \{ x_i | n_{x_i} + \sigma_{x_i} > c \}
+  X & = \{ x_i | n_{x_i} \leq c \leq n_{x_i} + \sigma_{x_i} \} & Y &= \{ x_i | c < n_{x_i} + \sigma_{x_i} \}
 \end{align}
 where $c$ is defined as
 \begin{align}
-  c = \min(\min_i n_{x_i}, \min_i (n_{x_i} + \sigma_{x_i}) ) \textrm{ s.t. } x_i \in Z
+  c = \min_i n_{x_i} \textrm{ s.t. } x_i \in Z
 \end{align}
 
 The set $X$ represents a fixed arity problem and thus can be
 partitioned using the strategy outlined in the previous section. The
-process is recursively applied to set $Y$.
+above process is recursively applied to set $Y$.
 
 \end{document}
 
