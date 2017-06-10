@@ -13,17 +13,17 @@
       (good (a) (b))
       (bad (a) ())
       (bad (a) (b c))
-      (bad (a) (a &optional b))
       (bad (a) (c &rest args))
       (bad (a) (d &key))
 
       (good (a &optional b) (c d))
       (bad (a &optional b) ())
-      (bad (a &optional b) (c &optional d))
-      (bad (a &optional b) (c d &optional e))
+      (bad (a &optional b) (c d e))
+      (bad (a &optional b) (c d &rest args))
 
       (good (a &optional b &key hey) (c d &key hey))
       (bad (a &optional b &key hey) (a b &key))
+      (bad (a &optional b &key hey) (a b &rest args))
 
       (good (a &rest args) (b &rest args))
       (bad (a &rest args) ())
