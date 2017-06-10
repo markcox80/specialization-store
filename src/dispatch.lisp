@@ -290,6 +290,10 @@
   (and (compare-slot-values 'keyword #'eql rule-a rule-b)
        (compare-slot-values 'type #'alexandria:type= rule-a rule-b)))
 
+(defmethod rule-equal ((rule-a rest-objects-rule) (rule-b rest-objects-rule))
+  (alexandria:type= (rest-objects-rule-type rule-a)
+                    (rest-objects-rule-type rule-b)))
+
 (defmethod evaluate-rule ((rule fixed-argument-count-rule) (specialization-parameters specialization-parameters))
   (= (argument-count rule)
      (specialization-parameters-lower-bound specialization-parameters)
