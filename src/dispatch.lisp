@@ -40,13 +40,13 @@
                                 (or pass? fail?))))))))
     (process node)))
 
-;;;; Rules 
+;;;; Rules
 ;;
 ;; A rule is something that must be satisfied in order for a
 ;; specialization to be invoked.
 ;;
 ;; A dispatch rule is a rule that can be used to discriminate between
-;; two or specializations.
+;; two or more specializations.
 
 (defgeneric rule-equal (rule-a rule-b))
 (defgeneric evaluate-rule (rule specialization-parameters))
