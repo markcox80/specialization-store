@@ -317,13 +317,11 @@
       (trial (a &optional (b t)) (a (b integer)) (a b))
       ;; Rest
       (trial (&rest args) (a) (a))
-      (trial (&rest args) (a &optional b) (a &optional b))
-      (trial (&rest args) (a &optional (b t b-p)) (a &optional (b t b-p)))
+      (trial (&rest args) (a b) (a b))
       (trial (a &rest args) (a b) (a b))
-      (trial (a &optional b &rest args) ((a integer) (b integer) &optional c) (a b &optional c))
-      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t)) (a b &optional (c t)))
-      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t c-p)) (a b &optional (c t c-p)))
-      (trial (a &optional b &rest args) ((a integer) (b integer) &optional (c t) &rest args) (a b &optional (c t) &rest args))
+      (trial (a &optional b &rest args) ((a integer) (b integer)) (a b))
+      (trial (a &optional b &rest args) ((a integer) (b integer) c) (a b c))
+      (trial (a &optional b &rest args) ((a integer) (b integer) c &rest args) (a b c &rest args))
       ;; Keywords
       (trial (&key a &allow-other-keys) (&key (a integer) &allow-other-keys) (&key a &allow-other-keys))
       (trial (&key a) (&key (a integer a-p)) (&key (a nil a-p)))
