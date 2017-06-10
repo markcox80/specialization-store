@@ -126,6 +126,17 @@
     (with-slots (value) object
       (write value :stream stream))))
 
+;;;; Rest objects rule
+(defgeneric rest-objects-rule-type (dispatch-rule))
+
+(defclass rest-objects-rule (dispatch-rule)
+  ((type :initarg :type
+         :reader rest-objects-rule)))
+
+(defmethod print-object ((object rest-objects-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (rest-objects-rule-type object) :stream stream)))
+
 ;;;; Constructors
 (defun make-fixed-argument-count-rule (count)
   (check-type count lambda-parameter-count)
@@ -143,6 +154,9 @@
 
 (defun make-constantly-rule (value)
   (make-instance 'constantly-rule :value value))
+
+(defun make-rest-objects-rule (type)
+  (make-instance 'rest-objects-rule :type type))
 
 ;;;; Functions
 
