@@ -114,6 +114,7 @@
            "PARAMETER-VARP"
            "PARAMETER-KEYWORD"
            "PARAMETER-TYPE"
+           "PARAMETER-EACH-TYPE"
            "PARAMETER-LAMBDA-LIST-SPECIFICATION")
 
   ;; Parameters Protocol
