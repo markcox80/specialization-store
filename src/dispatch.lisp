@@ -175,8 +175,7 @@
          (keyword-parameters-p specialization-parameters))
      lambda-parameters-limit)
     (t
-     (+ (length (required-parameters specialization-parameters))
-	(length (optional-parameters specialization-parameters))))))
+     (length (required-parameters specialization-parameters)))))
 
 ;;;; Training
 (defun fixed-arity-store-parameters-p (store-parameters)
