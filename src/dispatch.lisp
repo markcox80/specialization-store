@@ -21,23 +21,23 @@
   (assert (leafp node))
   (let ((split? (funcall splitting-function (node-value node))))
     (cond (split? (destructuring-bind (new-value pass-value fail-value) split?
-		    (make-node new-value
-			       (make-node pass-value)
-			       (make-node fail-value))))
-	  (t node))))
+                    (make-node new-value
+                               (make-node pass-value)
+                               (make-node fail-value))))
+          (t node))))
 
 (defun deepen-tree (node test-function splitting-function)
   ;; Implement this the easy way. The trees will be short.
   (labels ((process (node)
-	     (cond ((leafp node)
-		    (if (funcall test-function (node-value node))
-			(values (split-leaf node splitting-function) t)
-			(values node nil)))
-		   (t
-		    (multiple-value-bind (pass-node pass?) (process (node-pass node))
-		      (multiple-value-bind (fail-node fail?) (process (node-fail node))
-			(values (make-node (node-value node) pass-node fail-node)
-				(or pass? fail?))))))))
+             (cond ((leafp node)
+                    (if (funcall test-function (node-value node))
+                        (values (split-leaf node splitting-function) t)
+                        (values node nil)))
+                   (t
+                    (multiple-value-bind (pass-node pass?) (process (node-pass node))
+                      (multiple-value-bind (fail-node fail?) (process (node-fail node))
+                        (values (make-node (node-value node) pass-node fail-node)
+                                (or pass? fail?))))))))
     (process node)))
 
 ;;;; Rules 
@@ -148,9 +148,9 @@
 
 (defun other-keys-p (store-parameters specialization-parameters)
   (and (keyword-parameters-p store-parameters)
-       (keyword-parameters-p specialization-parameters)       
+       (keyword-parameters-p specialization-parameters)
        (> (length (keyword-parameters specialization-parameters))
-	  (length (keyword-parameters store-parameters)))))
+          (length (keyword-parameters store-parameters)))))
 
 (defun specialization-parameters-lower-bound (specialization-parameters)
   (length (required-parameters specialization-parameters)))
@@ -158,7 +158,7 @@
 (defun specialization-parameters-upper-bound (specialization-parameters)
   (cond
     ((or (rest-parameter specialization-parameters)
-	 (keyword-parameters-p specialization-parameters))
+         (keyword-parameters-p specialization-parameters))
      lambda-parameters-limit)
     (t
      (+ (length (required-parameters specialization-parameters))
@@ -216,7 +216,7 @@
                    (t
                     nil)))
            (process (node knowledge)
-	     (cond ((null node)
+             (cond ((null node)
                     nil)
                    ((leafp node)
                     node)
@@ -236,7 +236,7 @@
                                    (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) knowledge)
                                      (values (make-node new-rule new-pass new-fail)
                                              (or changed? pass-changed? fail-changed?)))))))))))))
-    (multiple-value-bind (new-tree changed?) (process tree nil)      
+    (multiple-value-bind (new-tree changed?) (process tree nil)
       (if changed?
           (remove-dispatch-tree-tautologies new-tree)
           new-tree))))
@@ -262,8 +262,8 @@
 ;;;; Rule Implementation
 (defun compare-slot-values (slot-name test-fn &rest objects)
   (apply test-fn (mapcar #'(lambda (object)
-			     (slot-value object slot-name))
-			 objects)))
+                             (slot-value object slot-name))
+                         objects)))
 
 (defmethod rule-equal ((rule-a t) (rule-b t))
   nil)
@@ -301,10 +301,10 @@
   (with-slots (keyword type) rule
     (let ((keyword-parameter (find keyword (keyword-parameters specialization-parameters) :key #'first)))
       (assert keyword-parameter nil "Unable to find keyword parameter ~W in specialization parameters ~W."
-	      keyword specialization-parameters)
+              keyword specialization-parameters)
       (destructuring-bind (keyword var var-type supplied-p-var) keyword-parameter
-	(declare (ignore keyword var supplied-p-var))
-	(subtypep (or var-type t) type)))))
+        (declare (ignore keyword var supplied-p-var))
+        (subtypep (or var-type t) type)))))
 
 (defmethod evaluate-rule ((rule constantly-rule) specialization-parameters)
   (declare (ignore specialization-parameters))
