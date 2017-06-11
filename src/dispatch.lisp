@@ -127,10 +127,13 @@
 
 ;;;; Rest objects rule
 (defgeneric rest-objects-rule-type (dispatch-rule))
+(defgeneric rest-objects-rule-position (dispatch-rule))
 
 (defclass rest-objects-rule (dispatch-rule)
   ((type :initarg :type
-         :reader rest-objects-rule-type)))
+         :reader rest-objects-rule-type)
+   (position :initarg :position
+             :reader rest-objects-rule-position)))
 
 (defmethod print-object ((object rest-objects-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -154,13 +157,13 @@
 (defun make-constantly-rule (value)
   (make-instance 'constantly-rule :value value))
 
-(defun make-rest-objects-rule (type)
+(defun make-rest-objects-rule (type starting-at)
   (cond ((alexandria:type= type t)
          (make-constantly-rule t))
         ((alexandria:type= type nil)
          (make-constantly-rule nil))
         (t
-         (make-instance 'rest-objects-rule :type type))))
+         (make-instance 'rest-objects-rule :type type :position starting-at))))
 
 ;;;; Functions
 

@@ -219,6 +219,7 @@
 
            "REST-OBJECTS-RULE"
            "REST-OBJECTS-RULE-TYPE"
+           "REST-OBJECTS-RULE-POSITION"
            "MAKE-REST-OBJECTS-RULE"
 
            "RULE-EQUAL"))
