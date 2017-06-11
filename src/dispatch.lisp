@@ -155,7 +155,12 @@
   (make-instance 'constantly-rule :value value))
 
 (defun make-rest-objects-rule (type)
-  (make-instance 'rest-objects-rule :type type))
+  (cond ((alexandria:type= type t)
+         (make-constantly-rule t))
+        ((alexandria:type= type nil)
+         (make-constantly-rule nil))
+        (t
+         (make-instance 'rest-objects-rule :type type))))
 
 ;;;; Functions
 
