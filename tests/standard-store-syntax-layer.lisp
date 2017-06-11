@@ -72,33 +72,61 @@
     (declare (ignore a b c d args))
     1)
 
-  (defspecialization example (a b &optional c) (eql 2)
-    (declare (ignore a b c))
+  (defspecialization example ((a integer) b) (eql 2)
+    (declare (ignore a b))
     2)
 
-  (defspecialization example ((a integer) b) (eql 3)
+  (defspecialization example (a (b integer)) (eql 3)
     (declare (ignore a b))
     3)
 
-  (defspecialization example (a (b integer)) (eql 4)
+  (defspecialization example ((a float) (b integer)) (eql 4)
     (declare (ignore a b))
     4)
-
-  (defspecialization example ((a float) (b integer)) (eql 5)
-    (declare (ignore a b))
-    5)
 
   (test basic/rest/2
     (is (= 1 (example 1 2 3 4)))
     (is (= 1 (example 1 2 3 4 5)))
-    (is (= 2 (example 1d0 1d0)))
-    (is (= 2 (example 1d0 1d0 1d0)))
-    (is (= 3 (example 1 "hey")))
-    (is (= 4 (example "hey" 1)))
-    (is (= 5 (example 5d0 2)))
-    (is (= 2 (example 5d0 "hey")))
-    (is (= 2 (example 5d0 1 "hey")))
+    (is (= 2 (example 1 "hey")))
+    (is (= 3 (example "hey" 1)))
+    (is (= 4 (example 5d0 2)))
+    (signals inapplicable-arguments-error (example 1d0 1d0))
+    (signals inapplicable-arguments-error (example 1d0 1d0 1d0))
     (signals inapplicable-arguments-error (example 1))))
+
+(syntax-layer-test basic/rest/3
+  (defstore example (a &rest args))
+
+  (defspecialization example ((a integer)) (eql 1)
+    (declare (ignore a))
+    1)
+
+  (defspecialization example ((a integer) &rest (args integer)) (eql 2)
+    (declare (ignore a args))
+    2)
+
+  (defspecialization example ((a integer) &rest (args float)) (eql 3)
+    (declare (ignore a args))
+    3)
+
+  (defspecialization example ((a integer) &rest args) (eql 4)
+    (declare (ignore a args))
+    4)
+
+  (defspecialization example (a (b string)) (eql 5)
+    (declare (ignore a b))
+    5)
+
+  (test basic/rest/3
+    (is (= 1 (example 1)))
+    (is (= 2 (example 1 2)))
+    (is (= 2 (example 1 2 3)))
+    (is (= 3 (example 1 2.0 3d0 4.0)))
+    (is (= 3 (example 1 2.0 3.0)))
+    (is (= 4 (example 1 2.0 3.0 4)))
+    (is (= 5 (example "hey" "there")))
+    (is (= 5 (example 3.0 "hey")))
+    (is-true (member (example 1 "hey") '(4 5)))))
 
 (syntax-layer-test lexical-environment/optional
   (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -232,19 +260,6 @@
           (v2 (make-list 6 :initial-element 1)))
       (is (= 1d0 (example v1 0)))
       (is (= 1 (example v2 0))))))
-
-(syntax-layer-test example/rest/optional-lexical-environment
-  (defstore example (object &rest args))
-
-  (eval-when (:compile-toplevel :load-toplevel :execute)
-    (flet ((init-b (object)
-             (mapcar #'1+ object)))
-      (defspecialization example ((object list) &optional (next (init-b object))) list
-        (append object next))))
-
-  (test lexical-environment
-    (is (equal '(1 2 3 2 3 4) (example '(1 2 3))))
-    (is (equal '(1 2 3 1) (example '(1 2 3) '(1))))))
 
 (syntax-layer-test example/key/other-lexical-environment
   (defstore example (object &key &allow-other-keys))

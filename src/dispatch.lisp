@@ -21,35 +21,34 @@
   (assert (leafp node))
   (let ((split? (funcall splitting-function (node-value node))))
     (cond (split? (destructuring-bind (new-value pass-value fail-value) split?
-		    (make-node new-value
-			       (make-node pass-value)
-			       (make-node fail-value))))
-	  (t node))))
+                    (make-node new-value
+                               (make-node pass-value)
+                               (make-node fail-value))))
+          (t node))))
 
 (defun deepen-tree (node test-function splitting-function)
   ;; Implement this the easy way. The trees will be short.
   (labels ((process (node)
-	     (cond ((leafp node)
-		    (if (funcall test-function (node-value node))
-			(values (split-leaf node splitting-function) t)
-			(values node nil)))
-		   (t
-		    (multiple-value-bind (pass-node pass?) (process (node-pass node))
-		      (multiple-value-bind (fail-node fail?) (process (node-fail node))
-			(values (make-node (node-value node) pass-node fail-node)
-				(or pass? fail?))))))))
+             (cond ((leafp node)
+                    (if (funcall test-function (node-value node))
+                        (values (split-leaf node splitting-function) t)
+                        (values node nil)))
+                   (t
+                    (multiple-value-bind (pass-node pass?) (process (node-pass node))
+                      (multiple-value-bind (fail-node fail?) (process (node-fail node))
+                        (values (make-node (node-value node) pass-node fail-node)
+                                (or pass? fail?))))))))
     (process node)))
 
-;;;; Rules 
+;;;; Rules
 ;;
 ;; A rule is something that must be satisfied in order for a
 ;; specialization to be invoked.
 ;;
 ;; A dispatch rule is a rule that can be used to discriminate between
-;; two or specializations.
+;; two or more specializations.
 
 (defgeneric rule-equal (rule-a rule-b))
-(defgeneric evaluate-rule (rule specialization-parameters))
 (defgeneric remove-rule-tautologies (rule known-rule))
 
 (defclass rule ()
@@ -126,6 +125,20 @@
     (with-slots (value) object
       (write value :stream stream))))
 
+;;;; Rest objects rule
+(defgeneric rest-objects-rule-type (dispatch-rule))
+(defgeneric rest-objects-rule-position (dispatch-rule))
+
+(defclass rest-objects-rule (dispatch-rule)
+  ((type :initarg :type
+         :reader rest-objects-rule-type)
+   (position :initarg :position
+             :reader rest-objects-rule-position)))
+
+(defmethod print-object ((object rest-objects-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (write (rest-objects-rule-type object) :stream stream)))
+
 ;;;; Constructors
 (defun make-fixed-argument-count-rule (count)
   (check-type count lambda-parameter-count)
@@ -144,13 +157,21 @@
 (defun make-constantly-rule (value)
   (make-instance 'constantly-rule :value value))
 
+(defun make-rest-objects-rule (type starting-at)
+  (cond ((alexandria:type= type t)
+         (make-constantly-rule t))
+        ((alexandria:type= type nil)
+         (make-constantly-rule nil))
+        (t
+         (make-instance 'rest-objects-rule :type type :position starting-at))))
+
 ;;;; Functions
 
 (defun other-keys-p (store-parameters specialization-parameters)
   (and (keyword-parameters-p store-parameters)
-       (keyword-parameters-p specialization-parameters)       
+       (keyword-parameters-p specialization-parameters)
        (> (length (keyword-parameters specialization-parameters))
-	  (length (keyword-parameters store-parameters)))))
+          (length (keyword-parameters store-parameters)))))
 
 (defun specialization-parameters-lower-bound (specialization-parameters)
   (length (required-parameters specialization-parameters)))
@@ -158,11 +179,10 @@
 (defun specialization-parameters-upper-bound (specialization-parameters)
   (cond
     ((or (rest-parameter specialization-parameters)
-	 (keyword-parameters-p specialization-parameters))
+         (keyword-parameters-p specialization-parameters))
      lambda-parameters-limit)
     (t
-     (+ (length (required-parameters specialization-parameters))
-	(length (optional-parameters specialization-parameters))))))
+     (length (required-parameters specialization-parameters)))))
 
 ;;;; Training
 (defun fixed-arity-store-parameters-p (store-parameters)
@@ -216,7 +236,7 @@
                    (t
                     nil)))
            (process (node knowledge)
-	     (cond ((null node)
+             (cond ((null node)
                     nil)
                    ((leafp node)
                     node)
@@ -236,7 +256,7 @@
                                    (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) knowledge)
                                      (values (make-node new-rule new-pass new-fail)
                                              (or changed? pass-changed? fail-changed?)))))))))))))
-    (multiple-value-bind (new-tree changed?) (process tree nil)      
+    (multiple-value-bind (new-tree changed?) (process tree nil)
       (if changed?
           (remove-dispatch-tree-tautologies new-tree)
           new-tree))))
@@ -262,8 +282,8 @@
 ;;;; Rule Implementation
 (defun compare-slot-values (slot-name test-fn &rest objects)
   (apply test-fn (mapcar #'(lambda (object)
-			     (slot-value object slot-name))
-			 objects)))
+                             (slot-value object slot-name))
+                         objects)))
 
 (defmethod rule-equal ((rule-a t) (rule-b t))
   nil)
@@ -276,39 +296,9 @@
   (and (compare-slot-values 'keyword #'eql rule-a rule-b)
        (compare-slot-values 'type #'alexandria:type= rule-a rule-b)))
 
-(defmethod evaluate-rule ((rule fixed-argument-count-rule) (specialization-parameters specialization-parameters))
-  (= (argument-count rule)
-     (specialization-parameters-lower-bound specialization-parameters)
-     (specialization-parameters-upper-bound specialization-parameters)))
-
-(defmethod evaluate-rule ((rule accepts-argument-count-rule) (specialization-parameters specialization-parameters))
-  (<= (argument-count rule)
-      (specialization-parameters-upper-bound specialization-parameters)))
-
-(defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
-  (with-slots (position type) rule
-    (let ((required-parameter (nth position (required-parameters specialization-parameters))))
-      (cond ((and (rest-parameter specialization-parameters)
-                  (null (keyword-parameters specialization-parameters))
-                  (null required-parameter))
-             (subtypep t type))
-            (required-parameter
-             (destructuring-bind (var var-type) required-parameter
-               (declare (ignore var))
-               (subtypep var-type type)))))))
-
-(defmethod evaluate-rule ((rule keyword-parameter-type-rule) (specialization-parameters specialization-parameters))
-  (with-slots (keyword type) rule
-    (let ((keyword-parameter (find keyword (keyword-parameters specialization-parameters) :key #'first)))
-      (assert keyword-parameter nil "Unable to find keyword parameter ~W in specialization parameters ~W."
-	      keyword specialization-parameters)
-      (destructuring-bind (keyword var var-type supplied-p-var) keyword-parameter
-	(declare (ignore keyword var supplied-p-var))
-	(subtypep (or var-type t) type)))))
-
-(defmethod evaluate-rule ((rule constantly-rule) specialization-parameters)
-  (declare (ignore specialization-parameters))
-  (constantly-rule-value rule))
+(defmethod rule-equal ((rule-a rest-objects-rule) (rule-b rest-objects-rule))
+  (alexandria:type= (rest-objects-rule-type rule-a)
+                    (rest-objects-rule-type rule-b)))
 
 (defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule fixed-argument-count-rule))
   (let* ((count (argument-count known-rule))
