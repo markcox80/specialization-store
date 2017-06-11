@@ -49,7 +49,6 @@
 ;; two or more specializations.
 
 (defgeneric rule-equal (rule-a rule-b))
-(defgeneric evaluate-rule (rule specialization-parameters))
 (defgeneric remove-rule-tautologies (rule known-rule))
 
 (defclass rule ()
@@ -292,40 +291,6 @@
 (defmethod rule-equal ((rule-a rest-objects-rule) (rule-b rest-objects-rule))
   (alexandria:type= (rest-objects-rule-type rule-a)
                     (rest-objects-rule-type rule-b)))
-
-(defmethod evaluate-rule ((rule fixed-argument-count-rule) (specialization-parameters specialization-parameters))
-  (= (argument-count rule)
-     (specialization-parameters-lower-bound specialization-parameters)
-     (specialization-parameters-upper-bound specialization-parameters)))
-
-(defmethod evaluate-rule ((rule accepts-argument-count-rule) (specialization-parameters specialization-parameters))
-  (<= (argument-count rule)
-      (specialization-parameters-upper-bound specialization-parameters)))
-
-(defmethod evaluate-rule ((rule positional-parameter-type-rule) (specialization-parameters specialization-parameters))
-  (with-slots (position type) rule
-    (let ((required-parameter (nth position (required-parameters specialization-parameters))))
-      (cond ((and (rest-parameter specialization-parameters)
-                  (null (keyword-parameters specialization-parameters))
-                  (null required-parameter))
-             (subtypep t type))
-            (required-parameter
-             (destructuring-bind (var var-type) required-parameter
-               (declare (ignore var))
-               (subtypep var-type type)))))))
-
-(defmethod evaluate-rule ((rule keyword-parameter-type-rule) (specialization-parameters specialization-parameters))
-  (with-slots (keyword type) rule
-    (let ((keyword-parameter (find keyword (keyword-parameters specialization-parameters) :key #'first)))
-      (assert keyword-parameter nil "Unable to find keyword parameter ~W in specialization parameters ~W."
-              keyword specialization-parameters)
-      (destructuring-bind (keyword var var-type supplied-p-var) keyword-parameter
-        (declare (ignore keyword var supplied-p-var))
-        (subtypep (or var-type t) type)))))
-
-(defmethod evaluate-rule ((rule constantly-rule) specialization-parameters)
-  (declare (ignore specialization-parameters))
-  (constantly-rule-value rule))
 
 (defmethod remove-rule-tautologies ((rule positional-parameter-type-rule) (known-rule fixed-argument-count-rule))
   (let* ((count (argument-count known-rule))
