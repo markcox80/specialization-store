@@ -42,7 +42,7 @@
                 (member (first form) '(glue-layer-test syntax-layer-test)))
            (format t "~%;;;; Preparing global environment for ~W ~W.~%" (second form) (first form))
            (uiop:with-temporary-file (:stream s :pathname p)
-             (uiop:with-temporary-file (:pathname p-fasl)
+             (uiop:with-temporary-file (:pathname p-fasl :type (pathname-type (compile-file-pathname p)))
                (loop
                  for expression in (cddr form)
                  do
