@@ -94,6 +94,40 @@
     (signals inapplicable-arguments-error (example 1d0 1d0 1d0))
     (signals inapplicable-arguments-error (example 1))))
 
+(syntax-layer-test basic/rest/3
+  (defstore example (a &rest args))
+
+  (defspecialization example ((a integer)) (eql 1)
+    (declare (ignore a))
+    1)
+
+  (defspecialization example ((a integer) &rest (args integer)) (eql 2)
+    (declare (ignore a args))
+    2)
+
+  (defspecialization example ((a integer) &rest (args float)) (eql 3)
+    (declare (ignore a args))
+    3)
+
+  (defspecialization example ((a integer) &rest args) (eql 4)
+    (declare (ignore a args))
+    4)
+
+  (defspecialization example (a (b string)) (eql 5)
+    (declare (ignore a b))
+    5)
+
+  (test basic/rest/3
+    (is (= 1 (example 1)))
+    (is (= 2 (example 1 2)))
+    (is (= 2 (example 1 2 3)))
+    (is (= 3 (example 1 2.0 3d0 4.0)))
+    (is (= 3 (example 1 2.0 3.0)))
+    (is (= 4 (example 1 2.0 3.0 4)))
+    (is (= 5 (example "hey" "there")))
+    (is (= 5 (example 3.0 "hey")))
+    (is-true (member (example 1 "hey") '(4 5)))))
+
 (syntax-layer-test lexical-environment/optional
   (eval-when (:compile-toplevel :load-toplevel :execute)
     (flet ((init-a ()
