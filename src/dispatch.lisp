@@ -130,7 +130,7 @@
 
 (defclass rest-objects-rule (dispatch-rule)
   ((type :initarg :type
-         :reader rest-objects-rule)))
+         :reader rest-objects-rule-type)))
 
 (defmethod print-object ((object rest-objects-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
