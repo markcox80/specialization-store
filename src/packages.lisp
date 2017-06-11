@@ -114,6 +114,7 @@
            "PARAMETER-VARP"
            "PARAMETER-KEYWORD"
            "PARAMETER-TYPE"
+           "PARAMETER-EACH-TYPE"
            "PARAMETER-LAMBDA-LIST-SPECIFICATION")
 
   ;; Parameters Protocol
@@ -215,6 +216,11 @@
            "CONSTANTLY-RULE"
            "CONSTANTLY-RULE-VALUE"
            "MAKE-CONSTANTLY-RULE"
+
+           "REST-OBJECTS-RULE"
+           "REST-OBJECTS-RULE-TYPE"
+           "REST-OBJECTS-RULE-POSITION"
+           "MAKE-REST-OBJECTS-RULE"
 
            "RULE-EQUAL"))
 

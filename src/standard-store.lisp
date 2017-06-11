@@ -219,8 +219,13 @@
                (assert match nil "Unable to find keyword argument specification ~W in specialization ~W." keyword specialization)))
       (and (compare #'= #'length #'required-parameters)
            (compare #'= #'length #'optional-parameters)
-           (compare #'eql #'null #'rest-parameter)
            (compare #'eql #'keyword-parameters-p)
+           (let* ((rest-a (rest-parameter parameters-a))
+                  (rest-b (rest-parameter parameters-b)))
+             (or (and (null rest-a) (null rest-b))
+                 (and rest-a rest-b
+                      (alexandria:type= (parameter-each-type rest-a)
+                                        (parameter-each-type rest-b)))))
            (loop
               for a in (required-parameters parameters-a)
               for b in (required-parameters parameters-b)
@@ -604,6 +609,30 @@
 (defmethod generate-code ((rule constantly-rule) f-env d-env)
   (declare (ignore f-env d-env))
   (constantly-rule-value rule))
+
+(defmethod generate-code ((rule rest-objects-rule) (f-env value-function-environment) (d-env variable-environment))
+  (with-slots (positional) d-env
+    (let* ((type (rest-objects-rule-type rule))
+           (position (rest-objects-rule-position rule))
+           (offset (- position (length positional))))
+      (assert (typep offset '(integer 0)))
+      (with-slots (args) d-env
+        (alexandria:with-gensyms (arg)
+          `(loop
+             for ,arg in (nthcdr ,offset ,args)
+             always (typep ,arg ',type)))))))
+
+(defmethod generate-code ((rule rest-objects-rule) (f-env type-function-environment) (d-env variable-environment))
+  (with-slots (positional) d-env
+    (let* ((type (rest-objects-rule-type rule))
+           (position (rest-objects-rule-position rule))
+           (offset (- position (length positional))))
+      (assert (typep offset '(integer 0)))
+      (with-slots (args) d-env
+        (alexandria:with-gensyms (arg)
+          `(loop
+             for ,arg in (nthcdr ,offset ,args)
+             always (subtypep ,arg ',type)))))))
 
 (defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env positional-environment))
   (with-slots (store) f-env
