@@ -109,7 +109,13 @@
       (add '(a &rest others))
       (is (= 1 (specialization-count store)))
       (add '(a (b integer)))
-      (is (= 2 (specialization-count store))))))
+      (is (= 2 (specialization-count store)))
+      (add '(a &rest (others integer)))
+      (is (= 3 (specialization-count store)))
+      (add '(a &rest (args integer)))
+      (is (= 3 (specialization-count store)))
+      (add '(a &rest (args float)))
+      (is (= 4 (specialization-count store))))))
 
 (test invoking-store
   (let* ((store (make-instance 'standard-store

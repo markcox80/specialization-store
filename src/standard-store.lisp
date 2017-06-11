@@ -219,8 +219,13 @@
                (assert match nil "Unable to find keyword argument specification ~W in specialization ~W." keyword specialization)))
       (and (compare #'= #'length #'required-parameters)
            (compare #'= #'length #'optional-parameters)
-           (compare #'eql #'null #'rest-parameter)
            (compare #'eql #'keyword-parameters-p)
+           (let* ((rest-a (rest-parameter parameters-a))
+                  (rest-b (rest-parameter parameters-b)))
+             (or (and (null rest-a) (null rest-b))
+                 (and rest-a rest-b
+                      (alexandria:type= (parameter-each-type rest-a)
+                                        (parameter-each-type rest-b)))))
            (loop
               for a in (required-parameters parameters-a)
               for b in (required-parameters parameters-b)
