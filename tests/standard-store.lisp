@@ -376,7 +376,7 @@
     (is (= 7 (funcall store 1 "hey" "there")))
     (is (= 7 (funcall store 1 "hey")))
     (is (= 7 (funcall store 1 2 "hey")))
-    (signals inapplicable-arguments-error (funcall store 1 2 3.0 "hey"))
+    (is (= 7 (funcall store 1 2 3.0 "hey")))
     (signals inapplicable-arguments-error (funcall store "hey"))))
 
 (test dispatch-function/key-with-null-type

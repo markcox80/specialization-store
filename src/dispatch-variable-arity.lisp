@@ -65,7 +65,7 @@
                (loop
                  for specialization-parameters in set-Z
                  for specialization-tuple in set-Z-tuples
-                 when (equal tuple specialization-tuple)
+                 when (every #'subtypep tuple specialization-tuple)
                    collect specialization-parameters))
              (make-rest-rule-tree (specialization others)
                (when specialization
