@@ -610,6 +610,30 @@
   (declare (ignore f-env d-env))
   (constantly-rule-value rule))
 
+(defmethod generate-code ((rule rest-objects-rule) (f-env value-function-environment) (d-env variable-environment))
+  (with-slots (positional) d-env
+    (let* ((type (rest-objects-rule-type rule))
+           (position (rest-objects-rule-position rule))
+           (offset (- position (length positional))))
+      (assert (typep offset '(integer 0)))
+      (with-slots (args) d-env
+        (alexandria:with-gensyms (arg)
+          `(loop
+             for ,arg in (nthcdr ,offset ,args)
+             always (typep ,arg ',type)))))))
+
+(defmethod generate-code ((rule rest-objects-rule) (f-env type-function-environment) (d-env variable-environment))
+  (with-slots (positional) d-env
+    (let* ((type (rest-objects-rule-type rule))
+           (position (rest-objects-rule-position rule))
+           (offset (- position (length positional))))
+      (assert (typep offset '(integer 0)))
+      (with-slots (args) d-env
+        (alexandria:with-gensyms (arg)
+          `(loop
+             for ,arg in (nthcdr ,offset ,args)
+             always (subtypep ,arg ',type)))))))
+
 (defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env positional-environment))
   (with-slots (store) f-env
     (with-slots (positional) d-env
