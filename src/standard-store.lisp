@@ -439,9 +439,11 @@
              (update-compile-time (form &optional env)
                (update-dispatch-functions store)
                (funcall (slot-value store 'compile-time-function) form env)))
-      (setf runtime-function #'update-runtime
-            compile-time-function #'update-compile-time)
-      (specialization-store.mop:set-funcallable-instance-function store #'update-runtime))))
+      (let* ((fn (store-value-completion-function store))
+             (initial-runtime-function (funcall fn #'update-runtime)))
+        (setf runtime-function initial-runtime-function
+              compile-time-function #'update-compile-time)
+        (specialization-store.mop:set-funcallable-instance-function store initial-runtime-function)))))
 
 (defmethod update-dispatch-functions ((store standard-store))
   (with-slots (runtime-function compile-time-function) store
