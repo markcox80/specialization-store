@@ -199,8 +199,7 @@
   (let* ((store (make-instance 'standard-store
                                :lambda-list '(&optional (a (init-a)))
                                :value-completion-function #'null
-                               :type-completion-function #'null
-                               :form-completion-function #'null)))
+                               :type-completion-function #'null)))
     (finishes (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
 
   ;; Signal an error if a new lambda list is supplied that is not
@@ -215,8 +214,7 @@
     (finishes (reinitialize-instance store
                                      :lambda-list '(&optional (b (init-b)))
                                      :value-completion-function #'null
-                                     :type-completion-function #'null
-                                     :form-completion-function #'null))))
+                                     :type-completion-function #'null))))
 
 (test require-completion-functions
   (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
