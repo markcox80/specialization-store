@@ -196,10 +196,13 @@
 
   ;; Check that is ok to reuse the completion functions for a new
   ;; lambda list which is congruent with the old lambda list.
-  (let* ((store (make-instance 'standard-store
+  (let* ((empty-completion-function (lambda (continuation)
+                                      (declare (ignore continuation))
+                                      #'null))
+         (store (make-instance 'standard-store
                                :lambda-list '(&optional (a (init-a)))
-                               :value-completion-function #'null
-                               :type-completion-function #'null)))
+                               :value-completion-function empty-completion-function
+                               :type-completion-function empty-completion-function)))
     (finishes (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
 
   ;; Signal an error if a new lambda list is supplied that is not
@@ -210,11 +213,14 @@
 
   ;; Check the above case completes if completion functions are
   ;; specified.
-  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(a)))
+         (empty-completion-function (lambda (continuation)
+                                      (declare (ignore continuation))
+                                      #'null)))
     (finishes (reinitialize-instance store
                                      :lambda-list '(&optional (b (init-b)))
-                                     :value-completion-function #'null
-                                     :type-completion-function #'null))))
+                                     :value-completion-function empty-completion-function
+                                     :type-completion-function empty-completion-function))))
 
 (test require-completion-functions
   (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
