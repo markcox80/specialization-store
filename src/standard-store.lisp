@@ -166,7 +166,10 @@
             (t
              (error 'simple-store-error
                     :store instance
-                    :message (format nil "Unable to change store lambda list.")))))))
+                    :message (format nil "Unable to change store lambda list."))))))
+
+  (when (or value-completion-function-p type-completion-function-p)
+    (clear-dispatch-functions instance)))
 
 (defmethod funcall-store ((store standard-store) &rest args)
   (with-slots (runtime-function) store
