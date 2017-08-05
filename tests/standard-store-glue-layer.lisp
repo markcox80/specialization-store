@@ -26,8 +26,12 @@
 
 (glue-layer-test ensure-store/reinitialised
   (test ensure-store
-    (let ((fn1 #'identity)
-          (fn2 #'print))
+    (let ((fn1 (lambda (continuation)
+                 (lambda (&rest args)
+                   (apply continuation 0 args))))
+          (fn2 (lambda (continuation)
+                 (lambda (&rest args)
+                   (apply continuation 1 args)))))
       (ensure-store 'my-function '(a) :value-completion-function fn1)
       (is (eql fn1 (store-value-completion-function (find-store 'my-function))))
       (ensure-store 'my-function '(a) :value-completion-function fn2)
