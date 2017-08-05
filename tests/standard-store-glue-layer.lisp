@@ -1,5 +1,5 @@
 ;; Not the best check. Some would say that the wine has increased my
-;; apathy. 
+;; apathy.
 (unless (eql *package* (find-package "SPECIALIZATION-STORE.TESTS.SYNTAX-LAYER"))
   (error "This file can only be processed using SPECIALIZATION-STORE.TESTS::PROCESS-SYNTAX-LAYER-TESTS"))
 
@@ -37,9 +37,9 @@
   (test find-store
     (signals error (find-store 'my-function))
     (is-false (find-store 'my-function nil))
-    
+
     (ensure-store 'my-function '(a))
-    
+
     (is-true (find-store 'my-function))
     (is-true (find-store 'my-function nil))
 
