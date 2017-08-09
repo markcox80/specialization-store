@@ -280,10 +280,14 @@
         (is (equal (list "there" 3) (funcall-store store "there")))
         (is (equal (list "foobar" 10) (funcall-store store "foobar" 10)))
         (is (equal (list "hello" 4) (funcall-store store "hello")))
-        (is (equal 2 (expand-store store '(example "hello" 2) nil)))
+        (is (equal 2 (expand-store store '(example "hello" 2))))
         ;; Doesn't match anything
         (let ((form '(test "hey" "there")))
-          (is (eq form (expand-store store form))))))))
+          (is (eq form (expand-store store form))))
+
+        ;; Expansions
+        (signals error (expand-store store '(example)))
+        (is-true (null (expand-store store '(example "hello"))))))))
 
 ;;;; Dispatching
 
