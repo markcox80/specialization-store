@@ -1,0 +1,72 @@
+#+TITLE: Store Lambda Lists and Completion Functions
+#+AUTHOR: Mark Cox
+
+* Problem
+
+The code below (taken from [[https://github.com/markcox80/specialization-store/issues/1][Issue #1)]] highlights an inconsistency
+between ~EXPAND-STORE~ and ~FUNCALL-STORE~.
+#+begin_src lisp
+  (defun example/value-completion (continuation)
+    (lambda (a &optional (b 1))
+      (funcall continuation a b)))
+
+  (defun example/type-completion (continuation)
+    (lambda (a &optional (b '(eql 1)))
+      (funcall continuation a b)))
+
+  (defun example ()
+    (let* ((store (make-instance 'standard-store
+                                 :name 'example
+                                 :lambda-list '(a &optional b)
+                                 :value-completion-function #'example/value-completion
+                                 :type-completion-function #'example/type-completion))
+           (specialization (make-instance 'standard-specialization
+                                          :lambda-list '((a real) (b real))
+                                          :function #'+
+                                          :expand-function (compiler-macro-lambda (a b)
+                                                             `(+ ,a ,b)))))
+      (add-specialization store specialization)
+      (values (expand-store store '(example 1))
+              (funcall-store store 1))))
+
+  ;; > (example)
+  ;; (+ 1 nil)
+  ;; 2
+  ;;
+  ;; I expected something equivalent to:
+  ;;
+  ;; (+ 1 1)
+  ;; 2
+#+end_src
+
+The inconsistency arises because the store lambda list is not
+consistent with the completion function. A simple solution to this
+problem would be to change the lambda list to the following:
+#+begin_src lisp
+  (make-instance 'standard-store
+                 :name 'example
+                 :lambda-list '(a &optional (b 1))
+                 :value-completion-function #'example/value-completion
+                 :type-completion-function #'example/type-completion)
+#+end_src
+Unfortunately, this solution does not consider lexical environments of
+the initialization forms.
+
+Completion functions were introduced in to the object layer to allow
+the syntax layer to capture the lexical environment of initialisation
+forms. Thus the expansion returned by ~EXPAND-STORE~ in [[https://github.com/markcox80/specialization-store/issues/1][Issue #1]]
+should be something like the following
+#+begin_src lisp
+  (funcall (funcall (lambda (a b)
+                      (+ a b))
+                    (store-value-completion-function (find-store 'example)))
+           1)
+#+end_src
+The above expansion highlights a number of issues with the current
+design.
+
+In order to perform /one/ store function application we have to
+perform /five/ function applications. Furthermore, ~EXPAND-STORE~
+requires the store object to be inserted in to the global environment
+because store objects are not [[http://www.lispworks.com/documentation/HyperSpec/Body/03_bda.htm][externalizable]]. This coupling breaks the
+independence of the glue and object layers.
