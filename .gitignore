@@ -4,4 +4,4 @@ doc/dispatch-working.fdb_latexmk
 doc/dispatch-working.fls
 doc/dispatch-working.log
 doc/dispatch-working.pdf
-/doc/store-function-init-forms.html
+/doc/blog/*.html
