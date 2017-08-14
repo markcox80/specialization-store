@@ -39,9 +39,10 @@ between ~EXPAND-STORE~ and ~FUNCALL-STORE~.
   ;; 2
 #+end_src
 
-The inconsistency arises because the store lambda list is not
-consistent with the completion function. A simple solution to this
-problem would be to change the lambda list to the following:
+The inconsistency arises because the initialisation form in the store
+lambda list is not matched with the value completion function. A
+simple solution to this problem would be to change the lambda list to
+the following:
 #+begin_src lisp
   (make-instance 'standard-store
                  :name 'example
@@ -49,13 +50,13 @@ problem would be to change the lambda list to the following:
                  :value-completion-function #'example/value-completion
                  :type-completion-function #'example/type-completion)
 #+end_src
-Unfortunately, this solution does not consider lexical environments of
-the initialization forms.
+Unfortunately, this solution does not consider initialization forms
+and their lexical environments.
 
 Completion functions were introduced in to the object layer to allow
 the syntax layer to capture the lexical environment of initialisation
-forms. Thus the expansion returned by ~EXPAND-STORE~ in [[https://github.com/markcox80/specialization-store/issues/1][Issue #1]]
-should be something like the following
+forms using closures. Thus the expansion returned by ~EXPAND-STORE~ in
+[[https://github.com/markcox80/specialization-store/issues/1][Issue #1]] should be code which uses the value completion function
 #+begin_src lisp
   (funcall (funcall (lambda (a b)
                       (+ a b))
@@ -63,10 +64,56 @@ should be something like the following
            1)
 #+end_src
 The above expansion highlights a number of issues with the current
-design.
+design. In order to perform /one/ store function application we have
+to perform /six/ function applications:
+1. ~(find-store 'example)~
+2. ~(store-value-completion-function ...)~
+3. ~(funcall (lambda (a b) ...))~
+4. ~(funcall (funcall ...))~
+5. The initialisation form to compute the value of ~b~.
+6. Applying ~(lambda (a b) (+ a b))~ to the completed values.
 
-In order to perform /one/ store function application we have to
-perform /five/ function applications. Furthermore, ~EXPAND-STORE~
-requires the store object to be inserted in to the global environment
-because store objects are not [[http://www.lispworks.com/documentation/HyperSpec/Body/03_bda.htm][externalizable]]. This coupling breaks the
-independence of the glue and object layers.
+Furthermore, since store objects are not [[http://www.lispworks.com/documentation/HyperSpec/Body/03_bda.htm][externalizable]],
+~EXPAND-STORE~ requires the store object to be bound to a name in the
+global environment. This coupling breaks the independence of the glue
+and object layers.
+
+The large number of function applications also removes the benefits of
+inlining code such as compiler optimisations, type inference and code
+elimination.
+
+* Solution
+The proposed solution to this problem is to remove completion
+functions from the user interface and introduce a new lambda list, the
+~store-object-lambda-list~.
+
+The syntax of a ~store-object-lambda-list~ is a subset of
+~store-lambda-list~ such all initialization forms can be evaluated in
+a lexical environment containing only bindings for the values of
+proceeding arguments. This change ensures the object layer is not
+required to modifying the global environment.
+
+The example at the beginning of this article using
+~store-object-lambda-list~ would now become
+#+begin_src lisp
+  (defun example ()
+    (let* ((store (make-instance 'standard-store
+                                 :name 'example
+                                 :lambda-list '(a &optional (b (the real (init-b))))))
+           (specialization (make-instance 'standard-specialization
+                                          :lambda-list '((a real) (b real))
+                                          :function #'+
+                                          :expand-function (compiler-macro-lambda (a b)
+                                                             `(+ ,a ,b)))))
+      (add-specialization store specialization)
+      (values (expand-store store '(example 1))
+              (funcall-store store 1))))
+
+  ;; > (example)
+  ;; ((lambda (a b) (+ a b)) 1 (init-b))
+  ;; 2
+#+end_src
+
+By eliminating completion functions from the user interface it is now
+impossible to introduce an inconsistency between the store lambda list
+and the value and type completion functions.
