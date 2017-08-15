@@ -138,7 +138,9 @@
   ;; Store lambda lists
   (:export "STORE-PARAMETERS"
            "PARSE-STORE-LAMBDA-LIST"
-           "PARSE-STORE-LAMBDA-LIST-ERROR")
+           "PARSE-STORE-LAMBDA-LIST-ERROR"
+
+           "PARSE-STORE-OBJECT-LAMBDA-LIST")
 
   ;; Specialization lambda lists
   (:export "SPECIALIZATION-PARAMETERS"
