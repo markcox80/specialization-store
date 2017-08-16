@@ -521,7 +521,13 @@
                    (let* ((*compile-verbose* nil)
                           (*compile-print* nil)
                           (*error-output* (make-broadcast-stream)))
-                     (compile nil `(lambda ,vars ,form)))
+                     (handler-case (with-compilation-unit (:override t)
+                                     (compile nil `(lambda ,vars
+                                                     (declare (ignorable ,@vars))
+                                                     ,form)))
+                       (condition (c)
+                         (declare (ignorable c))
+                         (values nil nil t))))
                  (declare (ignore fn warnings-p))
                  (when failures-p
                    (error 'parse-store-lambda-list-error
