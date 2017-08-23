@@ -511,6 +511,62 @@
         (signal-parse-lambda-list-error "The variables ~W are used more than once in the store lambda list." duplicate-variables))
       rv)))
 
+;;;; Store object lambda list
+
+(defun parse-store-object-lambda-list (store-object-lambda-list)
+  (let* ((parameters (parse-store-lambda-list store-object-lambda-list))
+         (vars (alexandria:mappend #'parameter-vars (required-parameters parameters))))
+    (labels ((check-form (form vars)
+               (multiple-value-bind (fn warnings-p failures-p)
+                   (let* ((*compile-verbose* nil)
+                          (*compile-print* nil)
+                          (*error-output* (make-broadcast-stream)))
+                     (handler-case (with-compilation-unit (:override t)
+                                     (compile nil `(lambda ,vars
+                                                     (declare (ignorable ,@vars))
+                                                     ,form)))
+                       (condition (c)
+                         (declare (ignorable c))
+                         (values nil nil t))))
+                 (declare (ignore fn warnings-p))
+                 (when failures-p
+                   (error 'parse-store-lambda-list-error
+                          :lambda-list store-object-lambda-list
+                          :lambda-list-description "store-object-lambda-list"
+                          :message (format nil "Invalid form ~A in store object lambda list ~A."
+                                           form store-object-lambda-list))))
+               ;; Don't do below because it does not handle macros
+               ;; that do not use arguments.
+               #- (and)
+               (cond ((constantp form)
+                      t)
+                     ((symbolp form)
+                      (unless (member form vars)
+                        (error 'parse-lambda-list-error "Invalid variable ~A in store object lambda list ~A."
+                               form store-object-lambda-list)))
+                     ((listp form)
+                      (dolist (subform (rest form))
+                        (check-form subform vars)))
+                     (t
+                      (error 'parse-lambda-list-error "Invalid form ~A in store object lambda list ~A."
+                             form store-object-lambda-list)))))
+      ;; Check initforms of optional and keyword arguments.
+      (dolist (p (append (optional-parameters parameters)
+                         (list t)
+                         (keyword-parameters parameters)))
+        (cond ((eql p t)
+               (when (rest-parameter parameters)
+                 (alexandria:appendf vars (list (parameter-var (rest-parameter parameters))))))
+              (t
+               (let* ((var (parameter-var p))
+                      (init-form (parameter-init-form p))
+                      (varp (parameter-varp p)))
+                 (check-form init-form vars)
+                 (if varp
+                     (alexandria:appendf vars (list var varp))
+                     (alexandria:appendf vars (list var))))))))
+    parameters))
+
 ;;;; Specialization Lambda Lists
 
 (define-condition parse-specialization-lambda-list-error (parse-lambda-list-error)

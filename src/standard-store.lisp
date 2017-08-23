@@ -40,13 +40,11 @@
                     :reader store-specializations)
    (specialization-class :initarg :specialization-class
                          :reader store-specialization-class)
-   (value-completion-function :initarg :value-completion-function
-                              :reader store-value-completion-function)
-   (type-completion-function :initarg :type-completion-function
-                             :reader store-type-completion-function)
-   (form-types-function :initarg :form-types-function)
-   (runtime-function :initarg :runtime-function)
-   (compile-time-function :initarg :compile-time-function))
+   (%value-completion-function)
+   (%type-completion-function)
+   (%form-types-function)
+   (%runtime-function)
+   (%compile-time-function))
   (:metaclass standard-store-class)
   (:default-initargs
    :name nil
@@ -92,53 +90,35 @@
 
 ;;;; Standard Store Implementation (Object Layer)
 
-(defun completion-functions-required-p (store-parameters)
-  (check-type store-parameters store-parameters)
-  (or (loop
-        for parameter in (optional-parameters store-parameters)
-          thereis (not (constantp (parameter-init-form parameter))))
-      (loop
-        for parameter in (keyword-parameters store-parameters)
-          thereis (not (constantp (parameter-init-form parameter))))))
-
 (defun make-default-value-completion-function (store-parameters)
   (compile nil (make-value-completion-lambda-form store-parameters)))
 
 (defun make-default-type-completion-function (store-parameters)
   (compile nil (make-type-completion-lambda-form store-parameters nil)))
 
-(defun make-form-types-function (store-parameters)
+(defun make-default-form-types-function (store-parameters)
   (compile nil (make-form-types-lambda-form store-parameters)))
 
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
-                                         (value-completion-function nil value-completion-function-p)
-                                         (type-completion-function nil type-completion-function-p)
                                          &allow-other-keys)
   (assert lambda-list-p)
   (let ((new-parameters (parse-store-lambda-list lambda-list)))
-    (when (and (completion-functions-required-p new-parameters)
-               (or (not (and value-completion-function-p
-                             (functionp value-completion-function)))
-                   (not (and type-completion-function-p
-                             (functionp type-completion-function)))))
-      (error 'missing-completion-functions-error :store instance))
-    (setf (slot-value instance 'parameters) new-parameters
-          (slot-value instance 'value-completion-function) (or value-completion-function
-                                                               (make-default-value-completion-function new-parameters))
-          (slot-value instance 'type-completion-function) (or type-completion-function
-                                                              (make-default-type-completion-function new-parameters))
-          (slot-value instance 'form-types-function) (make-form-types-function new-parameters)))
-
+    (with-slots (parameters) instance
+      (setf parameters new-parameters))
+    (with-slots (%value-completion-function) instance
+      (setf %value-completion-function (make-default-value-completion-function new-parameters)))
+    (with-slots (%type-completion-function) instance
+      (setf %type-completion-function (make-default-type-completion-function new-parameters)))
+    (with-slots (%form-types-function) instance
+      (setf %form-types-function (make-default-form-types-function new-parameters))))
   (clear-dispatch-functions instance))
 
 (defmethod reinitialize-instance :after ((instance standard-store)
                                          &key
                                            ((:name new-name) nil new-name-p)
                                            ((:lambda-list new-lambda-list) nil new-lambda-list-p)
-                                           (value-completion-function nil value-completion-function-p)
-                                           (type-completion-function nil type-completion-function-p)
                                            &allow-other-keys)
   (when new-name-p
     (unless (eql (store-name instance) new-name)
@@ -149,39 +129,31 @@
            (new-parameters (parse-store-lambda-list new-lambda-list))
            (congruent? (congruent-parameters-p old-parameters new-parameters)))
       (cond ((or congruent? (null (store-specializations instance)))
-             (when (and (completion-functions-required-p new-parameters)
-                        (not congruent?)
-                        (or (not (and value-completion-function-p
-                                      (functionp value-completion-function)))
-                            (not (and type-completion-function-p
-                                      (functionp type-completion-function)))))
-               (error 'simple-store-error
-                      :store instance
-                      :message "New completion functions are required for the new store lambda list."))
-
              (with-slots (parameters) instance
                (setf parameters new-parameters))
-
+             (with-slots (%value-completion-function) instance
+               (setf %value-completion-function (make-default-value-completion-function new-parameters)))
+             (with-slots (%type-completion-function) instance
+               (setf %type-completion-function (make-default-type-completion-function new-parameters)))
+             (with-slots (%form-types-function) instance
+               (setf %form-types-function (make-default-form-types-function new-parameters)))
              (clear-dispatch-functions instance))
             (t
              (error 'simple-store-error
                     :store instance
-                    :message (format nil "Unable to change store lambda list."))))))
-
-  (when (or value-completion-function-p type-completion-function-p)
-    (clear-dispatch-functions instance)))
+                    :message (format nil "Unable to change store object lambda list.")))))))
 
 (defmethod funcall-store ((store standard-store) &rest args)
-  (with-slots (runtime-function) store
-    (apply runtime-function args)))
+  (with-slots (%runtime-function) store
+    (apply %runtime-function args)))
 
 (defmethod apply-store ((store standard-store) &rest args)
-  (with-slots (runtime-function) store
-    (apply #'apply runtime-function args)))
+  (with-slots (%runtime-function) store
+    (apply #'apply %runtime-function args)))
 
 (defmethod expand-store ((store standard-store) form &optional env)
-  (with-slots (compile-time-function) store
-    (funcall compile-time-function form env)))
+  (with-slots (%compile-time-function) store
+    (funcall %compile-time-function form env)))
 
 (defmethod add-specialization ((store standard-store) (specialization standard-specialization))
   (unless (congruent-parameters-p (store-parameters store) (specialization-parameters specialization))
@@ -432,25 +404,25 @@
 ;;;; Dispatch Functions
 
 (defmethod clear-dispatch-functions ((store standard-store))
-  (with-slots (runtime-function compile-time-function) store
+  (with-slots (%runtime-function %compile-time-function) store
     (labels ((update-runtime (&rest args)
                (update-dispatch-functions store)
-               (apply (slot-value store 'runtime-function) args))
+               (apply %runtime-function args))
              (update-compile-time (form &optional env)
                (update-dispatch-functions store)
-               (funcall (slot-value store 'compile-time-function) form env)))
-      (let* ((fn (store-value-completion-function store))
-             (initial-runtime-function (funcall fn #'update-runtime)))
-        (setf runtime-function initial-runtime-function
-              compile-time-function #'update-compile-time)
+               (funcall %compile-time-function form env)))
+      (let* ((initial-runtime-function (with-slots (%value-completion-function) store
+                                         (funcall %value-completion-function #'update-runtime))))
+        (setf %runtime-function initial-runtime-function
+              %compile-time-function #'update-compile-time)
         (specialization-store.mop:set-funcallable-instance-function store initial-runtime-function)))))
 
 (defmethod update-dispatch-functions ((store standard-store))
-  (with-slots (runtime-function compile-time-function) store
-    (with-slots (value-completion-function type-completion-function form-types-function) store
+  (with-slots (%runtime-function %compile-time-function) store
+    (with-slots (%value-completion-function %type-completion-function %form-types-function) store
       (labels ((cascade (compile-time)
-                 (let* ((type-fn (funcall form-types-function
-                                          (funcall type-completion-function
+                 (let* ((type-fn (funcall %form-types-function
+                                          (funcall %type-completion-function
                                                    (lambda (&rest args)
                                                      args)))))
                    (lambda (form env)
@@ -461,9 +433,9 @@
                                form
                                (funcall lexical-fn new-form env)))))))))
         (destructuring-bind (runtime compile-time) (compute-dispatch-functions store)
-          (setf runtime-function (funcall value-completion-function runtime)
-                compile-time-function (cascade compile-time))
-          (specialization-store.mop:set-funcallable-instance-function store runtime-function)))))
+          (setf %runtime-function (funcall %value-completion-function runtime)
+                %compile-time-function (cascade compile-time))
+          (specialization-store.mop:set-funcallable-instance-function store %runtime-function)))))
   (values))
 
 ;;;; Dispatch function environment

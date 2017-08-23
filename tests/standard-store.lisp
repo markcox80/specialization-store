@@ -163,11 +163,7 @@
       (is (eq form (expand-store store form))))))
 
 (test store-reinitialization
-  (let* ((store (make-instance 'standard-store
-                               :lambda-list '(&optional a)
-                               :value-completion-function (lambda (continuation)
-                                                            (lambda (&optional (a 1))
-                                                              (funcall continuation a))))))
+  (let* ((store (make-instance 'standard-store :lambda-list '(&optional (a 1)))))
     (add-specialization store (make-instance 'standard-specialization
                                              :lambda-list '((a (integer 0)))
                                              :function (lambda (a)
@@ -176,9 +172,7 @@
     (finishes (reinitialize-instance store :lambda-list '(&optional b)))
     (signals store-error (reinitialize-instance store :lambda-list '(b)))
 
-    (reinitialize-instance store :value-completion-function (lambda (continuation)
-                                                              (lambda (&optional (b 2))
-                                                                (funcall continuation b))))
+    (reinitialize-instance store :lambda-list '(&optional (b 2)))
     (is (= 3 (funcall-store store)))))
 
 (test store-reinitialization/different-lambda-list
@@ -192,102 +186,7 @@
   (let* ((store (make-instance 'standard-store :lambda-list '(a)))
          (s (make-instance 'standard-specialization :lambda-list '((a integer)) :function #'1+)))
     (add-specialization store s)
-    (signals store-error (reinitialize-instance store :lambda-list '(a b))))
-
-  ;; Check that is ok to reuse the completion functions for a new
-  ;; lambda list which is congruent with the old lambda list.
-  (let* ((empty-completion-function (lambda (continuation)
-                                      (declare (ignore continuation))
-                                      #'null))
-         (store (make-instance 'standard-store
-                               :lambda-list '(&optional (a (init-a)))
-                               :value-completion-function empty-completion-function
-                               :type-completion-function empty-completion-function)))
-    (finishes (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
-
-  ;; Signal an error if a new lambda list is supplied that is not
-  ;; congruent with the old lambda list and no completion functions
-  ;; are supplied.
-  (let* ((store (make-instance 'standard-store :lambda-list '(a))))
-    (signals store-error (reinitialize-instance store :lambda-list '(&optional (b (init-b))))))
-
-  ;; Check the above case completes if completion functions are
-  ;; specified.
-  (let* ((store (make-instance 'standard-store :lambda-list '(a)))
-         (empty-completion-function (lambda (continuation)
-                                      (declare (ignore continuation))
-                                      #'null)))
-    (finishes (reinitialize-instance store
-                                     :lambda-list '(&optional (b (init-b)))
-                                     :value-completion-function empty-completion-function
-                                     :type-completion-function empty-completion-function))))
-
-(test require-completion-functions
-  (finishes (make-instance 'standard-store :lambda-list '(&optional a)))
-  (finishes (make-instance 'standard-store :lambda-list '(&optional (a 2))))
-  (finishes (make-instance 'standard-store :lambda-list '(&key a)))
-  (finishes (make-instance 'standard-store :lambda-list '(&key (a 2))))
-
-  (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&optional (a (hellow-world)))))
-  (signals missing-completion-functions-error (make-instance 'standard-store :lambda-list '(&key (a (hello-world))))))
-
-(test default-completion-functions/dispatch
-  (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
-        (a (make-instance 'standard-specialization
-                          :lambda-list '((a integer))
-                          :function (lambda (a) (1+ a))
-                          :expand-function (lambda (form env)
-                                             (declare (ignore form env))
-                                             :here))))
-    (add-specialization store a)
-    (is (= 3 (funcall-store store)))
-    (is (eql :here (expand-store store '(test))))))
-
-(test default-completion-functions/argument-forms
-  (let ((store (make-instance 'standard-store :lambda-list '(&optional (a 2))))
-        (a (make-instance 'standard-specialization
-                          :lambda-list '((a integer))
-                          :function (lambda (a) (1+ a))
-                          :expand-function (compiler-macro-lambda (value)
-                                             value))))
-    (add-specialization store a)
-    (is (eql 2 (expand-store store '(test))))))
-
-(test completion-functions
-  (let ((b-value 1))
-    (labels ((init-b ()
-               (incf b-value)
-               b-value)
-             (value-function (continuation)
-               (lambda (a &optional (b (init-b)))
-                 (funcall continuation a b)))
-             (type-function (continuation)
-               (lambda (a &optional (b '(integer 0)))
-                 (funcall continuation a b))))
-      (let ((store (make-instance 'standard-store
-                                  :lambda-list '(a &optional b)
-                                  :value-completion-function #'value-function
-                                  :type-completion-function #'type-function))
-            (a (make-instance 'standard-specialization
-                              :lambda-list '(a (b (integer 0)))
-                              :function (lambda (a b)
-                                          (list a b))
-                              :expand-function (compiler-macro-lambda (a b)
-                                                 (declare (ignore a))
-                                                 b))))
-        (add-specialization store a)
-        (is (equal (list "hey" 2) (funcall-store store "hey")))
-        (is (equal (list "there" 3) (funcall-store store "there")))
-        (is (equal (list "foobar" 10) (funcall-store store "foobar" 10)))
-        (is (equal (list "hello" 4) (funcall-store store "hello")))
-        (is (equal 2 (expand-store store '(example "hello" 2))))
-        ;; Doesn't match anything
-        (let ((form '(test "hey" "there")))
-          (is (eq form (expand-store store form))))
-
-        ;; Expansions
-        (signals error (expand-store store '(example)))
-        (is-true (null (expand-store store '(example "hello"))))))))
+    (signals store-error (reinitialize-instance store :lambda-list '(a b)))))
 
 ;;;; Dispatching
 

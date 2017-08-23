@@ -82,6 +82,35 @@
     (trial '(a &key (c 5 a)))
     (trial '(&optional a &key ((:m a))))
     (trial '(&optional (a nil bad) &key (b nil bad)))))
+
+
+;;;; parse-store-object-lambda-list
+
+(test parse-store-object-lambda-list
+  (flet ((trial (store-object-lambda-list)
+           (finishes (parse-store-lambda-list store-object-lambda-list))
+           (finishes (parse-store-object-lambda-list store-object-lambda-list))))
+    (trial '(a))
+    (trial '(a &optional (b a)))
+    (trial '(a &optional (b 1)))
+    (trial '(a &optional b (c a)))
+    (trial '(a &optional (b (identity a))))
+    (trial '(a &optional b (c b)))
+    (trial '(a &optional b &key c))
+    (trial '(a &optional b &key (c a) (d (1+ c))))
+    (trial '(a &optional b &rest args &key (c (append a b args))))
+    (trial '(a &rest args))
+    (trial '(a &key (b a)))
+    (trial '(a &key b (c b)))))
+
+(test parse-store-object-lambda-list/invalid
+  (flet ((trial (store-object-lambda-list)
+           (signals parse-store-lambda-list-error
+             (parse-store-object-lambda-list store-object-lambda-list))))
+    (trial '(a &optional (b c) c))
+    (trial '(a &key (b (1+ b))))
+    (trial '(a &rest args &key (b (append a args c))))
+    (trial '(a &optional b &key (c (identity c))))))
 
 ;;;; parse-specialization-lambda-list
 

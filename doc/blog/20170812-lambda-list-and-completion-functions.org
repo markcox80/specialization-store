@@ -88,10 +88,11 @@ functions from the user interface and introduce a new lambda list, the
 ~store-object-lambda-list~.
 
 The syntax of a ~store-object-lambda-list~ is a subset of
-~store-lambda-list~ such all initialization forms can be evaluated in
-a lexical environment containing only bindings for the values of
-proceeding arguments. This change ensures the object layer is not
-required to modifying the global environment.
+~store-lambda-list~. All initialization forms in a
+~store-object-lambda-list~ are evaluated in a lexical environment
+containing bindings for the values of proceeding arguments only. This
+change ensures the object layer is not required to modifying the
+global environment.
 
 The example at the beginning of this article using
 ~store-object-lambda-list~ would now become
@@ -117,3 +118,7 @@ The example at the beginning of this article using
 By eliminating completion functions from the user interface it is now
 impossible to introduce an inconsistency between the store lambda list
 and the value and type completion functions.
+
+This change requires the syntax layer to by binding the functions
+which close over the lexical environment of ~store-lambda-list~
+initialization forms to names in the global environment.
