@@ -102,12 +102,7 @@
   ((store-class :initarg :store-class
                 :reader invalid-store-class)))
 
-(define-condition missing-completion-functions-error (store-error)
-  ())
-
 (defgeneric store-name (store))
-(defgeneric store-value-completion-function (store))
-(defgeneric store-type-completion-function (store))
 (defgeneric specialization-name (specialization))
 
 (defun %find-store-helper (name)
@@ -141,20 +136,14 @@
 (defgeneric ensure-store-using-object (object store-name store-lambda-list
                                        &key
                                          specialization-class documentation
-                                         value-completion-function
-                                         type-completion-function
                                          &allow-other-keys))
 
 (defun ensure-store (name store-lambda-list &rest args
                      &key
                        store-class specialization-class documentation
-                       value-completion-function
-                       type-completion-function
                        &allow-other-keys)
   (declare (ignore specialization-class
-                   documentation
-                   value-completion-function
-                   type-completion-function))
+                   documentation))
   (let* ((store-class (typecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
