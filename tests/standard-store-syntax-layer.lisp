@@ -208,6 +208,51 @@
     (is (= 1 (foo 0 0)))
     (is (= 6 (foo 2 3)))))
 
+(syntax-layer-test inlining/optional
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (let ((x 0))
+      (flet ((compute-default (a)
+               (prog1 (+ a x)
+                 (incf x))))
+        (defstore example (a &optional (b (the real (compute-default a))) (c (the real (1+ b))))))
+
+      (defun reset ()
+        (setf x 0)
+        (values))))
+
+  (defspecialization (example :inline t) ((a real) (b real) (c real)) real
+    (+ a b c))
+
+  (defun foo (x)
+    (example (the real x)))
+
+  (defun foo2 (x y)
+    (example (the real x) (the real y)))
+
+  (compile 'foo)
+  (compile 'foo2)
+
+  (fmakunbound 'example)
+
+  (test foo
+    (reset)
+
+    ;; x is 0
+    (is (= 1 (foo 0))) ; a = 0, b = 0, c = 1
+    ;; x is 1
+    (is (= 6 (foo 1))) ; a = 1, b = 2, c = 3
+    ;; x is 2
+    (is (= 11 (foo 2)))) ; a = 2, b = 4, c = 5
+
+  (test foo2
+    (reset)
+
+    ;; x is always 0 since b is specified.
+    (is (= 3 (foo2 0 1))) ;; a = 0, b = 1, c = 2
+    (is (= 6 (foo2 1 2))) ;; a = 1, b = 2, c = 3
+    (is (= 9 (foo2 2 3))) ;; a = 2, b = 3, c = 4
+    ))
+
 (syntax-layer-test named-specializations
   (defstore example (a))
 
