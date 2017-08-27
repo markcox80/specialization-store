@@ -50,9 +50,7 @@
    :name nil
    :documentation nil
    :specializations nil
-   :specialization-class (find-class 'standard-specialization)
-   :value-completion-function nil
-   :type-completion-function nil))
+   :specialization-class (find-class 'standard-specialization)))
 
 (defmethod print-object ((object standard-store) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -253,11 +251,8 @@
                                       &rest args
                                       &key
                                         specialization-class documentation
-                                        value-completion-function
-                                        type-completion-function
                                         &allow-other-keys)
-  (declare (ignore specialization-class documentation
-                   value-completion-function type-completion-function))
+  (declare (ignore specialization-class documentation))
   (apply #'make-instance 'standard-store
          :name store-name
          :lambda-list store-lambda-list
@@ -267,11 +262,8 @@
                                       &rest args
                                       &key
                                         specialization-class documentation
-                                        value-completion-function
-                                        type-completion-function
                                       &allow-other-keys)
-  (declare (ignore specialization-class documentation
-                   value-completion-function type-completion-function))
+  (declare (ignore specialization-class documentation))
   (apply #'reinitialize-instance instance
          :name store-name
          :lambda-list store-lambda-list
@@ -307,8 +299,6 @@
                                  &rest args
                                  &key
                                    environment
-                                   value-completion-function
-                                   type-completion-function
                                  &allow-other-keys)
   (alexandria:remove-from-plistf args :environment)
   (let* ((parameters (parse-store-lambda-list store-lambda-list)))
@@ -316,11 +306,7 @@
       `(progn
          ,@globals
          (ensure-store ',name ',(original-lambda-list new-parameters)
-                       ,@args
-                       :value-completion-function ,(or value-completion-function
-                                                       (make-value-completion-lambda-form new-parameters))
-                       :type-completion-function ,(or type-completion-function
-                                                      (make-type-completion-lambda-form new-parameters environment)))))))
+                       ,@args)))))
 
 (defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
