@@ -761,9 +761,10 @@
                                   :initial-value nil))
                     (function `(defun ,function-name ,vars
                                  (declare (ignorable ,@vars))
-                                 ,init-form)))
+                                 ,init-form))
+                    (init-form-type (determine-form-value-type init-form environment)))
                (push function globals)
-               `(,function-name ,@vars)))
+               `(the ,init-form-type (,function-name ,@vars))))
            (generate-varp (var)
              (gensym (concatenate 'string (string var) "?"))))
       (let* ((required (required-parameters parameters))
