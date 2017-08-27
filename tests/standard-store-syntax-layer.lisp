@@ -190,23 +190,23 @@
   (test redefinition
     (is (= 1 (example 0)))))
 
-(syntax-layer-test inlining
-  (defstore example (a))
+(syntax-layer-test inlining/required
+  (defstore example (a b))
 
-  (defspecialization (example :inline t) ((a (integer 0))) (integer 1)
-    (1+ a))
+  (defspecialization (example :inline t) ((a (integer 0)) (b (integer 0))) (integer 1)
+    (+ (1+ a) b))
 
-  (defun foo (x)
-    (example (the (integer 0) x)))
+  (defun foo (x y)
+    (example (the (integer 0) x)
+             (the (integer 0) y)))
 
   (compile 'foo)
 
-  (defspecialization (example :inline t) ((a (integer 0))) (integer * (0))
-    (1- a))
+  (fmakunbound 'example)
 
   (test inlining
-    (is (= -1 (example 0)))
-    (is (= 1 (foo 0)))))
+    (is (= 1 (foo 0 0)))
+    (is (= 6 (foo 2 3)))))
 
 (syntax-layer-test named-specializations
   (defstore example (a))
