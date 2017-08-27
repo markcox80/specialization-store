@@ -253,6 +253,32 @@
     (is (= 9 (foo2 2 3))) ;; a = 2, b = 3, c = 4
     ))
 
+(syntax-layer-test inlining/rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (a)
+             (1+ a)))
+      (defstore example (a &optional (b (the integer (init-b a))) &rest args))))
+
+  (defspecialization (example :inline t) ((a integer) (b integer) &rest (args integer)) integer
+    (reduce #'+ args :initial-value (+ a b)))
+
+  (defun foo (a &optional (b 0 bp) (c 0 cp))
+    (cond ((and bp cp)
+           (example (the integer a) (the integer b) (the integer c)))
+          (bp
+           (example (the integer a) (the integer b)))
+          (t
+           (example (the integer a)))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 1 (foo 0)))
+    (is (= 3 (foo 1)))
+    (is (= 2 (foo 1 1)))
+    (is (= 3 (foo 2 1)))
+    (is (= 5 (foo 2 1 2)))))
 (syntax-layer-test named-specializations
   (defstore example (a))
 
