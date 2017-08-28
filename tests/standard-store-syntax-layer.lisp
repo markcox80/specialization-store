@@ -279,6 +279,34 @@
     (is (= 2 (foo 1 1)))
     (is (= 3 (foo 2 1)))
     (is (= 5 (foo 2 1 2)))))
+
+(syntax-layer-test inlining/keywords/sans-rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-c (a b)
+             (+ a b)))
+      (defstore example (&key (a 0) (b 0) (c (the integer (init-c a b)))))))
+
+  (defspecialization (example :inline t) (&key (a integer) (b integer) (c integer)) integer
+    (+ a b c))
+
+  (defun foo (&key (a nil ap) (b nil bp) (c nil cp))
+    (cond ((and ap bp cp)
+           (example :a (the integer a) :b (the integer b) :c (the integer c)))
+          ((and ap bp)
+           (example :a (the integer a) :b (the integer b)))
+          (ap
+           (example :a (the integer a)))
+          (t
+           (example))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 0 (foo :a 0)))
+    (is (= 2 (foo :a 1)))
+    (is (= 6 (foo :b 2 :a 1)))
+    (is (= 10 (foo :c 6 :b 5 :a -1)))))
 (syntax-layer-test named-specializations
   (defstore example (a))
 
