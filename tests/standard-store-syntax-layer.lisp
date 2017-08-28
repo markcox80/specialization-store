@@ -307,6 +307,31 @@
     (is (= 2 (foo :a 1)))
     (is (= 6 (foo :b 2 :a 1)))
     (is (= 10 (foo :c 6 :b 5 :a -1)))))
+
+(syntax-layer-test inlining/keywords/with-rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (args)
+             (loop
+               for v in (rest args) by #'cddr
+               sum v)))
+      (defstore example (&rest args &key (a 0) (b (the integer (init-b args))) (c 0)))))
+
+  (defspecialization (example :inline t) (&key (a integer) (b integer) (c integer)) integer
+    (+ a b c))
+
+  (defun foo (&key (a nil ap) (b nil bp) (c nil cp))
+    (declare (ignore b bp))
+    (cond ((and ap cp)
+           (example :a (the integer a) :c (the integer c)))
+          (ap
+           (example :a (the integer a)))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 6 (foo :a 1 :c 2)))
+    (is (= 4 (foo :a 2)))))
 (syntax-layer-test named-specializations
   (defstore example (a))
 
