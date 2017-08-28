@@ -332,6 +332,28 @@
   (test foo
     (is (= 6 (foo :a 1 :c 2)))
     (is (= 4 (foo :a 2)))))
+
+(syntax-layer-test inlining/symbol-macrolet
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-c (a b)
+             (+ a b)))
+      (defstore example (a &optional (b 0) &key (c (the integer (init-c a b)))))))
+
+  (defspecialization (example :inline t) ((a integer) (b integer) &key (c integer)) integer
+    (+ a b c))
+
+  (defun foo (tmp-a tmp-b tmp-c)
+    (symbol-macrolet ((a (the integer tmp-a))
+                      (b (the integer tmp-b))
+                      (c (the integer tmp-c)))
+      (example a b :c c)))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 6 (foo 1 2 3)))))
+
 (syntax-layer-test named-specializations
   (defstore example (a))
 
