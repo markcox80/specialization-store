@@ -1200,11 +1200,11 @@
                    do
                       (appendf let-forms (list (list rvar form)))
                       (cond ((constantp form env)
-                             (appendf rest-forms (list form))
+                             (appendf rest-forms (list key form))
                              (add-new-forms key form)
                              (push (cons key form) processed-keywords))
                             (t
-                             (appendf rest-forms (list rvar))
+                             (appendf rest-forms (list key rvar))
                              (add-new-forms key rvar)
                              (push (cons key rvar) processed-keywords))))
                  (when (rest-parameter-p store-parameters)
