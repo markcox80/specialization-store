@@ -608,3 +608,38 @@
                    `(test 1 2))
             (signals error (compute '(test)))
             (signals error (compute '(test 1 2 3)))))))))
+
+(defvar *rewrite-order* nil)
+
+(defmacro ordered-form (var form)
+  `(progn
+     (alexandria:appendf *rewrite-order* (list ',var))
+     ,form))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-rewrite-order ((name) &body body)
+    `(let ((*rewrite-order* nil))
+       (symbol-macrolet ((,name *rewrite-order*))
+         ,@body))))
+
+(test rewrite-store-function-form/required
+  (flet ((%example (a b c)
+           (+ a b c)))
+    (macrolet ((example (&rest args &environment env)
+                 (let* ((parameters (parse-store-object-lambda-list '(a b c)))
+                        (form `(%example ,@args)))
+                   (destructuring-bind (fn new-form) (rewrite-store-function-form parameters form env)
+                     (funcall fn new-form env)))))
+      (with-rewrite-order (r)
+        (is (= 6 (example (ordered-form a 1)
+                          (ordered-form b 2)
+                          (ordered-form c 3))))
+        (is (equal '(a b c) r)))
+      (with-rewrite-order (r)
+        (let* ((x 1)
+               (y 2)
+               (z 4))
+          (is (= 7 (example (ordered-form x x)
+                            (ordered-form y y)
+                            (ordered-form z z))))
+          (is (equal '(x y z) r)))))))
