@@ -691,3 +691,50 @@
         (let* ((w 1) (x 2) (y 3) (z 4))
           (is (= 10 (example (ordered-form w w) (ordered-form x x) (ordered-form y y) (ordered-form z z))))
           (is (equal '(w x y z) r)))))))
+
+(test rewrite-store-function-form/keywords/sans-rest
+  (flet ((%example (a b &key c d &allow-other-keys)
+           (+ a b c d)))
+    (macrolet ((example (&rest args &environment env)
+                 (let* ((form `(%example ,@args))
+                        (parameters (parse-store-object-lambda-list `(a &optional (b (ordered-form b (1+ a)))
+                                                                        &key (c (ordered-form c (+ a b)))
+                                                                             (d (ordered-form d (+ a c)))))))
+                   (destructuring-bind (fn new-form) (rewrite-store-function-form parameters form env)
+                     (funcall fn new-form env)))))
+      ;; constants
+      (with-rewrite-order (r)
+        (is (= 10 (example (ordered-form x 1) (ordered-form y 2))))
+        (is (equal '(x y c d) r)))
+      ;; variables
+      (with-rewrite-order (r)
+        (let* ((x 1) (y 2))
+          (is (= 10 (example (ordered-form x x) (ordered-form y y))))
+          (is (equal '(x y c d) r))))
+      ;; constants
+      (with-rewrite-order (r)
+        (is (= 9 (example (ordered-form x 1) (ordered-form y 2) :d (ordered-form z 3))))
+        (is (equal '(x y z c) r)))
+      ;; variables
+      (with-rewrite-order (r)
+        (let* ((x 1) (y 2) (z 3))
+          (is (= 9 (example (ordered-form x x) (ordered-form y y) :d (ordered-form z z))))
+          (is (equal '(x y z c) r))))
+      ;; constants
+      (with-rewrite-order (r)
+        (is (= 10 (example (ordered-form v 1) (ordered-form w 2) :d (ordered-form x 3)
+                                                                 :c (ordered-form y 4)
+                                                                 :f (ordered-form z 5))))
+        (is (equal '(v w x y z) r)))
+      ;; Variables
+      (with-rewrite-order (r)
+        (let* ((v 1) (w 2) (x 3) (y 4) (z 5))
+          (is (= 10 (example (ordered-form v v) (ordered-form w w) :d (ordered-form x x)
+                                                                   :c (ordered-form y y)
+                                                                   :f (ordered-form z z))))
+          (is (equal '(v w x y z) r))))
+
+      ;; Value precedents
+      (with-rewrite-order (r)
+        (is (= 12 (example 1 2 :c 3 :c 4 :d 6 :d 5)))
+        (is (equal nil r))))))
