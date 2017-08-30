@@ -738,3 +738,41 @@
       (with-rewrite-order (r)
         (is (= 12 (example 1 2 :c 3 :c 4 :d 6 :d 5)))
         (is (equal nil r))))))
+
+(test rewrite-store-function-form/keywords/with-rest
+  (flet ((%example (a b &key c d &allow-other-keys)
+           (+ a b c d)))
+    (macrolet ((example (&rest args &environment env)
+                 (let* ((form `(%example ,@args))
+                        (parameters (parse-store-object-lambda-list '(a b
+                                                                      &rest args
+                                                                      &key (c (ordered-form c (1+ b)))
+                                                                           (d (ordered-form d (length args)))))))
+                   (destructuring-bind (fn new-form) (rewrite-store-function-form parameters form env)
+                     (funcall fn new-form env)))))
+      ;; Constants
+      (with-rewrite-order (r)
+        (is (= 6 (example 1 2)))
+        (is (equal '(c d) r)))
+      ;; Variables
+      (with-rewrite-order (r)
+        (let* ((x 1) (y 2))
+          (is (= 6 (example x y)))
+          (is (equal '(c d) r))))
+      ;; Constants
+      (with-rewrite-order (r)
+        (is (= 8 (example (ordered-form x 1) (ordered-form y 2) :c (ordered-form z 3))))
+        (is (equal '(x y z d) r)))
+      ;; Variables
+      (with-rewrite-order (r)
+        (let* ((x 1) (y 2) (z 3))
+          (is (= 8 (example (ordered-form x x) (ordered-form y y) :c (ordered-form z z))))
+          (is (equal '(x y z d) r))))
+      ;; Other keywords
+      (with-rewrite-order (r)
+        (is (= 10 (example 1 2 :c 3 :f 4)))
+        (is (equal '(d) r)))
+      ;; Value precedents
+      (with-rewrite-order (r)
+        (is (= 17 (example 1 2 :c 4 :c 3 :d 10 :d 9)))
+        (is (equal nil r))))))
