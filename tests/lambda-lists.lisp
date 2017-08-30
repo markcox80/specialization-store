@@ -664,3 +664,30 @@
               (y 2))
           (is (= 3 (example (ordered-form x x) (ordered-form y y))))
           (is (equal '(x y) r)))))))
+
+(test rewrite-store-function-form/rest
+  (flet ((%example (a b &rest args)
+           (reduce #'+ args :initial-value (+ a b))))
+    (macrolet ((example (&rest args &environment env)
+                 (let* ((form `(%example ,@args))
+                        (parameters (parse-store-object-lambda-list '(a &optional (b (ordered-form b (1+ a))) &rest args))))
+                   (destructuring-bind (fn new-form) (rewrite-store-function-form parameters form env)
+                     (funcall fn new-form env)))))
+      ;; Constants
+      (with-rewrite-order (r)
+        (is (= 3 (example (ordered-form x 1))))
+        (is (equal '(x b) r)))
+      ;; Variables
+      (with-rewrite-order (r)
+        (let* ((x 1))
+          (is (= 3 (example (ordered-form x x))))
+          (is (equal '(x b) r))))
+      ;; Constants
+      (with-rewrite-order (r)
+        (is (= 10 (example (ordered-form w 1) (ordered-form x 2) (ordered-form y 3) (ordered-form z 4))))
+        (is (equal '(w x y z) r)))
+      ;; Variables
+      (with-rewrite-order (r)
+        (let* ((w 1) (x 2) (y 3) (z 4))
+          (is (= 10 (example (ordered-form w w) (ordered-form x x) (ordered-form y y) (ordered-form z z))))
+          (is (equal '(w x y z) r)))))))
