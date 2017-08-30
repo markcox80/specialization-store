@@ -190,23 +190,169 @@
   (test redefinition
     (is (= 1 (example 0)))))
 
-(syntax-layer-test inlining
-  (defstore example (a))
+(syntax-layer-test inlining/required
+  (defstore example (a b))
 
-  (defspecialization (example :inline t) ((a (integer 0))) (integer 1)
-    (1+ a))
+  (defspecialization (example :inline t) ((a (integer 0)) (b (integer 0))) (integer 1)
+    (+ (1+ a) b))
 
-  (defun foo (x)
-    (example (the (integer 0) x)))
+  (defun foo (x y)
+    (example (the (integer 0) x)
+             (the (integer 0) y)))
 
   (compile 'foo)
 
-  (defspecialization (example :inline t) ((a (integer 0))) (integer * (0))
-    (1- a))
+  (fmakunbound 'example)
 
   (test inlining
-    (is (= -1 (example 0)))
-    (is (= 1 (foo 0)))))
+    (is (= 1 (foo 0 0)))
+    (is (= 6 (foo 2 3)))))
+
+(syntax-layer-test inlining/optional
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (let ((x 0))
+      (flet ((compute-default (a)
+               (prog1 (+ a x)
+                 (incf x))))
+        (defstore example (a &optional (b (the real (compute-default a))) (c (the real (1+ b))))))
+
+      (defun reset ()
+        (setf x 0)
+        (values))))
+
+  (defspecialization (example :inline t) ((a real) (b real) (c real)) real
+    (+ a b c))
+
+  (defun foo (x)
+    (example (the real x)))
+
+  (defun foo2 (x y)
+    (example (the real x) (the real y)))
+
+  (compile 'foo)
+  (compile 'foo2)
+
+  (fmakunbound 'example)
+
+  (test foo
+    (reset)
+
+    ;; x is 0
+    (is (= 1 (foo 0))) ; a = 0, b = 0, c = 1
+    ;; x is 1
+    (is (= 6 (foo 1))) ; a = 1, b = 2, c = 3
+    ;; x is 2
+    (is (= 11 (foo 2)))) ; a = 2, b = 4, c = 5
+
+  (test foo2
+    (reset)
+
+    ;; x is always 0 since b is specified.
+    (is (= 3 (foo2 0 1))) ;; a = 0, b = 1, c = 2
+    (is (= 6 (foo2 1 2))) ;; a = 1, b = 2, c = 3
+    (is (= 9 (foo2 2 3))) ;; a = 2, b = 3, c = 4
+    ))
+
+(syntax-layer-test inlining/rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (a)
+             (1+ a)))
+      (defstore example (a &optional (b (the integer (init-b a))) &rest args))))
+
+  (defspecialization (example :inline t) ((a integer) (b integer) &rest (args integer)) integer
+    (reduce #'+ args :initial-value (+ a b)))
+
+  (defun foo (a &optional (b 0 bp) (c 0 cp))
+    (cond ((and bp cp)
+           (example (the integer a) (the integer b) (the integer c)))
+          (bp
+           (example (the integer a) (the integer b)))
+          (t
+           (example (the integer a)))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 1 (foo 0)))
+    (is (= 3 (foo 1)))
+    (is (= 2 (foo 1 1)))
+    (is (= 3 (foo 2 1)))
+    (is (= 5 (foo 2 1 2)))))
+
+(syntax-layer-test inlining/keywords/sans-rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-c (a b)
+             (+ a b)))
+      (defstore example (&key (a 0) (b 0) (c (the integer (init-c a b)))))))
+
+  (defspecialization (example :inline t) (&key (a integer) (b integer) (c integer)) integer
+    (+ a b c))
+
+  (defun foo (&key (a nil ap) (b nil bp) (c nil cp))
+    (cond ((and ap bp cp)
+           (example :a (the integer a) :b (the integer b) :c (the integer c)))
+          ((and ap bp)
+           (example :a (the integer a) :b (the integer b)))
+          (ap
+           (example :a (the integer a)))
+          (t
+           (example))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 0 (foo :a 0)))
+    (is (= 2 (foo :a 1)))
+    (is (= 6 (foo :b 2 :a 1)))
+    (is (= 10 (foo :c 6 :b 5 :a -1)))))
+
+(syntax-layer-test inlining/keywords/with-rest
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-b (args)
+             (loop
+               for v in (rest args) by #'cddr
+               sum v)))
+      (defstore example (&rest args &key (a 0) (b (the integer (init-b args))) (c 0)))))
+
+  (defspecialization (example :inline t) (&key (a integer) (b integer) (c integer)) integer
+    (+ a b c))
+
+  (defun foo (&key (a nil ap) (b nil bp) (c nil cp))
+    (declare (ignore b bp))
+    (cond ((and ap cp)
+           (example :a (the integer a) :c (the integer c)))
+          (ap
+           (example :a (the integer a)))))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 6 (foo :a 1 :c 2)))
+    (is (= 4 (foo :a 2)))))
+
+(syntax-layer-test inlining/symbol-macrolet
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (flet ((init-c (a b)
+             (+ a b)))
+      (defstore example (a &optional (b 0) &key (c (the integer (init-c a b)))))))
+
+  (defspecialization (example :inline t) ((a integer) (b integer) &key (c integer)) integer
+    (+ a b c))
+
+  (defun foo (tmp-a tmp-b tmp-c)
+    (symbol-macrolet ((a (the integer tmp-a))
+                      (b (the integer tmp-b))
+                      (c (the integer tmp-c)))
+      (example a b :c c)))
+
+  (compile 'foo)
+  (fmakunbound 'example)
+
+  (test foo
+    (is (= 6 (foo 1 2 3)))))
 
 (syntax-layer-test named-specializations
   (defstore example (a))

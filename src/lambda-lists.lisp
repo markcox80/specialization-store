@@ -761,9 +761,10 @@
                                   :initial-value nil))
                     (function `(defun ,function-name ,vars
                                  (declare (ignorable ,@vars))
-                                 ,init-form)))
+                                 ,init-form))
+                    (init-form-type (determine-form-value-type init-form environment)))
                (push function globals)
-               `(,function-name ,@vars)))
+               `(the ,init-form-type (,function-name ,@vars))))
            (generate-varp (var)
              (gensym (concatenate 'string (string var) "?"))))
       (let* ((required (required-parameters parameters))
@@ -1117,88 +1118,145 @@
 ;; the function and the compiler macro function capture the lexical
 ;; environment.
 
-(defun rewrite-store-function-form (store-parameters form env)
+(defun rewrite-store-function-form/with-init-forms (store-parameters form env)
   (check-type store-parameters store-parameters)
   (let* ((form-head (specialization-store:compiler-macro-form-head form))
          (form-args (specialization-store:compiler-macro-form-arguments form))
-         (dependencies nil)
+         ;; Vars used in the initforms
+         (dependencies-vars nil)
+         ;; Variable names or constants which evaluate to the values of vars used in the init forms.
+         (dependencies-values nil)
+         ;; Forms which evaluate to the values of the function arguments.
          (let-forms nil)
-         (required (loop
-                     for parameter in (required-parameters store-parameters)
-                     for var = (gensym (symbol-name (parameter-var parameter)))
-                     for var-formp = (not (null form-args))
-                     for var-form = (pop form-args)
-                     for var-type = (determine-form-value-type var-form env)
-                     for constantp = (constantp var-form env)
-                     do
-                        (unless var-formp
-                          (warn "Insufficient arguments for function in form ~A." form))
-                        (if constantp
-                            (setf var var-form)
-                            (alexandria:appendf let-forms (list (list var var-form))))
-                        (alexandria:appendf dependencies (list var))
-                     collect (if constantp
-                                 var-form
-                                 `(the ,var-type ,var))))
-         (optional (loop
-                     for parameter in (optional-parameters store-parameters)
-                     for var = (gensym (symbol-name (parameter-var parameter)))
-                     for var-formp = (not (null form-args))
-                     for init-form = (parameter-init-form parameter)
-                     for var-form = (cond (var-formp
-                                           (pop form-args))
-                                          ((constantp init-form nil)
-                                           init-form)
-                                          (t
-                                           (cons (first init-form) dependencies)))
-                     for var-type = (determine-form-value-type var-form env)
-                     for constantp = (constantp var-form env)
-                     do
-                        (cond (constantp
-                               (setf var var-form))
-                              (t
-                               (alexandria:appendf let-forms (list (list var var-form)))))
-                        (alexandria:appendf dependencies (list var var-formp))
-                     collect (if constantp
-                                 var-form
-                                 `(the ,var-type ,var))))
-         (keywords (loop
-                     with no-form = '#:no-form
-                     for parameter in (keyword-parameters store-parameters)
-                     for var = (gensym (symbol-name (parameter-var parameter)))
-                     for %var-form = (getf form-args (parameter-keyword parameter) no-form)
-                     for var-formp = (not (eql %var-form no-form))
-                     for init-form = (parameter-init-form parameter)
-                     for var-form = (cond (var-formp
-                                           %var-form)
-                                          ((constantp init-form nil)
-                                           init-form)
-                                          (t
-                                           (cons (first init-form) dependencies)))
-                     for var-type = (determine-form-value-type var-form env)
-                     for constantp = (constantp var-form env)
-                     do
-                        (cond (constantp
-                               (setf var var-form))
-                              (t
-                               (alexandria:appendf let-forms (list (list var var-form)))))
-                        (alexandria:appendf dependencies (list var var-formp))
-                     append
-                     (list (parameter-keyword parameter)
-                           (if constantp
-                               var-form
-                               `(the ,var-type ,var)))))
-         (rest     form-args))
-    (list #'(lambda (body env)
-              (cond ((or (constantp body env)
-                         (null let-forms))
-                     body)
-                    (t
-                     `(let* ,let-forms
-                        ,body))))
-          (cond ((keyword-parameters-p store-parameters)
-                 (append form-head required optional keywords rest))
-                ((rest-parameter-p store-parameters)
-                 (append form-head required optional rest))
-                (t
-                 (append form-head required optional))))))
+         (new-forms nil))
+    (macrolet ((appendf (place &rest lists)
+                 `(alexandria:appendf ,place ,@lists)))
+      (labels ((gensym-from-symbol (symbol)
+                 (gensym (symbol-name symbol)))
+               (add-dependency (var value)
+                 (appendf dependencies-vars (list var))
+                 (appendf dependencies-values (list value)))
+               (add-let-form (var form)
+                 (appendf let-forms (list (list var form))))
+               (add-new-forms (&rest forms)
+                 (appendf new-forms forms))
+               (add-var (rewritten-var init-form-var value-form)
+                 (add-dependency init-form-var (if (constantp value-form env)
+                                                   value-form
+                                                   rewritten-var))
+                 (add-let-form rewritten-var value-form))
+               (add-varp (init-form-varp value)
+                 (when init-form-varp
+                   (add-dependency init-form-varp value)))
+               (prepare-init-form (init-form)
+                 (if (constantp init-form env)
+                     init-form
+                     `(symbol-macrolet ,(mapcar #'list dependencies-vars dependencies-values)
+                        ,init-form)))
+               (add-positional (rewritten-var init-form-var value-form)
+                 (add-var rewritten-var init-form-var value-form)
+                 (add-new-forms (if (constantp value-form env)
+                                    value-form
+                                    `(the ,(determine-form-value-type value-form env)
+                                          ,rewritten-var)))))
+        ;; Required
+        (loop
+          for p in (required-parameters store-parameters)
+          for pvar = (parameter-var p)
+          for rvar = (gensym-from-symbol pvar)
+          for rvar-formp = (not (null form-args))
+          for rvar-form = (pop form-args)
+
+          do
+             (unless rvar-formp
+               (warn "Insufficient arguments given in form ~A." form))
+             (add-positional rvar pvar rvar-form))
+
+        ;; Optional
+        (loop
+          for p in (optional-parameters store-parameters)
+          for pvar = (parameter-var p)
+          for pvarp = (parameter-varp p)
+          for rvar = (gensym-from-symbol pvar)
+          for rvar-formp = (not (null form-args))
+          for rvar-form = (if rvar-formp
+                              (pop form-args)
+                              (prepare-init-form (parameter-init-form p)))
+          do
+             (add-positional rvar pvar rvar-form)
+             (add-varp pvarp rvar-formp))
+        (cond ((keyword-parameters store-parameters)
+               (let* ((rest-forms nil)
+                      (processed-keywords nil))
+                 (loop
+                   for (key form) on form-args by #'cddr
+                   for rvar = (gensym (symbol-name key))
+                   when (not (keywordp key))
+                     do (return-from rewrite-store-function-form/with-init-forms
+                          (list (lambda (body env)
+                                  (declare (ignore body env))
+                                  (error "Cannot call this function because the keyword argument section is not constant."))
+                                form))
+                   do
+                      (appendf let-forms (list (list rvar form)))
+                      (cond ((constantp form env)
+                             (appendf rest-forms (list key form))
+                             (add-new-forms key form)
+                             (push (cons key form) processed-keywords))
+                            (t
+                             (appendf rest-forms (list key rvar))
+                             (add-new-forms key rvar)
+                             (push (cons key rvar) processed-keywords))))
+                 (when (rest-parameter-p store-parameters)
+                   (let* ((var (parameter-var (rest-parameter store-parameters)))
+                          (rvar (gensym-from-symbol var)))
+                     (add-let-form rvar (cons 'list rest-forms))
+                     (add-dependency var rvar)))
+                 (loop
+                   for p in (keyword-parameters store-parameters)
+                   for key = (parameter-keyword p)
+                   for var = (parameter-var p)
+                   for varp = (parameter-varp p)
+                   for init-form = (parameter-init-form p)
+                   for match? = (assoc key processed-keywords)
+                   do
+                      (cond (match?
+                             ;; No need to add to new-forms since that is done above.
+                             (add-dependency var (cdr match?))
+                             (add-varp varp t))
+                            (t
+                             (let* ((rvar (gensym-from-symbol var))
+                                    (init-type (determine-form-value-type init-form env)))
+                               (add-dependency var rvar)
+                               (add-varp varp nil)
+                               (add-let-form rvar (prepare-init-form init-form))
+                               (add-new-forms key (if (constantp init-form env)
+                                                      init-form
+                                                      `(the ,init-type ,rvar)))))))))
+              ((rest-parameter-p store-parameters)
+               (loop
+                 with pvar = (parameter-var (rest-parameter store-parameters))
+                 for form in form-args
+                 for rvar = (gensym-from-symbol pvar)
+                 do
+                    (add-let-form rvar form)
+                    (add-new-forms rvar))))))
+    (list (lambda (body env)
+            (cond ((or (constantp body env)
+                       (null let-forms))
+                   body)
+                  (t
+                   `(let* ,let-forms
+                      (declare (ignorable ,@(mapcar #'first let-forms)))
+                      ,body))))
+          (append form-head new-forms))))
+
+(defun rewrite-store-function-form (store-parameters form env)
+  (cond ((null (append (optional-parameters store-parameters)
+                       (keyword-parameters store-parameters)))
+         (list (lambda (body env)
+                 (declare (ignore env))
+                 body)
+               form))
+        (t
+         (rewrite-store-function-form/with-init-forms store-parameters form env))))
