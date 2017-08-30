@@ -1151,8 +1151,9 @@
                (prepare-init-form (init-form)
                  (if (constantp init-form env)
                      init-form
-                     `(symbol-macrolet ,(mapcar #'list dependencies-vars dependencies-values)
-                        ,init-form)))
+                     `(the ,(determine-form-value-type init-form env)
+                           (symbol-macrolet ,(mapcar #'list dependencies-vars dependencies-values)
+                             ,init-form))))
                (add-positional (rewritten-var init-form-var value-form)
                  (add-var rewritten-var init-form-var value-form)
                  (add-new-forms (if (constantp value-form env)
