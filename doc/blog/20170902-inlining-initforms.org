@@ -1,0 +1,135 @@
+#+TITLE: Inlining Initialisation Forms
+#+AUTHOR: Mark Cox
+#+DATE: 2017-09-02
+
+* Problem
+
+The example below shows that version ~718f5d869f~ of specialization
+store does not correctly inline initialisation forms.
+#+begin_src lisp
+  (ignore-errors (delete-package "TESTS"))
+  (compile-file "example.lisp")
+  ; compiling file "example.lisp" (written 02 SEP 2017 06:25:45 PM):
+  ; compiling (defpackage "TESTS" ...)
+  ; compiling (in-package "TESTS")
+  ; compiling (let (#) ...)
+  ; compiling (defspecialization (example :inline ...) ...)
+  ; compiling (defun foo ...)
+
+  ; example.fasl written
+  ; compilation finished in 0:00:00.023
+  (ignore-errors (delete-package "TESTS"))
+  (load (compile-file-pathname "example.lisp"))
+  (tests::foo)
+  ;; Evaluation of (tests:foo) signals:
+  ;;
+  ;;   The function tests::b-init-function1 is undefined.
+  ;;      [Condition of type undefined-function]
+  ;;
+  ;;   Restarts:
+  ;;    0: [continue] Retry calling tests::b-init-function1.
+  ;;    1: [use-value] Call specified function.
+  ;;    2: [return-value] Return specified values.
+  ;;    3: [return-nothing] Return zero values.
+  ;;    4: [retry] Retry SLIME REPL evaluation request.
+  ;;    5: [*abort] Return to SLIME's top level.
+  ;;    --more--
+  ;;
+  ;;   Backtrace:
+  ;;     0: ("undefined function" 1)
+  ;;     1: (tests::foo)
+  ;;     2: (sb-int:simple-eval-in-lexenv (tests::foo) #<NULL-LEXENV>)
+  ;;     3: (eval (tests::foo))
+  ;;    --more--
+#+end_src
+
+The file ~example.lisp~ used above contains the following
+#+begin_src lisp
+(defpackage "TESTS"
+  (:use "COMMON-LISP"
+        "SPECIALIZATION-STORE"))
+(in-package "TESTS")
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let ((x 1))
+    (flet ((init-b ()
+             (prog1 x
+               (incf x))))
+      (defstore example (a &optional (b (the integer (init-b))))))))
+
+(defspecialization (example :inline t) ((a integer) (b integer)) integer
+  (+ a b))
+
+(defun foo ()
+  (example 1))
+#+end_src
+
+* Cause
+The error signalled during ~(tests::foo)~ indicates that the ~example~
+form in the function ~foo~ is inlined and that the initialisation form
+for the ~b~ argument of the ~example~ store function must be part of
+the inlined code.
+
+The macro ~defstore~, or more specifically ~defstore-using-class~,
+involves rewriting the initialisation forms as global functions in
+order to satisfy the requirements of the specialization store object
+layer.
+
+There is no warning signalled during ~compile-file~ about the missing
+function ~tests::b-init-function1~ which indicates that the function
+is present at compile time. The problem must be that the global
+function is not serialised during compilation.
+
+A trace on ~defstore-using-class~ during the compilation of the file
+~example.lisp~ indicates that this function is called twice.
+#+begin_src lisp
+  (trace specialization-store:defstore-using-class)
+  (compile-file "example.lisp")
+  ;; compiling file "example.lisp" (written 02 SEP 2017 06:25:45 PM):
+  ;; compiling (defpackage "TESTS" ...)
+  ;; compiling (in-package "TESTS")
+  ;; compiling (let (#) ...)
+  ;;   0: (defstore-using-class
+  ;;         #<standard-store-class specialization-store:standard-store> example
+  ;;         (a &optional (b (the integer (init-b)))) :environment
+  ;;         #S(sb-kernel:lexenv ...))
+  ;;   0: defstore-using-class returned
+  ;;        (progn
+  ;;         (defun b-init-function1 (a)
+  ;;           (declare (ignorable a))
+  ;;           (the integer (init-b)))
+  ;;         (ensure-store 'example
+  ;;                       '(a &optional
+  ;;                         (b (the integer (b-init-function1 a)) #:b?2))))
+  ;;   0: (defstore-using-class
+  ;;       #<standard-store-class specialization-store:standard-store> example
+  ;;       (a &optional (b (the integer (init-b)))) :environment
+  ;;       #S(sb-kernel:lexenv ...))
+  ;;   0: defstore-using-class returned
+  ;;        (progn
+  ;;         (defun b-init-function7 (a)
+  ;;           (declare (ignorable a))
+  ;;           (the integer (init-b)))
+  ;;         (ensure-store 'example
+  ;;                       '(a &optional
+  ;;                         (b (the integer (b-init-function7 a)) #:b?8))))
+  ;; compiling (defspecialization (example :inline ...) ...)
+  ;; compiling (defun foo ...)
+  ;; example.fasl written
+  ;; compilation finished in 0:00:00.389
+#+end_src
+The first invocation inserts the function ~b-init-function1~ in to the
+global environment at compile time. The second invocation is part of
+[[http://www.lispworks.com/documentation/HyperSpec/Body/03_bb.htm][minimal compilation]] and is what is serialised in to the fasl file.
+
+The common lisp hyperspec does not specify the number of times a macro
+form may be expanded during minimal compilation.
+
+* Solution
+The solution to this problem is to have ~defstore-using-class~ reuse
+names generated for initialisation forms.
+
+This can be achieved by introducing a hash table which used by
+~parameter-init-forms-as-globale-functions~. This function would need
+to accept a key argument in order to obtain the correct init function
+name.
