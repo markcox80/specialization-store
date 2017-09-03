@@ -302,7 +302,7 @@
                                  &allow-other-keys)
   (alexandria:remove-from-plistf args :environment)
   (let* ((parameters (parse-store-lambda-list store-lambda-list)))
-    (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions parameters environment)
+    (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions name parameters environment)
       `(progn
          ,@globals
          (ensure-store ',name ',(original-lambda-list new-parameters)

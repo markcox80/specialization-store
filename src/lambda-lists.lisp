@@ -745,17 +745,34 @@
                                :test #'eql))))
 
 ;;;; Lambda list conversions
-(defgeneric parameter-init-forms-as-global-functions (parameters environment))
+(defgeneric parameter-init-forms-as-global-functions (name parameters environment))
 (defgeneric ordinary-lambda-list (store-parameters specialization-parameters))
 (defgeneric type-declarations (store-parameters specialization-parameters))
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
 (defgeneric make-form-types-lambda-form (parameters))
 
-(defmethod parameter-init-forms-as-global-functions ((parameters store-parameters) environment)
-  (let* ((globals nil))
+(defparameter *init-function-name-table* (make-hash-table))
+
+(defun make-init-function-name-generator (name)
+  (let* ((recents (reverse (gethash name *init-function-name-table*))))
+    (alexandria:named-lambda init-function-name-generator (&optional var)
+      (cond (recents
+             (pop recents))
+            (t
+             (let* ((fn-name (specialization-store:generate-interned-symbol (if var var "VAR")
+                                                                         "INIT-FUNCTION")))
+               (push fn-name (gethash name *init-function-name-table*))
+               fn-name))))))
+
+(defun generate-init-function-name (generator &optional var)
+  (funcall generator var))
+
+(defmethod parameter-init-forms-as-global-functions (name (parameters store-parameters) environment)
+  (let* ((globals nil)
+         (name-generator (make-init-function-name-generator name)))
     (flet ((generate-init-form (dependencies var init-form)
-             (let* ((function-name (specialization-store:generate-interned-symbol var "INIT-FUNCTION"))
+             (let* ((function-name (generate-init-function-name name-generator var))
                     (vars (reduce #'append dependencies
                                   :key #'parameter-vars
                                   :initial-value nil))
