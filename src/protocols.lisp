@@ -173,10 +173,11 @@
 
 (defmethod make-store-unbound :after (store)
   (flet ((perform (name)
-           (fmakunbound name)
-           (setf (compiler-macro-function name) nil)
-           (multiple-value-bind (name indicator) (%find-store-helper name)
-             (remprop name indicator))))
+           (when name
+             (fmakunbound name)
+             (setf (compiler-macro-function name) nil)
+             (multiple-value-bind (name indicator) (%find-store-helper name)
+               (remprop name indicator)))))
     (typecase store
       (null nil)
       (symbol (perform store))
