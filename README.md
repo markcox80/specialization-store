@@ -1,5 +1,5 @@
 The specialization store system provides a new kind of function,
-called a store function, whose behavior is determined by the /types/
+called a store function, whose behavior is determined by the *types*
 of objects given as arguments to the store function.
 
 Associated with each store function is a set of *specialization*
