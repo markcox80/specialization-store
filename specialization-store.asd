@@ -1,10 +1,6 @@
 (defsystem "specialization-store"
   :author "Mark Cox"
-  :description "The specialization store system provides a new kind of
-  function whose behavior depends on the types of objects passed to
-  the function. The dispatching process required at run-time can be
-  avoided provided that sufficient information is available at compile
-  time."
+  :description "The specialization store system provides a new kind of function, called a store function, whose behavior depends on the types of objects passed to the function."
   :depends-on ("specialization-store-features" "introspect-environment" "alexandria")
   :license "Simplified BSD License variant"
   :serial t
