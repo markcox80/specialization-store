@@ -1,5 +1,8 @@
 (in-package "SPECIALIZATION-STORE.FEATURES")
 
+
+;;;; Function Information
+
 (declaim (ftype (function (integer) (values integer integer)) test-global-function))
 (defun test-global-function (a)
   (values (+ a 1) (+ a -1)))
@@ -36,3 +39,17 @@
           (pushnew 'function-declarations *features*))))))
 
 (feature/function-information)
+
+
+;;;; Variable Types
+
+(defun feature/variable-type ()
+  (macrolet ((compute (name &environment env)
+               `(quote ,(introspect-environment:variable-type name env))))
+    (let ((a 0))
+      (declare (type (integer 0) a)
+               (ignorable a))
+      (when (alexandria:type= (print (compute a)) '(integer 0))
+        (pushnew 'variable-types *features*)))))
+
+(feature/variable-type)

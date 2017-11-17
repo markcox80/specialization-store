@@ -1,3 +1,4 @@
 (defpackage "SPECIALIZATION-STORE.FEATURES"
   (:use "COMMON-LISP")
-  (:export "FUNCTION-DECLARATIONS"))
+  (:export "FUNCTION-DECLARATIONS"
+           "VARIABLE-TYPES"))
