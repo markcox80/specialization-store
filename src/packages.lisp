@@ -255,7 +255,7 @@
 
 ;;;; Meta Object Requirements
 
-#-(or sbcl ccl cmucl)
+#-(or sbcl ccl cmucl ecl)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (error "No attempt has been made to determine if this implementation supports the Metaobject Protocol."))
 
@@ -267,6 +267,7 @@
   (:import-from #+sbcl "SB-MOP"
                 #+ccl "CCL"
                 #+cmucl "PCL"
+                #+ecl "CLOS"
                 "FUNCALLABLE-STANDARD-CLASS"
                 "FUNCALLABLE-STANDARD-OBJECT"
                 "SET-FUNCALLABLE-INSTANCE-FUNCTION"
