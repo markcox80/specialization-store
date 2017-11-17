@@ -99,7 +99,7 @@
        nil)
       ((and (listp form)
             (member (first form) '(glue-layer-test syntax-layer-test)))
-       (values t (evaluate-test form :pathname "/tmp/example.lisp" :if-exists :supersede)))
+       (values t (evaluate-test form)))
       (t
        (values t t)))))
 
