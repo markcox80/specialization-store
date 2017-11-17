@@ -522,9 +522,10 @@
                           (*compile-print* nil)
                           (*error-output* (make-broadcast-stream)))
                      (handler-case (with-compilation-unit (:override t)
-                                     (compile nil `(lambda ,vars
-                                                     (declare (ignorable ,@vars))
-                                                     ,form)))
+                                     (handler-bind (#+ecl (c:compiler-note #'muffle-warning))
+                                       (compile nil `(lambda ,vars
+                                                       (declare (ignorable ,@vars))
+                                                       ,form))))
                        (condition (c)
                          (declare (ignorable c))
                          (values nil nil t))))
