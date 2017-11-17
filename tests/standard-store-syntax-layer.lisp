@@ -21,23 +21,23 @@
   (defstore example (a b c))
 
   (defspecialization example (a (b float) (c (integer * (0)))) (eql 1)
-    (declare (ignore a b c))
+    (declare (ignorable a b c))
     1)
 
   (defspecialization example (a (b float) (c (integer 10))) (eql 2)
-    (declare (ignore a b c))
+    (declare (ignorable a b c))
     2)
 
   (defspecialization example (a (b (integer * (0))) (c float)) (eql 3)
-    (declare (ignore a b c))
+    (declare (ignorable a b c))
     3)
 
   (defspecialization example (a (b (integer 10)) (c float)) (eql 4)
-    (declare (ignore a b c))
+    (declare (ignorable a b c))
     4)
 
   (defspecialization example (a b c) (eql 5)
-    (declare (ignore a b c))
+    (declare (ignorable a b c))
     5)
 
   (test basic/2
@@ -69,19 +69,19 @@
   (defstore example (a &rest args))
 
   (defspecialization example (a b c d &rest args) (eql 1)
-    (declare (ignore a b c d args))
+    (declare (ignorable a b c d args))
     1)
 
   (defspecialization example ((a integer) b) (eql 2)
-    (declare (ignore a b))
+    (declare (ignorable a b))
     2)
 
   (defspecialization example (a (b integer)) (eql 3)
-    (declare (ignore a b))
+    (declare (ignorable a b))
     3)
 
   (defspecialization example ((a float) (b integer)) (eql 4)
-    (declare (ignore a b))
+    (declare (ignorable a b))
     4)
 
   (test basic/rest/2
@@ -98,23 +98,23 @@
   (defstore example (a &rest args))
 
   (defspecialization example ((a integer)) (eql 1)
-    (declare (ignore a))
+    (declare (ignorable a))
     1)
 
   (defspecialization example ((a integer) &rest (args integer)) (eql 2)
-    (declare (ignore a args))
+    (declare (ignorable a args))
     2)
 
   (defspecialization example ((a integer) &rest (args float)) (eql 3)
-    (declare (ignore a args))
+    (declare (ignorable a args))
     3)
 
   (defspecialization example ((a integer) &rest args) (eql 4)
-    (declare (ignore a args))
+    (declare (ignorable a args))
     4)
 
   (defspecialization example (a (b string)) (eql 5)
-    (declare (ignore a b))
+    (declare (ignorable a b))
     5)
 
   (test basic/rest/3
@@ -135,11 +135,11 @@
       (defstore example (&optional (a (init-a)) (b a)))))
 
   (defspecialization example ((a integer) (b integer)) t
-    (declare (ignore a b))
+    (declare (ignorable a b))
     'integer-integer)
 
   (defspecialization example (a b) t
-    (declare (ignore a b))
+    (declare (ignorable a b))
     't-t)
 
   (test lexical-environment
@@ -153,11 +153,11 @@
       (defstore example (&key (a (init-a)) (b a)))))
 
   (defspecialization example (&key (a integer) (b integer)) t
-    (declare (ignore a b))
+    (declare (ignorable a b))
     'integer-integer)
 
   (defspecialization example (&key a b) t
-    (declare (ignore a b))
+    (declare (ignorable a b))
     't-t)
 
   (test lexical-environment
@@ -320,7 +320,7 @@
     (+ a b c))
 
   (defun foo (&key (a nil ap) (b nil bp) (c nil cp))
-    (declare (ignore b bp))
+    (declare (ignorable b bp))
     (cond ((and ap cp)
            (example :a (the integer a) :c (the integer c)))
           (ap
