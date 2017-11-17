@@ -41,8 +41,10 @@ the
 [project wiki](https://github.com/markcox80/specialization-store/wiki).
 
 The specialization store system has been tested
-using [SBCL](http://www.sbcl.org)
-and [Clozure Common Lisp](https://ccl.clozure.com).
+using
+[SBCL](http://www.sbcl.org),
+[Clozure Common Lisp](https://ccl.clozure.com)
+and [Embeddable Common Lisp](https://common-lisp.net/project/ecl/).
 
 Great effort has been spent on implementing this system such that it
 is portable to all implementations. The compile time dispatch
