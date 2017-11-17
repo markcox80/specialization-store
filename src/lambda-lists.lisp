@@ -1162,6 +1162,13 @@
                  (add-dependency init-form-var (if (constantp value-form env)
                                                    value-form
                                                    rewritten-var))
+                 ;; FIXME This fixes some weird bug in ECL 16.1.3
+                 ;;
+                 ;; Run test specialization-store.lambda-lists.parse-store-object-lambda-list
+                 ;; to trigger it.
+                 #+ecl
+                 (setf let-forms let-forms)
+
                  (add-let-form rewritten-var value-form))
                (add-varp (init-form-varp value)
                  (when init-form-varp
