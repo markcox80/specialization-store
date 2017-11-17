@@ -84,7 +84,10 @@
       (macrolet ((compute (form &environment environment)
                    `(quote ,(determine-form-value-type form environment))))
         ;; Lexical Variables
-        (is (equal t (compute a)))
+        (let ((a 5))
+          (is (equal t (compute a))))
+
+        #+specialization-store.features:variable-types
         (let ((a 5))
           (declare (type (integer 5 5) a)
                    (ignorable a))
