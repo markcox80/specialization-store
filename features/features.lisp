@@ -49,7 +49,7 @@
     (let ((a 0))
       (declare (type (integer 0) a)
                (ignorable a))
-      (when (alexandria:type= (print (compute a)) '(integer 0))
+      (when (alexandria:type= (compute a) '(integer 0))
         (pushnew 'variable-types *features*)))))
 
 (feature/variable-type)
