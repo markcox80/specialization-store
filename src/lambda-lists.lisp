@@ -893,7 +893,17 @@
             for supplied-p-var = (parameter-varp parameter)
             when (find keyword store-keyword-parameters :key #'parameter-keyword)
               append (append (when form
-                               `((type ,form ,var)))
+                               ;; The null here is a nasty hack to
+                               ;; stop implementations signalling a
+                               ;; style warning when compiling
+                               ;; functions like the following
+                               ;;
+                               ;;   (lambda (&key a)
+                               ;;     (declare (type integer a))
+                               ;;     ...)
+                               ;;
+                               ;; Clearly, a is allowed to be null.
+                               `((type (or null ,form) ,var)))
                              (when supplied-p-var
                                `((type (eql t) ,supplied-p-var)))))))
 
