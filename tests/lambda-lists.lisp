@@ -367,8 +367,8 @@
       (trial (a) ((a integer)) ((type integer a)))
       (trial (a b) ((a integer) b) ((type integer a)))
       (trial (&key a &allow-other-keys) (&key a) ())
-      (trial (&key a &allow-other-keys) (&key (a integer)) ((type integer a)))
-      (trial (&key a &allow-other-keys) (&key (a integer a-p) (b t b-p)) ((type integer a) (type (eql T) a-p))))))
+      (trial (&key a &allow-other-keys) (&key (a integer)) ((type (or null integer) a)))
+      (trial (&key a &allow-other-keys) (&key (a integer a-p) (b t b-p)) ((type (or null integer) a) (type (eql T) a-p))))))
 
 (test make-value-completion-lambda-form
   (flet ((init-b ()
