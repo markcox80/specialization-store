@@ -43,7 +43,8 @@ the
 The specialization store system has been tested
 using
 [SBCL](http://www.sbcl.org),
-[Clozure Common Lisp](https://ccl.clozure.com)
+[Clozure Common Lisp](https://ccl.clozure.com),
+[CMUCL](https://www.cons.org/cmucl/)
 and [Embeddable Common Lisp](https://common-lisp.net/project/ecl/).
 
 Great effort has been spent on implementing this system such that it
