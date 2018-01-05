@@ -3,7 +3,7 @@
   :description "The specialization store system provides a new kind of function, called a store function, whose behavior depends on the types of objects passed to the function."
   :depends-on ("specialization-store-features" "introspect-environment" "alexandria")
   :license "Simplified BSD License variant"
-  :version "0.0.2"
+  :version "0.0.3"
   :serial t
   :components ((:module "src"
                         :serial t
