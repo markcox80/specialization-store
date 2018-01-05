@@ -84,10 +84,10 @@
       (5am:explain! report))
     succeededp))
 
-(defun process-test-stream (stream)
+(defun process-test-stream-if (predicate stream &key pathname (if-exists :supersede))
   (ignore-errors (delete-package "SPECIALIZATION-STORE.TESTS.TEST-STREAM"))
   (let* ((form (let* ((*package* (make-package "SPECIALIZATION-STORE.TESTS.TEST-STREAM"
-                                                   :use '("COMMON-LISP" "SPECIALIZATION-STORE" "FIVEAM"))))
+                                               :use '("COMMON-LISP" "SPECIALIZATION-STORE" "FIVEAM"))))
                  (import 'glue-layer-test)
                  (import 'syntax-layer-test)
                  (import 'stop)
@@ -98,18 +98,28 @@
       ((and (symbolp form) (eql form 'stop))
        nil)
       ((and (listp form)
-            (member (first form) '(glue-layer-test syntax-layer-test)))
-       (values t (evaluate-test form)))
+            (member (first form) '(glue-layer-test syntax-layer-test))
+            (funcall predicate form))
+       (values t (evaluate-test form
+                                :pathname pathname
+                                :if-exists if-exists)))
       (t
        (values t t)))))
 
-(defun process-test-streams ()
+(defun process-test-stream (stream &key pathname)
+  (process-test-stream-if (constantly t) stream
+                          :pathname pathname
+                          :if-exists :supersede))
+
+(defun process-test-streams-if (predicate &key pathname (if-exists :supersede))
   (with-open-file (in/syntax *syntax-layer-tests-pathname*)
     (with-open-file (in/glue *glue-layer-tests-pathname*)
       (with-open-stream (in (make-concatenated-stream in/glue in/syntax))
         (loop
           with all-pass = t
-          for (continue? pass?) = (multiple-value-list (process-test-stream in))
+          for (continue? pass?) = (multiple-value-list (process-test-stream-if predicate in
+                                                                               :pathname pathname
+                                                                               :if-exists if-exists))
           while continue?
           do
              (unless pass?
@@ -118,3 +128,13 @@
              (if all-pass
                  (format t "~&;; All sandbox tests passed.~%")
                  (format t "~&;; Some sandbox tests have failed.~%")))))))
+
+(defun process-test-streams (&key pathname)
+  (process-test-streams-if (constantly t) :pathname pathname))
+
+(defun evaluate-test-with-name (type name &key pathname (if-exists :error))
+  (process-test-streams-if (lambda (form)
+                             (and (string-equal type (first form))
+                                  (string-equal name (second form))))
+                           :pathname pathname
+                           :if-exists if-exists))
