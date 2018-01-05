@@ -362,12 +362,12 @@
     (when inlinep
       (warn "Inline option is not supported inside DEFINE-SPECIALIZATION.")))
 
-  (let* ((function (if (and name function)
-                       `(function ,name)
-                       function))
-         (expand-function (if (and name expand-function)
-                              `(compiler-macro-function ',name)
-                              expand-function))
+  (let* ((sp-function (if (and name function)
+                          `(function ,name)
+                          function))
+         (sp-expand-function (if (and name expand-function)
+                                 `(compiler-macro-function ',name)
+                                 expand-function))
          (specialization-class-name (class-name (store-specialization-class store)))
          (store-parameters (store-parameters store))
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
@@ -383,8 +383,8 @@
                                           :name ',name
                                           :lambda-list ',specialized-lambda-list
                                           :value-type ',value-type
-                                          :function ,function
-                                          :expand-function ,expand-function
+                                          :function ,sp-function
+                                          :expand-function ,sp-expand-function
                                           ,@args)))))
 
 ;;;; Dispatch Functions
