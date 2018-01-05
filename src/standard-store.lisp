@@ -356,13 +356,15 @@
 (defmethod define-specialization-using-object ((store standard-store) specialized-lambda-list value-type
                                                &rest args &key name environment function expand-function &allow-other-keys)
   (declare (ignore environment))
+  (unless function
+    (error "DEFINE-SPECIALIZATION-USING-OBJECT requres a function argument."))
   (alexandria:remove-from-plistf args :name :environment :function :expand-function)
   (destructuring-bind (&key (inline nil inlinep) &allow-other-keys) args
     (declare (ignore inline))
     (when inlinep
       (warn "Inline option is not supported inside DEFINE-SPECIALIZATION.")))
 
-  (let* ((sp-function (if (and name function)
+  (let* ((sp-function (if name
                           `(function ,name)
                           function))
          (sp-expand-function (cond ((and name expand-function)
@@ -376,7 +378,7 @@
          (store-parameters (store-parameters store))
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
     `(progn
-       ,(when (and name function)
+       ,(when name
           `(setf (fdefinition ',name) ,function))
        ,(when (and name expand-function)
           `(setf (compiler-macro-function ',name) ,expand-function))
