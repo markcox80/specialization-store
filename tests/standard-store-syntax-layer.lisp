@@ -425,6 +425,13 @@
                         '(foo 1d0 2d0)
                         nil)))))
 
+(syntax-layer-test define-specialization/no-function
+  (defstore foo (a b))
+
+  (test no-function
+    (signals error
+      (macroexpand '(define-specialization foo ((a double-float) (b double-float)) double-float)))))
+
 (syntax-layer-test example/rest
   (defstore example (object &rest args))
 
