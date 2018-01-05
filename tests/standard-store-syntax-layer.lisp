@@ -389,6 +389,24 @@
                                      (:expand-function (compiler-macro-lambda (a) `(1- ,a)))
                                     (:inline t))))))
 
+(syntax-layer-test define-specialization/name
+  (defstore foo (a b))
+
+  (define-specialization foo ((a double-float) (b double-float)) double-float
+    (:function #'+)
+    (:expand-function (compiler-macro-lambda (a b)
+                        `(+ ,a ,b)))
+    (:name %foo/double-float))
+
+  (test define-specialization-name
+    (is (= 3d0 (foo 1d0 2d0)))
+    (is (= 5d0 (%foo/double-float 2d0 3d0)))
+    (dolist (fn-name '(foo %foo/double-float))
+      (is (equal '(+ 1d0 2d0)
+                 (funcall (compiler-macro-function fn-name)
+                          `(,fn-name 1d0 2d0)
+                          nil))))))
+
 (syntax-layer-test example/rest
   (defstore example (object &rest args))
 
