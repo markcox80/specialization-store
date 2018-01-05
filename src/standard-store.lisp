@@ -373,11 +373,11 @@
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
     `(progn
        ,(when (and name function)
-              `(setf (fdefinition ',name) ,function))
+          `(setf (fdefinition ',name) ,function))
        ,(when (and name expand-function)
-              `(setf (compiler-macro-function ',name) ,expand-function))
+          `(setf (compiler-macro-function ',name) ,expand-function))
        ,(when name
-              `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
+          `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
        (add-specialization (find-store ',(store-name store))
                            (make-instance ',specialization-class-name
                                           :name ',name
