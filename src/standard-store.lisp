@@ -365,9 +365,13 @@
   (let* ((sp-function (if (and name function)
                           `(function ,name)
                           function))
-         (sp-expand-function (if (and name expand-function)
-                                 `(compiler-macro-function ',name)
-                                 expand-function))
+         (sp-expand-function (cond ((and name expand-function)
+                                    `(compiler-macro-function ',name))
+                                   (name
+                                    `(compiler-macro-lambda (&rest args)
+                                       (cons ',name args)))
+                                   (t
+                                    expand-function)))
          (specialization-class-name (class-name (store-specialization-class store)))
          (store-parameters (store-parameters store))
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
