@@ -365,6 +365,21 @@
     (is (= 1 (example/integer 0)))
     (is (equal '(example/integer 0) (introspect-environment:compiler-macroexpand-1 '(example 0))))))
 
+(syntax-layer-test defspecialization/named-and-inlined
+  (defstore example (a))
+
+  (defspecialization (example :name example/integer :inline t) ((a integer)) integer
+    (1+ a))
+
+  (test named-specializations
+    (is (= 1 (example 0)))
+    (let* ((form '(example 0)))
+      (is-false (equal form (introspect-environment:compiler-macroexpand-1 form))))
+
+    (is (= 1 (example/integer 0)))
+    (let* ((form '(example/integer 1)))
+      (is-false (equal form (introspect-environment:compiler-macroexpand-1 form))))))
+
 (syntax-layer-test define-specialization
   (defstore example (a))
 
