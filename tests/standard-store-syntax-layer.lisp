@@ -354,7 +354,7 @@
   (test foo
     (is (= 6 (foo 1 2 3)))))
 
-(syntax-layer-test named-specializations
+(syntax-layer-test defspecialization/named
   (defstore example (a))
 
   (defspecialization (example :name example/integer) ((a integer)) integer
