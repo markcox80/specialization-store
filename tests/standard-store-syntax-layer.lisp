@@ -371,14 +371,18 @@
   (defspecialization (example :name example/integer :inline t) ((a integer)) integer
     (1+ a))
 
-  (test named-specializations
+  (test named-and-inlined
     (is (= 1 (example 0)))
-    (let* ((form '(example 0)))
-      (is-false (equal form (introspect-environment:compiler-macroexpand-1 form))))
+    (let* ((form '(example 0))
+           (expansion (introspect-environment:compiler-macroexpand-1 form)))
+      (is-false (equal form expansion))
+      (is-false (equal '(example/integer 0) expansion)))
 
     (is (= 1 (example/integer 0)))
-    (let* ((form '(example/integer 1)))
-      (is-false (equal form (introspect-environment:compiler-macroexpand-1 form))))))
+    (let* ((form '(example/integer 1))
+           (expansion (introspect-environment:compiler-macroexpand-1 form)))
+      (is-false (equal form expansion))
+      (is-false (equal '(example 0) expansion)))))
 
 (syntax-layer-test define-specialization
   (defstore example (a))
