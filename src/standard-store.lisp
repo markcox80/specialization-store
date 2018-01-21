@@ -325,24 +325,33 @@
          (parameters (parse-specialization-lambda-list specialized-lambda-list)))
     (multiple-value-bind (body documentation) (%augment-body store-parameters parameters value-type body)
       (let* ((lambda-list (ordinary-lambda-list store-parameters parameters))
+             (inlined-function `(lambda ,lambda-list
+                                  ,@body))
              (function (if name
                            `(function ,name)
-                           `(lambda ,lambda-list
-                              ,@body)))
-             (expand-function (cond (name `(compiler-macro-lambda (&rest args)
-                                             (list* ',name args)))
-                                    (inline `(compiler-macro-lambda (&rest args)
-                                               (list* ',function
-                                                      args)))))
+                           inlined-function))
+             (inlined-expand-function (when inline
+                                        `(compiler-macro-lambda (&rest args)
+                                           (list* ',inlined-function
+                                                  args))))
+             (named-expand-function (when name
+                                      `(compiler-macro-lambda (&rest args)
+                                         (list* ',name args))))
+             (expand-function (cond ((and name inline)
+                                     inlined-expand-function)
+                                    (name
+                                     named-expand-function)
+                                    (inline
+                                     inlined-expand-function)))
              (specialization-class-name (class-name (store-specialization-class store))))
         `(progn
            ,(when name
-                  `(defun ,name ,lambda-list
-                     ,@body))
+              `(defun ,name ,lambda-list
+                 ,@body))
            ,(when (and name inline)
-                  `(setf (compiler-macro-function ',name) ,expand-function))
+              `(setf (compiler-macro-function ',name) ,inlined-expand-function))
            ,(when name
-                  `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
+              `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
            (add-specialization (find-store ',(store-name store))
                                (make-instance ',specialization-class-name
                                               :name ',name
