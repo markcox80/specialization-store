@@ -230,7 +230,7 @@
       (values rule
               nil)))
 
-(defun remove-dispatch-tree-tautologies (tree)
+(defun remove-dispatch-tree-tautologies (tree &optional initial-knowledge)
   (labels ((node-equal (a b)
              (cond ((and (null a) (null b))
                     t)
@@ -269,7 +269,7 @@
                                    (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) fail-knowledge)
                                      (values (make-node new-rule new-pass new-fail)
                                              (or changed? pass-changed? fail-changed?)))))))))))))
-    (multiple-value-bind (new-tree changed?) (process tree nil)
+    (multiple-value-bind (new-tree changed?) (process tree initial-knowledge)
       (if changed?
           (remove-dispatch-tree-tautologies new-tree)
           new-tree))))
