@@ -217,7 +217,7 @@
 ;; DEFSTORE
 
 (defmacro defstore (store-name store-lambda-list &body body &environment env)
-  (let* ((store-class (find :store-class body :key #'first))
+  (let* ((store-class (second (find :store-class body :key #'first)))
          (store-class (typecase store-class
                         (null (find-class 'standard-store))
                         (symbol (find-class store-class))
