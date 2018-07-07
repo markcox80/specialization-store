@@ -292,7 +292,8 @@
 
 (defun make-dispatch-tree (store-parameters all-specialization-parameters)
   (remove-dispatch-tree-tautologies
-   (make-initial-dispatch-tree store-parameters all-specialization-parameters)))
+   (make-initial-dispatch-tree store-parameters all-specialization-parameters)
+   (list (make-accepts-argument-count-rule (specialization-parameters-lower-bound store-parameters)))))
 
 (defun pretty-print-dispatch-tree (tree &optional (stream *standard-output*))
   (cond ((null tree)
