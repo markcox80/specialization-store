@@ -146,6 +146,27 @@
     (is (eql 'integer-integer (example)))
     (is (eql 't-t (example "Hey")))))
 
+(syntax-layer-test basic/rest/4
+  ;; This test was introduced to because it generates a code deletion
+  ;; warning at compile time in version 0.0.3 of specialization store.
+  ;;
+  ;; It would be better to detect the code deletion warning but it is
+  ;; hard to detect portably.
+  (defstore example (&rest args))
+
+  (defspecialization example () integer
+    1)
+
+  (defspecialization example ((x t)) integer
+    (declare (ignore x))
+    2)
+
+  (test example
+    (let* ((x "one"))
+      (is (eql 1 (example)))
+      (is (eql 2 (example x)))
+      (signals inapplicable-arguments-error (example x x)))))
+
 (syntax-layer-test lexical-environment/keywords
   (eval-when (:compile-toplevel :load-toplevel :execute)
     (flet ((init-a ()
