@@ -88,8 +88,10 @@
     (format stream "~d" (argument-count object))))
 
 (defmethod negate-rule-if-possible ((rule accepts-argument-count-rule))
-  (when (= 1 (argument-count rule))
-    (make-instance 'fixed-argument-count-rule :count 0)))
+  (when (plusp (argument-count rule))
+    (make-instance 'argument-count-less-than-rule
+                   :count (argument-count rule))))
+
 ;;;; Consumes less than count arguments rule
 (defclass argument-count-less-than-rule (dispatch-rule)
   ((count :initarg :count
