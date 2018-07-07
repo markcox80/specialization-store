@@ -167,6 +167,28 @@
       (is (eql 2 (example x)))
       (signals inapplicable-arguments-error (example x x)))))
 
+(syntax-layer-test basic/rest/5
+  ;; This test was introduced to because it generates a code deletion
+  ;; warning at compile time in version 0.0.3 of specialization store.
+  ;;
+  ;; It would be better to detect the code deletion warning but it is
+  ;; hard to detect portably.
+  (defstore example (x &rest args))
+
+  (defspecialization example ((x float)) integer
+    (declare (ignore x))
+    1)
+
+  (defspecialization example ((x float) (y float)) integer
+    (declare (ignore x y))
+    2)
+
+  (test example
+    (let* ((x 1f0))
+      (is (eql 1 (example x)))
+      (is (eql 2 (example x x)))
+      (signals inapplicable-arguments-error (example x x x)))))
+
 (syntax-layer-test lexical-environment/keywords
   (eval-when (:compile-toplevel :load-toplevel :execute)
     (flet ((init-a ()
