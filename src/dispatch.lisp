@@ -366,3 +366,37 @@
   (if (alexandria:type= t (parameter-type rule))
       (values (make-constantly-rule t) t)
       (values rule nil)))
+
+(defmethod remove-rule-tautologies ((rule fixed-argument-count-rule) (known-rule accepts-argument-count-rule))
+  (let* ((count (argument-count rule))
+         (known-count (argument-count known-rule)))
+    (cond ((>= count known-count)
+           (values rule nil))
+          (t
+           (values (make-constantly-rule nil)
+                   t)))))
+
+(defmethod remove-rule-tautologies ((rule fixed-argument-count-rule) (known-rule argument-count-less-than-rule))
+  (let* ((count (argument-count rule))
+         (known-count (argument-count known-rule)))
+    (cond ((>= count known-count)
+           (values (make-constantly-rule nil)
+                   t))
+          (t
+           (values rule nil)))))
+
+(defmethod remove-rule-tautologies ((rule argument-count-less-than-rule) (known-rule accepts-argument-count-rule))
+  (let* ((count (argument-count rule))
+         (known-count (argument-count known-rule)))
+    (if (= (1+ known-count) count)
+        (values (make-fixed-argument-count-rule known-count)
+                t)
+        (values rule nil))))
+
+(defmethod remove-rule-tautologies ((rule accepts-argument-count-rule) (known-rule argument-count-less-than-rule))
+  (let* ((count (argument-count rule))
+         (known-count (argument-count known-rule)))
+    (if (= (1+ count) known-count)
+        (values (make-fixed-argument-count-rule count)
+                t)
+        (values rule nil))))
