@@ -263,7 +263,8 @@
                                (let ((pass-knowledge (cons new-rule knowledge))
                                      (fail-knowledge (let ((negated-rule (negate-rule-if-possible new-rule)))
                                                        (if negated-rule
-                                                           (cons negated-rule knowledge)
+                                                           (cons (remove-rule-tautologies negated-rule knowledge)
+                                                                 knowledge)
                                                            knowledge))))
                                  (multiple-value-bind (new-pass pass-changed?) (process (node-pass node) pass-knowledge)
                                    (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) fail-knowledge)
