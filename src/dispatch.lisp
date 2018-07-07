@@ -323,6 +323,10 @@
   (= (argument-count rule-a)
      (argument-count rule-b)))
 
+(defmethod rule-equal ((rule-a argument-count-less-than-rule) (rule-b argument-count-less-than-rule))
+  (= (argument-count rule-a)
+     (argument-count rule-b)))
+
 (defmethod rule-equal ((rule-a positional-parameter-type-rule) (rule-b positional-parameter-type-rule))
   (and (compare-slot-values 'position #'= rule-a rule-b)
        (compare-slot-values 'type #'alexandria:type= rule-a rule-b)))
