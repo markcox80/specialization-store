@@ -90,6 +90,19 @@
 (defmethod negate-rule-if-possible ((rule accepts-argument-count-rule))
   (when (= 1 (argument-count rule))
     (make-instance 'fixed-argument-count-rule :count 0)))
+;;;; Consumes less than count arguments rule
+(defclass argument-count-less-than-rule (dispatch-rule)
+  ((count :initarg :count
+          :reader argument-count))
+  (:documentation "The arity of the specialization is less than count."))
+
+(defmethod print-object ((object argument-count-less-than-rule) stream)
+  (print-unreadable-object (object stream :type t :identity t)
+    (format stream "~d" (argument-count object))))
+
+(defmethod negate-rule-if-possible ((rule argument-count-less-than-rule))
+  (make-instance 'accepts-argument-count-rule
+                 :count (argument-count rule)))
 
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
