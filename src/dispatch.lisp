@@ -50,12 +50,17 @@
 
 (defgeneric rule-equal (rule-a rule-b))
 (defgeneric remove-rule-tautologies (rule known-rule))
+(defgeneric negate-rule-if-possible (rule))
 
 (defclass rule ()
   ())
 
 (defclass dispatch-rule (rule)
   ())
+
+;;;; Default negate-rule
+(defmethod negate-rule-if-possible ((rule rule))
+  nil)
 
 ;;;; Fixed argument count bound rule
 (deftype lambda-parameter-count ()
@@ -81,6 +86,10 @@
 (defmethod print-object ((object accepts-argument-count-rule) stream)
   (print-unreadable-object (object stream :type t :identity t)
     (format stream "~d" (argument-count object))))
+
+(defmethod negate-rule-if-possible ((rule accepts-argument-count-rule))
+  (when (= 1 (argument-count rule))
+    (make-instance 'fixed-argument-count-rule :count 0)))
 
 ;;;; Positional Parameter Type Rule
 (defgeneric parameter-position (dispatch-rule))
@@ -251,9 +260,13 @@
                                      t))
                             (t
                              (multiple-value-bind (new-rule changed?) (remove-rule-tautologies rule knowledge)
-                               (let ((new-knowledge (cons new-rule knowledge)))
-                                 (multiple-value-bind (new-pass pass-changed?) (process (node-pass node) new-knowledge)
-                                   (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) knowledge)
+                               (let ((pass-knowledge (cons new-rule knowledge))
+                                     (fail-knowledge (let ((negated-rule (negate-rule-if-possible new-rule)))
+                                                       (if negated-rule
+                                                           (cons negated-rule knowledge)
+                                                           knowledge))))
+                                 (multiple-value-bind (new-pass pass-changed?) (process (node-pass node) pass-knowledge)
+                                   (multiple-value-bind (new-fail fail-changed?) (process (node-fail node) fail-knowledge)
                                      (values (make-node new-rule new-pass new-fail)
                                              (or changed? pass-changed? fail-changed?)))))))))))))
     (multiple-value-bind (new-tree changed?) (process tree nil)
