@@ -1,20 +1,8 @@
 #+TITLE: Notes for Specialization Store
 #+CATEGORY: Specialization Store
 
-* TODO Implement (setf store-specializations)
-The method (setf store-specializations) is not implemented for the
-standard store.
-
 * TODO Define make-specialization-unbound.
 This function undefines any functions and/or compiler macros installed
 in the global environment by specializations.
 
 Requires changes to make-store-unbound.
-
-* TODO Note about run time changes.
-Make a note that because specializations have the ability to inline
-code, the burden of maintaining the active specializations in the
-store function is placed on the user.
-
-Similarly, for type definitions. It is permitted for a store function
-to assume the types are unable to change.
