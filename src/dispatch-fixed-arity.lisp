@@ -136,43 +136,45 @@
 (defun build-tree (Z &optional (knowledge (make-knowledge (set-arity Z))))
   (flet ((best-split (rules)
            (loop
-              with maximum = most-negative-fixnum
-              with rv-rule = nil
-              with rv-X = nil
-              with rv-Y = nil
-              for rule in rules
-              for (set-X set-Y) = (split-set Z rule)
-              for quality = (- (set-count set-X) (set-count set-Y))
-              when (> quality maximum)
-              do (setf maximum quality
-                       rv-rule rule
-                       rv-X set-X
-                       rv-Y set-Y)
-              finally (return (list rv-rule rv-X rv-Y)))))
+             with maximum = most-negative-fixnum
+             with rv-rule = nil
+             with rv-X = nil
+             with rv-Y = nil
+             for rule in rules
+             for (set-X set-Y) = (split-set Z rule)
+             for quality = (- (set-count set-X) (set-count set-Y))
+             when (> quality maximum)
+               do (setf maximum quality
+                        rv-rule rule
+                        rv-X set-X
+                        rv-Y set-Y)
+             finally (return (list rv-rule rv-X rv-Y)))))
     (let* ((rules (fixed-arity-rules Z knowledge)))
       (cond (rules
              (destructuring-bind (rule set-X set-Y) (best-split rules)
-               (make-node rule
-                          (build-tree set-X (append-knowledge knowledge
-                                                              (fixed-arity-rule-type rule)
-                                                              (fixed-arity-rule-index rule)))
-                          (build-tree set-Y knowledge))))
+               (specialization-store.dispatch:make-node rule
+                                                        (build-tree set-X (append-knowledge knowledge
+                                                                                            (fixed-arity-rule-type rule)
+                                                                                            (fixed-arity-rule-index rule)))
+                                                        (build-tree set-Y knowledge))))
             (t
-             (make-node (if (zerop (set-count Z))
-                            Z
-                            (make-set (list (select-specialization (set-specializations Z)))))))))))
+             (specialization-store.dispatch:make-node (if (zerop (set-count Z))
+                                                          Z
+                                                          (make-set (list (select-specialization (set-specializations Z)))))))))))
 
 ;;;; Dispatch Tree
 
 (defun fixed-arity-specialization-types (store-parameters specialization-parameters)
-  (assert (congruent-parameters-p store-parameters specialization-parameters))
-  (append (mapcar #'parameter-type (required-parameters specialization-parameters))
+  (assert (specialization-store.lambda-lists:congruent-parameters-p store-parameters specialization-parameters))
+  (append (mapcar #'specialization-store.lambda-lists:parameter-type
+                  (specialization-store.lambda-lists:required-parameters specialization-parameters))
           (loop
-            for st-parameter in (keyword-parameters store-parameters)
-            for keyword = (parameter-keyword st-parameter)
-            for sp-parameter = (find keyword (keyword-parameters specialization-parameters) :key #'parameter-keyword)
+            for st-parameter in (specialization-store.lambda-lists:keyword-parameters store-parameters)
+            for keyword = (specialization-store.lambda-lists:parameter-keyword st-parameter)
+            for sp-parameter = (find keyword (specialization-store.lambda-lists:keyword-parameters specialization-parameters)
+                                     :key #'specialization-store.lambda-lists:parameter-keyword)
             collect (if sp-parameter
-                        (parameter-type sp-parameter)
+                        (specialization-store.lambda-lists:parameter-type sp-parameter)
                         t))))
 
 (defun map-to-problem (store-parameters all-specialization-parameters)
@@ -182,43 +184,45 @@
        (fixed-arity-specialization-types store-parameters specialization-parameters)))
 
 (defun map-from-problem (store-parameters all-specialization-parameters tree)
-  (let* ((index-function-table (map 'vector #'identity (append (loop
-                                                                  for nil in (required-parameters store-parameters)
-                                                                  for index from 0
-                                                                  collect (let ((index index))
-                                                                            #'(lambda (type)
-                                                                                (make-positional-parameter-type-rule index type))))
-                                                               (loop
-                                                                  for nil in (optional-parameters store-parameters)
-                                                                  for index from (length (required-parameters store-parameters))
-                                                                  collect (let ((index index))
-                                                                            #'(lambda (type)
-                                                                                (make-positional-parameter-type-rule index type))))
-                                                               (loop
-                                                                  for parameter in (keyword-parameters store-parameters)
-                                                                  collect (let ((keyword (parameter-keyword parameter)))
-                                                                            #'(lambda (type)
-                                                                                (make-keyword-parameter-type-rule keyword type))))))))
+  (let* ((index-function-table (map 'vector #'identity
+                                    (append (loop
+                                              for nil in (specialization-store.lambda-lists:required-parameters store-parameters)
+                                              for index from 0
+                                              collect (let ((index index))
+                                                        #'(lambda (type)
+                                                            (specialization-store.dispatch:make-positional-parameter-type-rule index type))))
+                                            (loop
+                                              for nil in (specialization-store.lambda-lists:optional-parameters store-parameters)
+                                              for index from (length (specialization-store.lambda-lists:required-parameters store-parameters))
+                                              collect (let ((index index))
+                                                        #'(lambda (type)
+                                                            (specialization-store.dispatch:make-positional-parameter-type-rule index type))))
+                                            (loop
+                                              for parameter in (specialization-store.lambda-lists:keyword-parameters store-parameters)
+                                              collect (let ((keyword (specialization-store.lambda-lists:parameter-keyword parameter)))
+                                                        #'(lambda (type)
+                                                            (specialization-store.dispatch:make-keyword-parameter-type-rule keyword type))))))))
     (labels ((process (node)
-               (cond ((leafp node)
-                      (let ((set (node-value node)))
+               (cond ((specialization-store.dispatch:leafp node)
+                      (let ((set (specialization-store.dispatch:node-value node)))
                         (check-type set set)
-                        (make-node (ecase (set-count set)
-                                     (0 nil)
-                                     (1 (loop
-                                           with tuple = (first (set-specializations set))
-                                           for specialization-parameters in all-specialization-parameters
-                                           for specialization-tuple = (fixed-arity-specialization-types store-parameters specialization-parameters)
-                                           when (equal tuple specialization-tuple)
-                                           return specialization-parameters
-                                           finally (error "Unable to find specialization parameters with tuple ~W." tuple)))))))
+                        (specialization-store.dispatch:make-node
+                         (ecase (set-count set)
+                           (0 nil)
+                           (1 (loop
+                                with tuple = (first (set-specializations set))
+                                for specialization-parameters in all-specialization-parameters
+                                for specialization-tuple = (fixed-arity-specialization-types store-parameters specialization-parameters)
+                                when (equal tuple specialization-tuple)
+                                  return specialization-parameters
+                                finally (error "Unable to find specialization parameters with tuple ~W." tuple)))))))
                      (t
-                      (let ((rule (node-value node)))
+                      (let ((rule (specialization-store.dispatch:node-value node)))
                         (check-type rule fixed-arity-rule)
-                        (make-node (funcall (elt index-function-table (fixed-arity-rule-index rule))
-                                            (fixed-arity-rule-type rule))
-                                   (process (node-pass node))
-                                   (process (node-fail node))))))))
+                        (specialization-store.dispatch:make-node (funcall (elt index-function-table (fixed-arity-rule-index rule))
+                                                                          (fixed-arity-rule-type rule))
+                                                                 (process (specialization-store.dispatch:node-pass node))
+                                                                 (process (specialization-store.dispatch:node-fail node))))))))
       (process tree))))
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
@@ -226,10 +230,13 @@
          (set (make-set fixed-arity-specializations))
          (fixed-arity-tree (build-tree set))
          (tree (map-from-problem store-parameters all-specialization-parameters fixed-arity-tree)))
-    (cond ((keyword-parameters-p store-parameters)
-           (make-node (make-accepts-argument-count-rule (+ (length (required-parameters store-parameters))
-                                                           (length (optional-parameters store-parameters))))
-                      tree))
+    (cond ((specialization-store.lambda-lists:keyword-parameters-p store-parameters)
+           (specialization-store.dispatch:make-node
+            (specialization-store.dispatch:make-accepts-argument-count-rule
+             (+ (length (specialization-store.lambda-lists:required-parameters store-parameters))
+                (length (specialization-store.lambda-lists:optional-parameters store-parameters))))
+            tree))
           (t
-           (make-node (make-fixed-argument-count-rule (set-arity set))
-                      tree)))))
+           (specialization-store.dispatch:make-node
+            (specialization-store.dispatch:make-fixed-argument-count-rule (set-arity set))
+            tree)))))
