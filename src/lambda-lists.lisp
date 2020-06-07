@@ -619,9 +619,6 @@
         (parameter-var parameter)
         (list (parameter-var parameter) (parameter-each-type parameter)))))
 
-(defmethod parameter-type ((object specialized-required-parameter))
-  (slot-value object 'type))
-
 (defmethod parameter-type ((object specialized-rest-parameter))
   'list)
 
