@@ -192,30 +192,30 @@
 ;;;; Functions
 
 (defun other-keys-p (store-parameters specialization-parameters)
-  (and (keyword-parameters-p store-parameters)
-       (keyword-parameters-p specialization-parameters)
-       (> (length (keyword-parameters specialization-parameters))
-          (length (keyword-parameters store-parameters)))))
+  (and (specialization-store.lambda-lists:keyword-parameters-p store-parameters)
+       (specialization-store.lambda-lists:keyword-parameters-p specialization-parameters)
+       (> (length (specialization-store.lambda-lists:keyword-parameters specialization-parameters))
+          (length (specialization-store.lambda-lists:keyword-parameters store-parameters)))))
 
 (defun specialization-parameters-lower-bound (specialization-parameters)
-  (length (required-parameters specialization-parameters)))
+  (length (specialization-store.lambda-lists:required-parameters specialization-parameters)))
 
 (defun specialization-parameters-upper-bound (specialization-parameters)
   (cond
-    ((or (rest-parameter specialization-parameters)
-         (keyword-parameters-p specialization-parameters))
+    ((or (specialization-store.lambda-lists:rest-parameter specialization-parameters)
+         (specialization-store.lambda-lists:keyword-parameters-p specialization-parameters))
      lambda-parameters-limit)
     (t
-     (length (required-parameters specialization-parameters)))))
+     (length (specialization-store.lambda-lists:required-parameters specialization-parameters)))))
 
 ;;;; Training
 (defun fixed-arity-store-parameters-p (store-parameters)
-  (or (keyword-parameters-p store-parameters)
-      (null (rest-parameter store-parameters))))
+  (or (specialization-store.lambda-lists:keyword-parameters-p store-parameters)
+      (null (specialization-store.lambda-lists:rest-parameter store-parameters))))
 
 (defun variable-arity-store-parameters-p (store-parameters)
-  (and (rest-parameter store-parameters)
-       (not (keyword-parameters-p store-parameters))))
+  (and (specialization-store.lambda-lists:rest-parameter store-parameters)
+       (not (specialization-store.lambda-lists:keyword-parameters-p store-parameters))))
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
   (cond ((null all-specialization-parameters)
