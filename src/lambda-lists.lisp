@@ -1016,7 +1016,6 @@
                      for parameter in (optional-parameters parameters)
                      for var = (parameter-var parameter)
                      for varp = (gensym (concatenate 'string (symbol-name var) "P"))
-                     for init-form = (parameter-init-form parameter)
                      collect (list var nil varp)))
          (optional-forms (loop
                            for (var nil varp) in optional
