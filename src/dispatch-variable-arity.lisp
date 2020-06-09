@@ -1,18 +1,18 @@
 (in-package "SPECIALIZATION-STORE.DISPATCH.VARIABLE-ARITY")
 
 (defun fixed-arity-tuple (specialization-parameters c)
-  (let* ((lower-bound (specialization-parameters-lower-bound specialization-parameters))
-         (upper-bound (specialization-parameters-upper-bound specialization-parameters))
-         (required-count (length (required-parameters specialization-parameters))))
+  (let* ((lower-bound (specialization-store.dispatch:specialization-parameters-lower-bound specialization-parameters))
+         (upper-bound (specialization-store.dispatch:specialization-parameters-upper-bound specialization-parameters))
+         (required-count (length (specialization-store.lambda-lists:required-parameters specialization-parameters))))
     (assert (<= lower-bound c upper-bound))
-    (let* ((rest (rest-parameter specialization-parameters))
+    (let* ((rest (specialization-store.lambda-lists:rest-parameter specialization-parameters))
            (rv (append (loop
-                         for parameter in (required-parameters specialization-parameters)
-                         collect (parameter-type parameter))
+                         for parameter in (specialization-store.lambda-lists:required-parameters specialization-parameters)
+                         collect (specialization-store.lambda-lists:parameter-type parameter))
                       (when rest
                         (loop
                            for index from required-count below c
-                           collect (parameter-each-type rest))))))
+                           collect (specialization-store.lambda-lists:parameter-each-type rest))))))
       (assert (= c (length rv)))
       rv)))
 
@@ -29,20 +29,21 @@
                                      for specialization-tuple in set-X-tuples
                                      when (equal tuple specialization-tuple)
                                        collect specialization-parameters)))
-                 (first (sort candidates #'> :key #'specialization-parameters-lower-bound))))
+                 (first (sort candidates #'> :key #'specialization-store.dispatch:specialization-parameters-lower-bound))))
              (rewrite-node (node)
                (when node
-                 (let* ((value (node-value node)))
+                 (let* ((value (specialization-store.dispatch:node-value node)))
                    (cond ((typep value 'specialization-store.dispatch.fixed-arity:set)
                           (let* ((tuples (specialization-store.dispatch.fixed-arity:set-specializations value)))
                             (when tuples
-                              (make-node (select-specialization (first tuples))))))
+                              (specialization-store.dispatch:make-node (select-specialization (first tuples))))))
                          ((typep value 'specialization-store.dispatch.fixed-arity:fixed-arity-rule)
                           (let* ((type (specialization-store.dispatch.fixed-arity:fixed-arity-rule-type value))
                                  (index (specialization-store.dispatch.fixed-arity:fixed-arity-rule-index value)))
-                            (make-node (make-positional-parameter-type-rule index type)
-                                       (rewrite-node (node-pass node))
-                                       (rewrite-node (node-fail node)))))
+                            (specialization-store.dispatch:make-node
+                             (specialization-store.dispatch:make-positional-parameter-type-rule index type)
+                             (rewrite-node (specialization-store.dispatch:node-pass node))
+                             (rewrite-node (specialization-store.dispatch:node-fail node)))))
                          (t
                           (error "Do not know how to process node with value ~W." value)))))))
       (rewrite-node (build-tree)))))
@@ -50,7 +51,7 @@
 (defun make-final-tree (set-Z c)
   (loop
     for parameters in set-Z
-    unless (<= (specialization-parameters-lower-bound parameters)
+    unless (<= (specialization-store.dispatch:specialization-parameters-lower-bound parameters)
                c)
       do
          (error "Specialization parameters ~A is invalid when invoked with ~d arguments."
@@ -69,18 +70,22 @@
                    collect specialization-parameters))
              (make-rest-rule-tree (specialization others)
                (when specialization
-                 (let* ((rest (rest-parameter specialization)))
+                 (let* ((rest (specialization-store.lambda-lists:rest-parameter specialization)))
                    (cond (rest
-                          (make-node (make-rest-objects-rule (parameter-each-type rest) (specialization-parameters-lower-bound specialization))
-                                     (make-node specialization)
-                                     (make-rest-rule-tree (first others) (rest others))))
+                          (specialization-store.dispatch:make-node
+                           (specialization-store.dispatch:make-rest-objects-rule
+                            (specialization-store.lambda-lists:parameter-each-type rest)
+                            (specialization-store.dispatch:specialization-parameters-lower-bound specialization))
+                           (specialization-store.dispatch:make-node specialization)
+                           (make-rest-rule-tree (first others) (rest others))))
                          (t
-                          (make-node (make-fixed-argument-count-rule c)
-                                     (make-node specialization)
-                                     (make-rest-rule-tree (first others) (rest others))))))))
+                          (specialization-store.dispatch:make-node
+                           (specialization-store.dispatch:make-fixed-argument-count-rule c)
+                           (specialization-store.dispatch:make-node specialization)
+                           (make-rest-rule-tree (first others) (rest others))))))))
              (rewrite-node (node)
                (when node
-                 (let* ((value (node-value node)))
+                 (let* ((value (specialization-store.dispatch:node-value node)))
                    (cond ((typep value 'specialization-store.dispatch.fixed-arity:set)
                           (let* ((tuples (specialization-store.dispatch.fixed-arity:set-specializations value))
                                  (specializations (remove-duplicates
@@ -92,9 +97,10 @@
                          ((typep value 'specialization-store.dispatch.fixed-arity:fixed-arity-rule)
                           (let* ((type (specialization-store.dispatch.fixed-arity:fixed-arity-rule-type value))
                                  (index (specialization-store.dispatch.fixed-arity:fixed-arity-rule-index value)))
-                            (make-node (make-positional-parameter-type-rule index type)
-                                       (rewrite-node (node-pass node))
-                                       (rewrite-node (node-fail node)))))
+                            (specialization-store.dispatch:make-node
+                             (specialization-store.dispatch:make-positional-parameter-type-rule index type)
+                             (rewrite-node (specialization-store.dispatch:node-pass node))
+                             (rewrite-node (specialization-store.dispatch:node-fail node)))))
                          (t
                           (error "Do not know how to process node with value ~W." value)))))))
       (rewrite-node (build-tree)))))
@@ -104,7 +110,7 @@
      with min-lower-bound-count = 0
      with min-lower-bound = most-positive-fixnum
      for specialization-parameters in set-Z
-     for lower-bound = (specialization-parameters-lower-bound specialization-parameters)
+     for lower-bound = (specialization-store.dispatch:specialization-parameters-lower-bound specialization-parameters)
      when (> lower-bound previous-c)
        do
           (incf min-lower-bound-count)
@@ -116,8 +122,8 @@
 (defun split-set-Z (set-Z c)
   (loop
      for specialization-parameters in set-Z
-     for lower-bound = (specialization-parameters-lower-bound specialization-parameters)
-     for upper-bound = (specialization-parameters-upper-bound specialization-parameters)
+     for lower-bound = (specialization-store.dispatch:specialization-parameters-lower-bound specialization-parameters)
+     for upper-bound = (specialization-store.dispatch:specialization-parameters-upper-bound specialization-parameters)
      when (<= lower-bound c upper-bound)
      collect specialization-parameters into set-X
      when (> upper-bound c)
@@ -132,14 +138,16 @@
           (cond ((= c next-c)
                  (make-final-tree set-Z c))
                 (t
-                 (make-node (make-accepts-argument-count-rule next-c)
-                            (make-tree-for-set-Z set-Y c)
-                            (make-node (make-fixed-argument-count-rule c)
-                                       (make-tree-for-set-X set-X c))))))))))
+                 (specialization-store.dispatch:make-node
+                  (specialization-store.dispatch:make-accepts-argument-count-rule next-c)
+                  (make-tree-for-set-Z set-Y c)
+                  (specialization-store.dispatch:make-node
+                   (specialization-store.dispatch:make-fixed-argument-count-rule c)
+                   (make-tree-for-set-X set-X c))))))))))
 
 (defun make-initial-dispatch-tree (store-parameters all-specialization-parameters)
-  (assert (variable-arity-store-parameters-p store-parameters))
+  (assert (specialization-store.dispatch:variable-arity-store-parameters-p store-parameters))
   (assert (loop
              for specialization-parameters in all-specialization-parameters
-             always (congruent-parameters-p store-parameters specialization-parameters)))
+             always (specialization-store.lambda-lists:congruent-parameters-p store-parameters specialization-parameters)))
   (make-tree-for-set-Z all-specialization-parameters))

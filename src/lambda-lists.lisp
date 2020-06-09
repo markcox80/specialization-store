@@ -619,9 +619,6 @@
         (parameter-var parameter)
         (list (parameter-var parameter) (parameter-each-type parameter)))))
 
-(defmethod parameter-type ((object specialized-required-parameter))
-  (slot-value object 'type))
-
 (defmethod parameter-type ((object specialized-rest-parameter))
   'list)
 
@@ -1019,7 +1016,6 @@
                      for parameter in (optional-parameters parameters)
                      for var = (parameter-var parameter)
                      for varp = (gensym (concatenate 'string (symbol-name var) "P"))
-                     for init-form = (parameter-init-form parameter)
                      collect (list var nil varp)))
          (optional-forms (loop
                            for (var nil varp) in optional

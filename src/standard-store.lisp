@@ -89,20 +89,20 @@
 ;;;; Standard Store Implementation (Object Layer)
 
 (defun make-default-value-completion-function (store-parameters)
-  (compile nil (make-value-completion-lambda-form store-parameters)))
+  (compile nil (specialization-store.lambda-lists:make-value-completion-lambda-form store-parameters)))
 
 (defun make-default-type-completion-function (store-parameters)
-  (compile nil (make-type-completion-lambda-form store-parameters nil)))
+  (compile nil (specialization-store.lambda-lists:make-type-completion-lambda-form store-parameters nil)))
 
 (defun make-default-form-types-function (store-parameters)
-  (compile nil (make-form-types-lambda-form store-parameters)))
+  (compile nil (specialization-store.lambda-lists:make-form-types-lambda-form store-parameters)))
 
 (defmethod initialize-instance :after ((instance standard-store)
                                        &key
                                          (lambda-list nil lambda-list-p)
                                          &allow-other-keys)
   (assert lambda-list-p)
-  (let ((new-parameters (parse-store-lambda-list lambda-list)))
+  (let ((new-parameters (specialization-store.lambda-lists:parse-store-lambda-list lambda-list)))
     (with-slots (parameters) instance
       (setf parameters new-parameters))
     (with-slots (%value-completion-function) instance
@@ -124,8 +124,8 @@
 
   (when new-lambda-list-p
     (let* ((old-parameters (store-parameters instance))
-           (new-parameters (parse-store-lambda-list new-lambda-list))
-           (congruent? (congruent-parameters-p old-parameters new-parameters)))
+           (new-parameters (specialization-store.lambda-lists:parse-store-lambda-list new-lambda-list))
+           (congruent? (specialization-store.lambda-lists:congruent-parameters-p old-parameters new-parameters)))
       (cond ((or congruent? (null (store-specializations instance)))
              (with-slots (parameters) instance
                (setf parameters new-parameters))
@@ -154,7 +154,7 @@
     (funcall %compile-time-function form env)))
 
 (defmethod add-specialization ((store standard-store) (specialization standard-specialization))
-  (unless (congruent-parameters-p (store-parameters store) (specialization-parameters specialization))
+  (unless (specialization-store.lambda-lists:congruent-parameters-p (store-parameters store) (specialization-parameters specialization))
     (error 'incongruent-specialization-error :store store :specialization specialization))
   (loop
      for sublist on (store-specializations store)
@@ -190,30 +190,30 @@
                (funcall test (compare/value keys parameters-a) (compare/value keys parameters-b)))
              (ensure-key (match keyword specialization)
                (assert match nil "Unable to find keyword argument specification ~W in specialization ~W." keyword specialization)))
-      (and (compare #'= #'length #'required-parameters)
-           (compare #'= #'length #'optional-parameters)
-           (compare #'eql #'keyword-parameters-p)
-           (let* ((rest-a (rest-parameter parameters-a))
-                  (rest-b (rest-parameter parameters-b)))
+      (and (compare #'= #'length #'specialization-store.lambda-lists:required-parameters)
+           (compare #'= #'length #'specialization-store.lambda-lists:optional-parameters)
+           (compare #'eql #'specialization-store.lambda-lists:keyword-parameters-p)
+           (let* ((rest-a (specialization-store.lambda-lists:rest-parameter parameters-a))
+                  (rest-b (specialization-store.lambda-lists:rest-parameter parameters-b)))
              (or (and (null rest-a) (null rest-b))
                  (and rest-a rest-b
-                      (alexandria:type= (parameter-each-type rest-a)
-                                        (parameter-each-type rest-b)))))
+                      (alexandria:type= (specialization-store.lambda-lists:parameter-each-type rest-a)
+                                        (specialization-store.lambda-lists:parameter-each-type rest-b)))))
            (loop
-              for a in (required-parameters parameters-a)
-              for b in (required-parameters parameters-b)
+              for a in (specialization-store.lambda-lists:required-parameters parameters-a)
+              for b in (specialization-store.lambda-lists:required-parameters parameters-b)
               always
-              (alexandria:type= (parameter-type a)
-                                (parameter-type b)))
+              (alexandria:type= (specialization-store.lambda-lists:parameter-type a)
+                                (specialization-store.lambda-lists:parameter-type b)))
            (loop
-              with keys-a = (keyword-parameters parameters-a)
-              with keys-b = (keyword-parameters parameters-b)
-              for st-keyword in (keyword-parameters parameters)
-              for keyword = (parameter-keyword st-keyword)
-              for key-a = (find keyword keys-a :key #'parameter-keyword)
-              for key-b = (find keyword keys-b :key #'parameter-keyword)
-              for type-a = (parameter-type key-a)
-              for type-b = (parameter-type key-b)
+              with keys-a = (specialization-store.lambda-lists:keyword-parameters parameters-a)
+              with keys-b = (specialization-store.lambda-lists:keyword-parameters parameters-b)
+              for st-keyword in (specialization-store.lambda-lists:keyword-parameters parameters)
+              for keyword = (specialization-store.lambda-lists:parameter-keyword st-keyword)
+              for key-a = (find keyword keys-a :key #'specialization-store.lambda-lists:parameter-keyword)
+              for key-b = (find keyword keys-b :key #'specialization-store.lambda-lists:parameter-keyword)
+              for type-a = (specialization-store.lambda-lists:parameter-type key-a)
+              for type-b = (specialization-store.lambda-lists:parameter-type key-b)
               do
                 (ensure-key key-a keyword a)
                 (ensure-key key-b keyword b)
@@ -227,7 +227,7 @@
   (let* ((initialisingp (eql slot-names t))
          (reinitialisingp (eql slot-names nil)))
     (when initialisingp
-      (setf (slot-value instance 'parameters) (parse-specialization-lambda-list (specialization-lambda-list instance))))
+      (setf (slot-value instance 'parameters) (specialization-store.lambda-lists:parse-specialization-lambda-list (specialization-lambda-list instance))))
 
     (when (and reinitialisingp lambda-list-p)
       (error "Cannot reinitialize the lambda list of standard specialization."))
@@ -301,17 +301,17 @@
                                    environment
                                  &allow-other-keys)
   (alexandria:remove-from-plistf args :environment)
-  (let* ((parameters (parse-store-lambda-list store-lambda-list)))
-    (destructuring-bind (new-parameters globals) (parameter-init-forms-as-global-functions name parameters environment)
+  (let* ((parameters (specialization-store.lambda-lists:parse-store-lambda-list store-lambda-list)))
+    (destructuring-bind (new-parameters globals) (specialization-store.lambda-lists:parameter-init-forms-as-global-functions name parameters environment)
       `(progn
          ,@globals
-         (ensure-store ',name ',(original-lambda-list new-parameters)
+         (ensure-store ',name ',(specialization-store.lambda-lists:original-lambda-list new-parameters)
                        ,@args)))))
 
 (defun %augment-body (store-parameters specialization-parameters value-type body)
   (multiple-value-bind (forms declarations documentation) (alexandria:parse-body body :documentation t)
     (values (append declarations
-                    (list `(declare ,@(type-declarations store-parameters specialization-parameters))
+                    (list `(declare ,@(specialization-store.lambda-lists:type-declarations store-parameters specialization-parameters))
                           `(the ,value-type
                                 (progn
                                   ,@forms))))
@@ -322,9 +322,9 @@
   (declare (ignore environment))
   (alexandria:remove-from-plistf args :name :environment :inline)
   (let* ((store-parameters (store-parameters store))
-         (parameters (parse-specialization-lambda-list specialized-lambda-list)))
+         (parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
     (multiple-value-bind (body documentation) (%augment-body store-parameters parameters value-type body)
-      (let* ((lambda-list (ordinary-lambda-list store-parameters parameters))
+      (let* ((lambda-list (specialization-store.lambda-lists:ordinary-lambda-list store-parameters parameters))
              (inlined-function `(lambda ,lambda-list
                                   ,@body))
              (function (if name
@@ -351,7 +351,7 @@
            ,(when (and name inline)
               `(setf (compiler-macro-function ',name) ,inlined-expand-function))
            ,(when name
-              `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
+              `(proclaim '(ftype ,(specialization-store.lambda-lists:function-type store-parameters parameters value-type) ,name)))
            (add-specialization (find-store ',(store-name store))
                                (make-instance ',specialization-class-name
                                               :name ',name
@@ -385,14 +385,14 @@
                                     expand-function)))
          (specialization-class-name (class-name (store-specialization-class store)))
          (store-parameters (store-parameters store))
-         (parameters (parse-specialization-lambda-list specialized-lambda-list)))
+         (parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
     `(progn
        ,(when name
           `(setf (fdefinition ',name) ,function))
        ,(when (and name expand-function)
           `(setf (compiler-macro-function ',name) ,expand-function))
        ,(when name
-          `(proclaim '(ftype ,(function-type store-parameters parameters value-type) ,name)))
+          `(proclaim '(ftype ,(specialization-store.lambda-lists:function-type store-parameters parameters value-type) ,name)))
        (add-specialization (find-store ',(store-name store))
                            (make-instance ',specialization-class-name
                                           :name ',name
@@ -428,7 +428,7 @@
                                                      args)))))
                    (lambda (form env)
                      (let* ((completed-types (funcall type-fn form env)))
-                       (destructuring-bind (lexical-fn rewritten-form) (rewrite-store-function-form (store-parameters store) form env)
+                       (destructuring-bind (lexical-fn rewritten-form) (specialization-store.lambda-lists:rewrite-store-function-form (store-parameters store) form env)
                          (let* ((new-form (funcall compile-time rewritten-form env completed-types)))
                            (if (eql new-form rewritten-form)
                                form
@@ -482,19 +482,19 @@
    :args (gensym "ARGS")))
 
 (defun make-destructuring-environment (store-parameters)
-  (let* ((required (mapcar #'parameter-var (required-parameters store-parameters)))
-         (optional (mapcar #'parameter-var (optional-parameters store-parameters)))
+  (let* ((required (mapcar #'specialization-store.lambda-lists:parameter-var (specialization-store.lambda-lists:required-parameters store-parameters)))
+         (optional (mapcar #'specialization-store.lambda-lists:parameter-var (specialization-store.lambda-lists:optional-parameters store-parameters)))
          (keywords (loop
-                      for parameter in (keyword-parameters store-parameters)
-                      collect (cons (parameter-keyword parameter)
-                                    (parameter-var parameter))))
+                      for parameter in (specialization-store.lambda-lists:keyword-parameters store-parameters)
+                      collect (cons (specialization-store.lambda-lists:parameter-keyword parameter)
+                                    (specialization-store.lambda-lists:parameter-var parameter))))
          (positional (append required optional)))
-    (cond ((keyword-parameters-p store-parameters)
+    (cond ((specialization-store.lambda-lists:keyword-parameters-p store-parameters)
            (make-instance 'keywords-environment
                           :positional positional
                           :keywords keywords
-                          :allow-others-p (allow-other-keys-p store-parameters)))
-          ((rest-parameter store-parameters)
+                          :allow-others-p (specialization-store.lambda-lists:allow-other-keys-p store-parameters)))
+          ((specialization-store.lambda-lists:rest-parameter store-parameters)
            (make-instance 'variable-environment
                           :positional positional))
           (t
@@ -503,15 +503,15 @@
 
 (defgeneric generate-code (object function-env destructuring-env))
 
-(defmethod generate-code ((node node) function-env destructuring-env)
-  (cond ((leafp node)
+(defmethod generate-code ((node specialization-store.dispatch:node) function-env destructuring-env)
+  (cond ((specialization-store.dispatch:leafp node)
          (with-slots (fail) function-env
-           (or (generate-code (node-value node) function-env destructuring-env)
+           (or (generate-code (specialization-store.dispatch:node-value node) function-env destructuring-env)
                `(,fail))))
         (t
-         (let* ((condition (generate-code (node-value node) function-env destructuring-env))
-                (pass (generate-code (node-pass node) function-env destructuring-env))
-                (fail (generate-code (node-fail node) function-env destructuring-env)))
+         (let* ((condition (generate-code (specialization-store.dispatch:node-value node) function-env destructuring-env))
+                (pass (generate-code (specialization-store.dispatch:node-pass node) function-env destructuring-env))
+                (fail (generate-code (specialization-store.dispatch:node-fail node) function-env destructuring-env)))
            (cond ((eql condition t)
                   pass)
                  ((null condition)
@@ -521,34 +521,34 @@
                        ,pass
                        ,fail)))))))
 
-(defmethod generate-code ((rule fixed-argument-count-rule) f-env (d-env positional-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:fixed-argument-count-rule) f-env (d-env positional-environment))
   (declare (ignore f-env))
-  (let ((count (argument-count rule)))
+  (let ((count (specialization-store.dispatch:argument-count rule)))
     (with-slots (positional) d-env
       (= count (length positional)))))
 
-(defmethod generate-code ((rule fixed-argument-count-rule) f-env (d-env variable-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:fixed-argument-count-rule) f-env (d-env variable-environment))
   (declare (ignore f-env))
-  (let ((count (argument-count rule)))
+  (let ((count (specialization-store.dispatch:argument-count rule)))
     (with-slots (argument-count) d-env
       `(= ,argument-count ,count))))
 
-(defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env positional-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:accepts-argument-count-rule) f-env (d-env positional-environment))
   (declare (ignore f-env))
-  (let ((count (argument-count rule)))
+  (let ((count (specialization-store.dispatch:argument-count rule)))
     (with-slots (positional) d-env
       (>= (length positional) count))))
 
-(defmethod generate-code ((rule accepts-argument-count-rule) f-env (d-env variable-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:accepts-argument-count-rule) f-env (d-env variable-environment))
   (declare (ignore f-env))
-  (let ((count (argument-count rule)))
+  (let ((count (specialization-store.dispatch:argument-count rule)))
     (with-slots (argument-count) d-env
       `(>= ,argument-count ,count))))
 
-(defmethod generate-code ((rule positional-parameter-type-rule) f-env (d-env positional-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:positional-parameter-type-rule) f-env (d-env positional-environment))
   (with-slots (positional) d-env
-    (let* ((position (parameter-position rule))
-           (type (parameter-type rule))
+    (let* ((position (specialization-store.dispatch:parameter-position rule))
+           (type (specialization-store.dispatch:parameter-type rule))
            (symbol (elt positional position)))
       (assert (and (<= 0 position) (< position (length positional))))
       (etypecase f-env
@@ -557,10 +557,10 @@
         (type-function-environment
          `(subtypep ,symbol ',type))))))
 
-(defmethod generate-code ((rule positional-parameter-type-rule) f-env (d-env variable-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:positional-parameter-type-rule) f-env (d-env variable-environment))
   (with-slots (positional args) d-env
-    (let* ((position (parameter-position rule))
-           (type (parameter-type rule))
+    (let* ((position (specialization-store.dispatch:parameter-position rule))
+           (type (specialization-store.dispatch:parameter-type rule))
            (reader (cond ((< position (length positional))
                           (elt positional position))
                          (t
@@ -572,10 +572,10 @@
         (type-function-environment
          `(subtypep ,reader ',type))))))
 
-(defmethod generate-code ((rule keyword-parameter-type-rule) f-env (d-env keywords-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:keyword-parameter-type-rule) f-env (d-env keywords-environment))
   (with-slots (keywords) d-env
-    (let* ((keyword (parameter-keyword rule))
-           (type (parameter-type rule))
+    (let* ((keyword (specialization-store.dispatch:parameter-keyword rule))
+           (type (specialization-store.dispatch:parameter-type rule))
            (symbol (cdr (assoc keyword keywords))))
       (assert symbol)
       (etypecase f-env
@@ -584,14 +584,14 @@
         (type-function-environment
          `(subtypep ,symbol ',type))))))
 
-(defmethod generate-code ((rule constantly-rule) f-env d-env)
+(defmethod generate-code ((rule specialization-store.dispatch:constantly-rule) f-env d-env)
   (declare (ignore f-env d-env))
-  (constantly-rule-value rule))
+  (specialization-store.dispatch:constantly-rule-value rule))
 
-(defmethod generate-code ((rule rest-objects-rule) (f-env value-function-environment) (d-env variable-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:rest-objects-rule) (f-env value-function-environment) (d-env variable-environment))
   (with-slots (positional) d-env
-    (let* ((type (rest-objects-rule-type rule))
-           (position (rest-objects-rule-position rule))
+    (let* ((type (specialization-store.dispatch:rest-objects-rule-type rule))
+           (position (specialization-store.dispatch:rest-objects-rule-position rule))
            (offset (- position (length positional))))
       (assert (typep offset '(integer 0)))
       (with-slots (args) d-env
@@ -600,10 +600,10 @@
              for ,arg in (nthcdr ,offset ,args)
              always (typep ,arg ',type)))))))
 
-(defmethod generate-code ((rule rest-objects-rule) (f-env type-function-environment) (d-env variable-environment))
+(defmethod generate-code ((rule specialization-store.dispatch:rest-objects-rule) (f-env type-function-environment) (d-env variable-environment))
   (with-slots (positional) d-env
-    (let* ((type (rest-objects-rule-type rule))
-           (position (rest-objects-rule-position rule))
+    (let* ((type (specialization-store.dispatch:rest-objects-rule-type rule))
+           (position (specialization-store.dispatch:rest-objects-rule-position rule))
            (offset (- position (length positional))))
       (assert (typep offset '(integer 0)))
       (with-slots (args) d-env
@@ -612,28 +612,28 @@
              for ,arg in (nthcdr ,offset ,args)
              always (subtypep ,arg ',type)))))))
 
-(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env positional-environment))
+(defmethod generate-code ((parameters specialization-store.lambda-lists:specialization-parameters) (f-env value-function-environment) (d-env positional-environment))
   (with-slots (store) f-env
     (with-slots (positional) d-env
       (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
         (assert specialization)
         `(funcall (specialization-function ,specialization) ,@positional)))))
 
-(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env keywords-environment))
+(defmethod generate-code ((parameters specialization-store.lambda-lists:specialization-parameters) (f-env value-function-environment) (d-env keywords-environment))
   (with-slots (store) f-env
     (with-slots (positional args) d-env
       (let ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
         (assert specialization)
         `(apply (specialization-function ,specialization) ,@positional ,args)))))
 
-(defmethod generate-code ((parameters specialization-parameters) (f-env value-function-environment) (d-env variable-environment))
+(defmethod generate-code ((parameters specialization-store.lambda-lists:specialization-parameters) (f-env value-function-environment) (d-env variable-environment))
   (with-slots (store) f-env
     (with-slots (positional args) d-env
       (let ((specialization (find parameters (store-specializations store) :key #'specialization-parameters)))
         (assert specialization)
         `(apply (specialization-function ,specialization) ,@positional ,args)))))
 
-(defmethod generate-code ((parameters specialization-parameters) (f-env type-function-environment) d-env)
+(defmethod generate-code ((parameters specialization-store.lambda-lists:specialization-parameters) (f-env type-function-environment) d-env)
   (declare (ignore d-env))
   (with-slots (store form environment) f-env
     (let* ((specialization (find parameters (store-specializations store) :key #'specialization-parameters))
@@ -733,7 +733,7 @@
 (defmethod compute-dispatch-lambda-forms ((store standard-store))
   (let* ((parameters (store-parameters store))
          (all-specialization-parameters (mapcar #'specialization-parameters (store-specializations store)))
-         (dispatch-tree (make-dispatch-tree parameters all-specialization-parameters))
+         (dispatch-tree (specialization-store.dispatch:make-dispatch-tree parameters all-specialization-parameters))
          (destructuring-env (make-destructuring-environment parameters))
          (value-lambda-form (compute-dispatch-lambda-form (make-function-environment store :value)
                                                           destructuring-env
