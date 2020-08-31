@@ -295,7 +295,7 @@
 
 ;;;; Standard Store (Syntax Layer)
 
-(defmethod defstore-using-class ((class (eql (find-class 'standard-store))) name store-lambda-list
+(defmethod defstore-using-class ((class standard-store-class) name store-lambda-list
                                  &rest args
                                  &key
                                    environment
