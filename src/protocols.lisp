@@ -217,16 +217,15 @@
 ;; DEFSTORE
 
 (defmacro defstore (store-name store-lambda-list &body body &environment env)
-  (let* ((store-class (second (find :store-class body :key #'first)))
-         (store-class (typecase store-class
+  (let* ((store-class-name (second (find :store-class body :key #'first)))
+         (store-class (etypecase store-class-name
                         (null (find-class 'standard-store))
-                        (symbol (find-class store-class))
-                        (t store-class)))
+                        (symbol (find-class store-class-name))))
          (form (apply #'defstore-using-class store-class store-name store-lambda-list
                       :environment env
                       (mapcan #'(lambda (item)
                                   (cond ((eql (first item) :store-class)
-                                         nil)
+                                         `(:store-class ',store-class-name))
                                         ((and (member (first item) '(:documentation :specialization-class)))
                                          (if (= 2 (length item))
                                              item
