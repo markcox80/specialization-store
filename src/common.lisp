@@ -64,6 +64,10 @@
           (t
            v))))
 
+(defun form-value-type-p (form env)
+  (not (eql t (introspect-environment:typexpand (determine-form-value-type form env)
+                                                env))))
+
 (defun generate-symbol (base &optional (suffix nil suffixp))
   (if suffixp
       (gensym (format nil "~A-~A-" (string base) (string suffix)))
