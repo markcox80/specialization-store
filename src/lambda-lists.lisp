@@ -749,6 +749,7 @@
 (defgeneric make-value-completion-lambda-form (parameters))
 (defgeneric make-type-completion-lambda-form (parameters environment))
 (defgeneric make-form-types-lambda-form (parameters))
+(defgeneric make-form-types-specified-p-lambda-form (parameters))
 
 (defparameter *init-function-name-table* (make-hash-table))
 
@@ -1066,6 +1067,53 @@
             (let* (,form-types)
               ,@positional-forms
               (apply ,continuation (nreverse ,form-types)))))))))
+
+(defmethod make-form-types-specified-p-lambda-form ((parameters store-parameters))
+  (let* ((lambda-environment (gensym "ENVIRONMENT"))
+         (required (mapcar #'parameter-var (required-parameters parameters)))
+         (required-forms (loop
+                           for var in required
+                           collect `(form-value-type-p ,var ,lambda-environment)))
+         (optional (loop
+                     for parameter in (optional-parameters parameters)
+                     for var = (parameter-var parameter)
+                     for varp = (gensym (concatenate 'string (symbol-name var) "p"))
+                     collect (list var nil varp)))
+         (optional-forms (loop
+                           for (var nil varp) in optional
+                           collect `(and ,varp
+                                         (form-value-type-p ,var ,lambda-environment))))
+         (positional (append required (when optional (cons '&optional optional))))
+         (positional-forms (append required-forms optional-forms))
+         (rest (when (rest-parameter-p parameters)
+                 (parameter-var (rest-parameter parameters))))
+         (keywordsp (keyword-parameters-p parameters))
+         (keywords (loop
+                     for parameter in (keyword-parameters parameters)
+                     for keyword = (parameter-keyword parameter)
+                     for var = (parameter-var parameter)
+                     for varp = (gensym (concatenate 'string (symbol-name var) "P"))
+                     collect (list (list keyword var) nil varp)))
+         (keyword-forms (loop
+                          for ((nil var) nil varp) in keywords
+                          collect `(and ,varp
+                                        (form-value-type-p ,var ,lambda-environment))))
+         (allow-other-keys (when (allow-other-keys-p parameters)
+                             '(&allow-other-keys))))
+    (cond
+      (keywordsp
+       `(compiler-macro-lambda (,@positional &key ,@keywords ,@allow-other-keys &environment ,lambda-environment)
+          (or ,@positional-forms
+              ,@keyword-forms)))
+      (rest
+       `(compiler-macro-lambda (,@positional &rest ,rest &environment ,lambda-environment)
+          (or ,@positional-forms
+              (some (lambda (,rest)
+                      (form-value-type-p ,rest ,lambda-environment))
+                    ,rest))))
+      (t
+       `(compiler-macro-lambda (,@positional &environment ,lambda-environment)
+          (or ,@positional-forms))))))
 
 ;;;; store-function-form-rewriter
 

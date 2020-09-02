@@ -85,7 +85,8 @@
   (:use "COMMON-LISP")
   (:import-from "SPECIALIZATION-STORE"
                 "COMPILER-MACRO-LAMBDA"
-                "DETERMINE-FORM-VALUE-TYPE")
+                "DETERMINE-FORM-VALUE-TYPE"
+                "FORM-VALUE-TYPE-P")
 
   ;; Parameter Protocol
   (:export "PARAMETER"
@@ -157,6 +158,7 @@
            "MAKE-VALUE-COMPLETION-LAMBDA-FORM"
            "MAKE-TYPE-COMPLETION-LAMBDA-FORM"
            "MAKE-FORM-TYPES-LAMBDA-FORM"
+           "MAKE-FORM-TYPES-SPECIFIED-P-LAMBDA-FORM"
            "FUNCTION-TYPE"
            "REWRITE-STORE-FUNCTION-FORM"))
 
