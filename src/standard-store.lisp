@@ -328,8 +328,9 @@
     (when warnings
       (let ((*print-pretty* t)
             (stream *error-output*))
+        (fresh-line stream)
         (pprint-logical-block (stream nil :per-line-prefix "; ")
-          (format stream "~2IInlining the specialization ~_~I~S ~_generates the following warnings:~:@_"
+          (format stream "~2IInlining the body of specialization ~_~I~S ~_generates the following warnings:~:@_"
                   defspecialization-form)
           (pprint-logical-block (stream nil :per-line-prefix "  ")
             (dolist (warning warnings)
