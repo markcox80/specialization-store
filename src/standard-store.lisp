@@ -317,6 +317,31 @@
                                   ,@forms))))
             documentation)))
 
+(defun compile-specialization-lambda-form (lambda-form defspecialization-form)
+  (let* ((warnings nil))
+    (handler-bind ((warning (lambda (c)
+                              (push c warnings)
+                              (muffle-warning c))))
+      (with-compilation-unit (:override t)
+        (compile nil lambda-form)))
+
+    (when warnings
+      (let ((*print-pretty* t)
+            (stream *error-output*))
+        (pprint-logical-block (stream nil :per-line-prefix "; ")
+          (format stream "~2IInlining the specialization ~_~I~S ~_generates the following warnings:~:@_"
+                  defspecialization-form)
+          (pprint-logical-block (stream nil :per-line-prefix "  ")
+            (dolist (warning warnings)
+              (princ warning stream)))))
+
+      (setf warnings (nreverse warnings))
+      (dolist (warning warnings)
+        (restart-case (signal warning)
+          (muffle-warning ()))
+        end)))
+  (values))
+
 (defmethod defspecialization-using-object ((store standard-store) specialized-lambda-list value-type body
                                            &rest args &key name environment inline form &allow-other-keys)
   (declare (ignore environment))
@@ -342,6 +367,7 @@
                                     (name
                                      named-expand-function)
                                     (inline
+                                     (compile-specialization-lambda-form inlined-function form)
                                      inlined-expand-function)))
              (specialization-class-name (class-name (store-specialization-class store))))
         `(progn
