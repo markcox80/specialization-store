@@ -318,9 +318,9 @@
             documentation)))
 
 (defmethod defspecialization-using-object ((store standard-store) specialized-lambda-list value-type body
-                                           &rest args &key name environment inline &allow-other-keys)
+                                           &rest args &key name environment inline form &allow-other-keys)
   (declare (ignore environment))
-  (alexandria:remove-from-plistf args :name :environment :inline)
+  (alexandria:remove-from-plistf args :name :environment :inline :form)
   (let* ((store-parameters (store-parameters store))
          (parameters (specialization-store.lambda-lists:parse-specialization-lambda-list specialized-lambda-list)))
     (multiple-value-bind (body documentation) (%augment-body store-parameters parameters value-type body)
