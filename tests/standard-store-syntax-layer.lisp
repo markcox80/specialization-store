@@ -545,3 +545,14 @@
     (is-false (compiler-macro-function 'example))
     (is-false (fboundp 'example/integer))
     (is-false (compiler-macro-function 'example/integer))))
+
+(syntax-layer-test inlined-defspecialization-with-free-variable
+  (defstore example (object))
+
+  (test signal-warning
+    (signals warning
+      (compile nil '(lambda ()
+                     (let ((free-variable "hello"))
+                       (defspecialization (example :inline t) ((object integer)) integer
+                         (print free-variable)
+                         object)))))))
