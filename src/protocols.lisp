@@ -249,10 +249,11 @@
     (t
      (error "Invalid store name ~W." store-name))))
 
-(defmacro defspecialization (store-name specialized-lambda-list value-type &body body &environment env)
+(defmacro defspecialization (&whole whole-form store-name specialized-lambda-list value-type &body body &environment env)
   (destructuring-bind (store-name &rest args &key &allow-other-keys) (canonicalize-store-name store-name)
     (let* ((store (find-store store-name))
            (form (apply #'defspecialization-using-object store specialized-lambda-list value-type body
+                        :form whole-form
                         :environment env args)))
       `(eval-when (:compile-toplevel :load-toplevel :execute)
          ,form))))
