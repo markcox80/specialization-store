@@ -626,7 +626,7 @@
     (is-true (compute '(test 1 y)))
     (is-true (compute '(test x 2)))
     (is-true (compute '(test x y 1)))
-    (is-true (compute '(test (eql integer x) y z))))
+    (is-true (compute '(test (the integer x) y z))))
 
   (let-form-types-specified-p-function (compute (a b &optional c &rest args))
     (is-false (compute '(test x y)))
